@@ -48,8 +48,8 @@ fun TrackListScreen(nav: NavController, kind: ListKind, arg: String) {
 
     val genreTracks by produceState<List<Track>?>(initialValue = null, kind, arg) {
         value = if (kind == ListKind.GENRE) {
-            val cat = Categories.find(arg)
-            if (cat != null) c.online.searchAll(cat.query) else c.online.trending(arg).flatMap { it.tracks }.distinctBy { it.id }
+            val q = Categories.queryFor(arg)
+            if (q != null) c.online.searchAll(q) else c.online.trending(arg).flatMap { it.tracks }.distinctBy { it.id }
         } else emptyList()
     }
 
@@ -68,7 +68,7 @@ fun TrackListScreen(nav: NavController, kind: ListKind, arg: String) {
         ListKind.LOCAL -> "Phone ke gaane" to "Local files"
         ListKind.ALBUM -> (tracks?.firstOrNull()?.album?.ifBlank { null } ?: "Album") to (tracks?.firstOrNull()?.artist ?: "")
         ListKind.ARTIST -> arg to "Artist"
-        ListKind.GENRE -> (Categories.find(arg)?.let { "${it.emoji} ${it.name}" } ?: arg) to "Online"
+        ListKind.GENRE -> (Categories.titleFor(arg) ?: arg) to "Online"
     }
 
     menuFor?.let { TrackOptionsSheet(it, onDismiss = { menuFor = null }) }

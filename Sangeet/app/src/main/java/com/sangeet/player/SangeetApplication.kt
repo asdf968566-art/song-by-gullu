@@ -51,6 +51,7 @@ class SangeetApplication : Application() {
 /** Saari repositories ek jagah (simple manual dependency injection). */
 @OptIn(UnstableApi::class)
 class AppContainer(private val app: Application) {
+    val appContext: android.content.Context get() = app
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     val database = SangeetDatabase.create(app)
@@ -75,6 +76,12 @@ class AppContainer(private val app: Application) {
     }
 
     init {
+        // Home screen widget ko player ke saath update rakho
+        scope.launch {
+            player.state.map { Triple(it.current?.id, it.isPlaying, it.current?.artworkUrl) }.distinctUntilChanged().collect {
+                runCatching { com.sangeet.player.ui.widget.SangeetWidget.update(app, player.state.value) }
+            }
+        }
         // Smart downloads on/off ke hisaab se roz ka kaam lagao / hatao
         scope.launch {
             settings.settings.map { it.smartDownloads }.distinctUntilChanged().collect {

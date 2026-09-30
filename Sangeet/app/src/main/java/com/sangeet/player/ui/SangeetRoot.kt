@@ -49,6 +49,9 @@ import com.sangeet.player.ui.components.MiniPlayer
 import com.sangeet.player.ui.components.UpdateDialog
 import com.sangeet.player.ui.discover.DiscoverScreen
 import com.sangeet.player.ui.library.MixScreen
+import com.sangeet.player.ui.library.ArtistScreen
+import com.sangeet.player.ui.library.StatsScreen
+import androidx.compose.runtime.CompositionLocalProvider
 import com.sangeet.player.ui.library.OnlineLibraryScreen
 import com.sangeet.player.ui.library.OnlinePlaylistScreen
 import com.sangeet.player.ui.home.HomeScreen
@@ -70,6 +73,8 @@ object Routes {
     const val HOME = "home"
     const val DISCOVER = "discover"
     const val MIX = "mix/{id}"
+    const val ARTIST = "artist/{name}"
+    const val STATS = "stats"
     const val ONLINE_LIBRARY = "online"
     const val ONLINE_PLAYLIST = "online/{id}?title={title}"
     const val SEARCH = "search"
@@ -84,6 +89,7 @@ object Routes {
 
     fun playlist(id: Long) = "playlist/$id"
     fun mix(id: String) = "mix/$id"
+    fun artist(name: String) = "artist/${android.net.Uri.encode(name.substringBefore(",").trim())}"
     fun onlinePlaylist(id: String, title: String) = "online/$id?title=${android.net.Uri.encode(title)}"
     fun list(kind: ListKind, arg: String = "") = "list/${kind.name}?arg=${android.net.Uri.encode(arg)}"
 }
@@ -115,6 +121,7 @@ fun SangeetRoot() {
 
     BackHandler(enabled = expanded) { expanded = false }
 
+    CompositionLocalProvider(LocalNav provides nav) {
     ThemedBackground {
         Scaffold(
             containerColor = Color.Transparent,
@@ -130,6 +137,10 @@ fun SangeetRoot() {
                 composable(Routes.HOME) { HomeScreen(nav) }
                 composable(Routes.DISCOVER) { DiscoverScreen(nav) }
                 composable(Routes.ONLINE_LIBRARY) { OnlineLibraryScreen(nav) }
+                composable(Routes.STATS) { StatsScreen(nav) }
+                composable(Routes.ARTIST, arguments = listOf(navArgument("name") { type = NavType.StringType })) { entry ->
+                    ArtistScreen(nav, entry.arguments?.getString("name") ?: "")
+                }
                 composable(
                     Routes.ONLINE_PLAYLIST,
                     arguments = listOf(
@@ -176,6 +187,7 @@ fun SangeetRoot() {
         ) {
             NowPlayingScreen(onCollapse = { expanded = false })
         }
+    }
     }
 }
 

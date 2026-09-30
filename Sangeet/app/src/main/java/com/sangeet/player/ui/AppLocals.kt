@@ -10,6 +10,9 @@ import com.sangeet.player.AppContainer
 
 val LocalAppContainer = staticCompositionLocalOf<AppContainer> { error("AppContainer not provided") }
 
+/** Kahin se bhi navigate karne ke liye (sheet, player). */
+val LocalNav = staticCompositionLocalOf<androidx.navigation.NavController?> { null }
+
 /** ViewModel banane ka chhota helper (manual DI). */
 @Composable
 inline fun <reified VM : ViewModel> appViewModel(

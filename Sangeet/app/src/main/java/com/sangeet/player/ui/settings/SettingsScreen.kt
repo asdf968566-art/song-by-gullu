@@ -19,6 +19,9 @@ import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.Subtitles
 import androidx.compose.material.icons.rounded.Wifi
+import androidx.compose.material.icons.rounded.Headphones
+import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.foundation.layout.padding
@@ -85,6 +88,18 @@ fun SettingsScreen(nav: NavController) {
             SettingsItem(Icons.Rounded.Equalizer, "Equalizer & Bass boost", "Awaaz apne hisaab se", onClick = { nav.navigate(Routes.EQUALIZER) })
             SettingsSwitch(Icons.Rounded.FastForward, "Silence skip karo", "Gaanon ke beech ki khamoshi hatao", s.skipSilence) {
                 scope.launch { c.settings.setSkipSilence(it) }
+            }
+            ChoiceRow("Crossfade", "Smooth fade between songs", listOf(0, 3, 5, 8), s.crossfadeSec, { if (it == 0) "Off" else "${it}s" }) {
+                scope.launch { c.settings.setCrossfadeSec(it) }
+            }
+            SettingsSwitch(Icons.Rounded.MusicNote, "Hook preview in For You", "Songs in the feed start near the chorus", s.hookPreview) {
+                scope.launch { c.settings.setHookPreview(it) }
+            }
+            SettingsSwitch(Icons.Rounded.Headphones, "Resume on headphones", "Continue playing when headphones or Bluetooth reconnect", s.headphoneResume) {
+                scope.launch { c.settings.setHeadphoneResume(it) }
+            }
+            SettingsSwitch(Icons.Rounded.CloudDownload, "Smart downloads", "Download liked songs and your Daily Mix on Wi-Fi while charging", s.smartDownloads) {
+                scope.launch { c.settings.setSmartDownloads(it) }
             }
             SettingsSwitch(Icons.Rounded.AllInclusive, "Autoplay", "Queue khatam ho to aapke track record se milte-julte gaane chalte rahenge", s.autoplay) {
                 scope.launch { c.settings.setAutoplay(it) }

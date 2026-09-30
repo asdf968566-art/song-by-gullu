@@ -261,6 +261,8 @@ class PlayerConnection(
             library.remember(tracks)
             withController { c ->
                 c.shuffleModeEnabled = shuffle
+                // Naya gaana/list = "ek hi gaana repeat" band (user khud dobara chala sakta hai)
+                if (c.repeatMode == Player.REPEAT_MODE_ONE) c.repeatMode = Player.REPEAT_MODE_OFF
                 c.setMediaItems(tracks.map(MediaItems::fromTrack), startIndex.coerceIn(tracks.indices), startPositionMs)
                 c.prepare()
                 c.play()

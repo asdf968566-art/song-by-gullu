@@ -90,3 +90,13 @@ data class DownloadInfo(
     val filePath: String?,
     val quality: AudioQuality,
 )
+
+/**
+ * Kya ye gaana pasandida bhashaon mein hai? Phone ke apne gaane hamesha haan.
+ * Bhasha pata na ho to title/artist se andaza; phir bhi na pata chale to nahi (strict).
+ */
+fun Track.inLanguages(languages: List<String>): Boolean {
+    if (source == SourceType.LOCAL || languages.isEmpty()) return true
+    val lang = language.ifBlank { com.sangeet.player.data.remote.LanguageGuess.guess(title, artist) }
+    return lang.isNotBlank() && lang in languages
+}

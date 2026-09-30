@@ -41,6 +41,8 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavController
 import com.sangeet.player.AppContainer
 import com.sangeet.player.data.Categories
+import com.sangeet.player.data.Festivals
+import com.sangeet.player.data.model.inLanguages
 import com.sangeet.player.data.Category
 import com.sangeet.player.data.model.OnlinePlaylist
 import com.sangeet.player.data.SourceResult
@@ -75,6 +77,9 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
         /** "🎵 Hindi Romantic", "🥁 Punjabi Hits"... wali lines. */
         val categories: List<Pair<Category, List<Track>>> = emptyList(),
         val charts: List<OnlinePlaylist> = emptyList(),
+        val playlists: List<OnlinePlaylist> = emptyList(),
+        /** Aaj chal rahe tyohaar ke gaane (Navratri, Diwali...). */
+        val festivals: List<Pair<com.sangeet.player.data.Festival, List<Track>>> = emptyList(),
     )
 
     private val _ui = MutableStateFlow(Ui())
@@ -108,9 +113,20 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
                 _ui.value = _ui.value.copy(charts = charts)
             }
             launch {
-                val cats = Categories.ordered(c.settings.current.languages).take(6)
+                val pls = runCatching { c.online.saavn.featuredPlaylists(c.settings.current, 1) }.getOrDefault(emptyList())
+                _ui.value = _ui.value.copy(playlists = pls.take(20))
+            }
+            launch {
+                val fest = Festivals.active().take(2).map { f ->
+                    async { f to runCatching { c.online.searchAll(f.query).filter { it.inLanguages(c.settings.current.languages) }.take(20) }.getOrDefault(emptyList()) }
+                }.awaitAll().filter { it.second.isNotEmpty() }
+                _ui.value = _ui.value.copy(festivals = fest)
+            }
+            launch {
+                val langs = c.settings.current.languages
+                val cats = Categories.ordered(langs).filter { it.language in langs }.take(6)
                 val rows = cats.map { cat ->
-                    async { cat to runCatching { c.online.searchAll(cat.query).take(20) }.getOrDefault(emptyList()) }
+                    async { cat to runCatching { c.online.searchAll(cat.query).filter { it.inLanguages(langs) }.take(20) }.getOrDefault(emptyList()) }
                 }.awaitAll().filter { it.second.isNotEmpty() }
                 _ui.value = _ui.value.copy(categories = rows)
             }
@@ -120,7 +136,8 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
                     c.recommendations.refreshMixes(force = force)
                 }
             }
-            val results = c.online.trending()
+            val langs = c.settings.current.languages
+            val results = c.online.trending().map { r -> r.copy(tracks = r.tracks.filter { it.inLanguages(langs) }) }
             _ui.value = _ui.value.copy(loading = false, trending = results)
         }
     }
@@ -253,6 +270,26 @@ fun HomeScreen(nav: NavController) {
         if (suggested.isNotEmpty()) {
             item { SectionHeader("Aapke liye suggest") }
             item { TrackShelf(suggested, onPlay = { c.player.play(suggested, it) }, onMore = { menuFor = it }) }
+        }
+        if (!offline) {
+            ui.festivals.forEach { (f, tracks) ->
+                item(key = "fest_h_${f.name}") {
+                    SectionHeader("${f.emoji} ${f.name} special", action = "See all") { nav.navigate(Routes.list(ListKind.GENRE, f.name)) }
+                }
+                item(key = "fest_${f.name}") {
+                    TrackShelf(tracks, onPlay = { c.player.play(tracks, it) }, onMore = { menuFor = it })
+                }
+            }
+        }
+        if (!offline && ui.playlists.isNotEmpty()) {
+            item { SectionHeader("🎶 Playlists for you", action = "See all") { nav.navigate(Routes.ONLINE_LIBRARY) } }
+            item {
+                LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    items(ui.playlists, key = { "pl" + it.id }) { p ->
+                        ShelfCard(p.title, p.subtitle, p.artworkUrl, onClick = { nav.navigate(Routes.onlinePlaylist(p.id, p.title)) })
+                    }
+                }
+            }
         }
         if (!offline && ui.charts.isNotEmpty()) {
             item { SectionHeader("📊 Top Charts", action = "Sab dekho") { nav.navigate(Routes.ONLINE_LIBRARY) } }

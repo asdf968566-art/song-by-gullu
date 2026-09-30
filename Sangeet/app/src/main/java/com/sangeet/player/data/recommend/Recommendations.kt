@@ -6,6 +6,7 @@ import com.sangeet.player.data.LocalMusicRepository
 import com.sangeet.player.data.OnlineRepository
 import com.sangeet.player.data.model.SourceType
 import com.sangeet.player.data.model.Track
+import com.sangeet.player.data.model.inLanguages
 import com.sangeet.player.data.settings.SettingsRepository
 import kotlin.math.ln
 import kotlin.random.Random
@@ -51,6 +52,23 @@ class RecommendationRepository(
 
     fun mix(id: String): Mix? = _mixes.value.firstOrNull { it.id == id }
 
+    // ------------------------------------------------------------ dislike ("aisa gaana mat dikhao")
+
+    private val taste = context.getSharedPreferences("taste", Context.MODE_PRIVATE)
+
+    /** Feed mein left swipe: ye gaana dobara nahi, aur is artist ke gaane kam. */
+    fun dislike(track: Track) {
+        val ids = taste.getStringSet("disliked_ids", emptySet()).orEmpty() + track.id
+        val key = "artist_" + norm(track.artist)
+        taste.edit()
+            .putStringSet("disliked_ids", ids.toList().takeLast(2000).toSet())
+            .putInt(key, taste.getInt(key, 0) + 1)
+            .apply()
+    }
+
+    private fun dislikedIds(): Set<String> = taste.getStringSet("disliked_ids", emptySet()).orEmpty()
+    private fun artistDislikes(artist: String): Int = taste.getInt("artist_" + norm(artist), 0)
+
     private class Profile(
         val played: List<PlayedTrack>,
         val liked: List<Track>,
@@ -61,6 +79,10 @@ class RecommendationRepository(
         val languages: List<String>,
     ) {
         val playedIds: Set<String> = played.mapTo(HashSet()) { it.track.id }
+        /** Pichhle 12 ghante mein suna — auto mode mein dobara nahi. */
+        val recentIds: Set<String> = played
+            .filter { System.currentTimeMillis() - it.playedAt < 12 * 3_600_000L }
+            .mapTo(HashSet()) { it.track.id }
         val topArtists: List<String> =
             artistScore.entries.sortedByDescending { it.value }.map { artistNames.getValue(it.key) }
         val isEmpty: Boolean get() = played.isEmpty() && liked.isEmpty()
@@ -70,12 +92,13 @@ class RecommendationRepository(
 
     suspend fun suggestions(limit: Int = 30, exclude: Set<String> = emptySet()): List<Suggestion> {
         val p = profile()
-        return rank(p, candidates(p, null), null, exclude, preferNew = true).take(limit)
+        return rank(p, candidates(p, null), null, exclude + p.recentIds, preferNew = true).take(limit)
     }
 
+    /** Autoplay / radio: haal hi mein (12 ghante) suna gaana apne aap dobara nahi aata. */
     suspend fun radio(seed: Track, exclude: Set<String>, limit: Int = 15): List<Track> {
         val p = profile()
-        return rank(p, candidates(p, seed), seed, exclude, preferNew = false).take(limit).map { it.track }
+        return rank(p, candidates(p, seed), seed, exclude + p.recentIds, preferNew = false).take(limit).map { it.track }
     }
 
     suspend fun refreshMixes(force: Boolean = false): List<Mix> = mixLock.withLock {
@@ -203,13 +226,18 @@ class RecommendationRepository(
         val rnd = Random(System.currentTimeMillis() / 3_600_000L)
         val seedArtist = seed?.artist?.let(::norm)
         val topLangs = p.languages.take(2).toSet()
+        val disliked = dislikedIds()
+        val langs = settings.current.languages
         return list
-            .filter { it.track.id !in exclude && it.track.id != seed?.id }
+            .filter { it.track.id !in exclude && it.track.id != seed?.id && it.track.id !in disliked }
+            // Strict bhasha: Hindi chuna hai to sirf Hindi (phone ke gaane chhod ke)
+            .filter { it.track.inLanguages(langs) }
             .map { s ->
                 val a = norm(s.track.artist)
                 var score = ln(1.0 + (p.artistScore[a] ?: 0.0))
                 if (seedArtist != null && a == seedArtist) score += 2.0
                 if (s.track.id in p.playedIds) score += if (preferNew) -1.5 else 0.4
+                score -= minOf(artistDislikes(s.track.artist), 4) * 0.8
                 // Pasandida bhasha = bonus, doosri bhasha = thoda kam
                 val lang = s.track.language
                 if (lang.isNotBlank()) score += if (lang in topLangs) 1.2 else -0.6

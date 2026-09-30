@@ -51,7 +51,9 @@ fun LyricsView(
     }
     val listState = rememberLazyListState()
     LaunchedEffect(current) {
-        listState.animateScrollToItem((current - 2).coerceAtLeast(0))
+        // Chalti line screen ke upar-beech mein rahe (Resso jaisa)
+        val vh = listState.layoutInfo.viewportSize.height
+        listState.animateScrollToItem(current, scrollOffset = -(vh / 3))
     }
 
     LazyColumn(
@@ -72,7 +74,11 @@ fun LyricsView(
             Text(
                 line.text.ifBlank { "♪" },
                 color = color,
-                style = if (compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.headlineSmall,
+                style = when {
+                    compact -> MaterialTheme.typography.titleMedium
+                    i == current -> MaterialTheme.typography.headlineMedium
+                    else -> MaterialTheme.typography.headlineSmall
+                },
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier
                     .fillMaxWidth()

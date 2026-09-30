@@ -50,6 +50,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sangeet.player.data.model.DownloadState
 import com.sangeet.player.data.model.Track
 import com.sangeet.player.ui.LocalAppContainer
+import com.sangeet.player.ui.LocalNav
+import com.sangeet.player.ui.Routes
+import androidx.compose.material.icons.rounded.Radio
+import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Share
 import com.sangeet.player.ui.theme.Sangeet
 import kotlinx.coroutines.launch
 
@@ -106,6 +111,19 @@ fun TrackOptionsSheet(
                 container.player.addToQueue(listOf(track)); onDismiss()
             }
             SheetItem(Icons.Rounded.PlaylistAdd, "Playlist mein daalo") { showPlaylists = true }
+            SheetItem(Icons.Rounded.Radio, "Start radio") {
+                container.player.startRadio(track); onDismiss()
+            }
+            val nav = LocalNav.current
+            if (nav != null && track.artist.isNotBlank()) {
+                SheetItem(Icons.Rounded.Person, "Go to artist") {
+                    onDismiss(); nav.navigate(Routes.artist(track.artist))
+                }
+            }
+            SheetItem(Icons.Rounded.Share, "Share") {
+                scope.launch { runCatching { ShareCard.share(context, track) } }
+                onDismiss()
+            }
             if (playlistId != null) {
                 SheetItem(Icons.Rounded.RemoveCircleOutline, "Is playlist se hatao") {
                     scope.launch { container.library.removeFromPlaylist(playlistId, track.id) }

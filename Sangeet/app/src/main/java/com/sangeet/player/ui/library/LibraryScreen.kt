@@ -28,6 +28,7 @@ import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FileOpen
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Public
+import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
@@ -151,6 +152,14 @@ fun LibraryScreen(nav: NavController) {
                         gradient = listOf(Color(0xFFE13300), Color(0xFFF59B23)),
                         icon = Icons.Rounded.Public,
                     ) { nav.navigate(Routes.ONLINE_LIBRARY) }
+                }
+                item {
+                    LibraryRow(
+                        title = "Your Stats",
+                        subtitle = "Listening time, top artists, streak",
+                        gradient = listOf(Color(0xFF7C4DFF), Color(0xFF00E5C3)),
+                        icon = Icons.Rounded.BarChart,
+                    ) { nav.navigate(Routes.STATS) }
                 }
                 item {
                     LibraryRow(
