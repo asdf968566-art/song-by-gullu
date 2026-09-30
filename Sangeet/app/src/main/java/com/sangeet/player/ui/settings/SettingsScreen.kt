@@ -131,16 +131,15 @@ fun SettingsScreen(nav: NavController) {
             var token by remember(s.githubToken) { mutableStateOf(s.githubToken) }
             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                 Text(
-                    "Repo private hai, isliye ek baar GitHub token daalo (sirf padhne ki permission):\n" +
-                        "github.com/settings/personal-access-tokens/new → Repository access: Only select → song-by-gullu → " +
-                        "Permissions: Contents = Read-only → Generate → copy karke yahan daalo.",
+                    "Repo public hai to token ki zaroorat nahi. Sirf agar repo private karo, tab yahan " +
+                        "read-only GitHub token daalo (Contents = Read-only).",
                     style = MaterialTheme.typography.bodySmall,
                     color = Sangeet.spec.muted,
                 )
                 OutlinedTextField(
                     value = token,
                     onValueChange = { token = it },
-                    label = { Text("GitHub token") },
+                    label = { Text("GitHub token (optional)") },
                     leadingIcon = { androidx.compose.material3.Icon(Icons.Rounded.Key, null) },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
