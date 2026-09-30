@@ -82,11 +82,13 @@ class AiDj(
         for (i in 0 until maxLen) found.forEach { list -> list.getOrNull(i)?.let(merged::add) }
         var tracks = merged.distinctBy { it.id }.filter { it.inLanguages(plan.languages) || plan.languages.isEmpty() }
 
-        // Grow the list with JioSaavn's "similar" songs for a longer, varied mix.
-        if (tracks.size < 40) {
-            val seeds = tracks.filter { it.source == SourceType.JIOSAAVN }.take(3)
-            val more = seeds.map { s -> async { runCatching { online.saavn.similar(s.sourceId) }.getOrDefault(emptyList()) } }
-                .awaitAll().flatten().filter { it.inLanguages(plan.languages) }
+        // Grow the list with YouTube Music radio (and a little JioSaavn) for a longer, varied mix.
+        if (tracks.size < 50) {
+            val yt = tracks.filter { it.source == SourceType.YOUTUBE }.take(3)
+                .map { s -> async { runCatching { online.youtube.similar(s.sourceId) }.getOrDefault(emptyList()) } }
+            val saavn = tracks.filter { it.source == SourceType.JIOSAAVN }.take(1)
+                .map { s -> async { runCatching { online.saavn.similar(s.sourceId) }.getOrDefault(emptyList()) } }
+            val more = (yt + saavn).awaitAll().flatten().filter { it.inLanguages(plan.languages) }
             tracks = (tracks + more).distinctBy { it.id }
         }
         DjResult(plan, tracks.take(60), usedAi)

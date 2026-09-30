@@ -27,6 +27,7 @@ import org.schabi.newpipe.extractor.exceptions.ReCaptchaException
 import org.schabi.newpipe.extractor.localization.ContentCountry
 import org.schabi.newpipe.extractor.localization.Localization
 import org.schabi.newpipe.extractor.search.SearchInfo
+import org.schabi.newpipe.extractor.playlist.PlaylistInfo
 import org.schabi.newpipe.extractor.services.youtube.YoutubeParsingHelper
 import org.schabi.newpipe.extractor.services.youtube.linkHandler.YoutubeSearchQueryHandlerFactory
 import org.schabi.newpipe.extractor.stream.DeliveryMethod
@@ -85,6 +86,36 @@ class YouTubeSource : OnlineSource {
         streamCache[key] = url to System.currentTimeMillis() + 60 * 60_000L
         android.util.Log.i("Sangeet", "YouTube stream ${track.sourceId}: ${pick.format} ${pick.averageBitrate}kbps")
         return url
+    }
+
+    /**
+     * YouTube Mix / YT Music radio for a song: what YouTube's listeners play next.
+     * Great source of variety for the feed and radio.
+     */
+    suspend fun similar(videoId: String): List<Track> = withContext(Dispatchers.IO) {
+        ensureInit()
+        val info = PlaylistInfo.getInfo(ServiceList.YouTube, "https://www.youtube.com/watch?v=$videoId&list=RD$videoId")
+        info.relatedItems.filterIsInstance<StreamInfoItem>().mapNotNull { toTrack(it) }.filter { it.sourceId != videoId }
+    }
+
+    /** First YouTube Music result for "title artist" (to start a YouTube radio from any song). */
+    suspend fun find(title: String, artist: String): Track? =
+        runCatching { musicSearch("$title $artist").firstOrNull() }.getOrNull()
+
+    private fun toTrack(item: StreamInfoItem): Track? {
+        val id = videoId(item.url) ?: return null
+        val art = item.thumbnails.maxByOrNull { it.height }?.url
+        return Track(
+            id = Track.makeId(SourceType.YOUTUBE, id),
+            source = SourceType.YOUTUBE,
+            sourceId = id,
+            title = item.name,
+            artist = cleanArtist(item.uploaderName ?: ""),
+            album = "YouTube Music",
+            durationMs = item.duration.coerceAtLeast(0) * 1000,
+            artworkUrl = art?.let(::squareArt),
+            language = LanguageGuess.guess(item.name, item.uploaderName ?: ""),
+        )
     }
 
     private suspend fun musicSearch(query: String): List<Track> = withContext(Dispatchers.IO) {

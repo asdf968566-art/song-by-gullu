@@ -21,12 +21,13 @@ class OnlineRepository(
     private val network: NetworkMonitor,
 ) {
     // Indian sources pehle, taaki Hindi / Punjabi gaane upar aayein.
-    val sources: List<OnlineSource> = listOf(JioSaavnSource(), YouTubeSource(), AudiusSource(), JamendoSource(), SubsonicSource())
+    val sources: List<OnlineSource> = listOf(YouTubeSource(), JioSaavnSource(), AudiusSource(), JamendoSource(), SubsonicSource())
 
     fun source(type: SourceType): OnlineSource? = sources.firstOrNull { it.type == type }
 
     /** Default online library (charts + playlists) JioSaavn se. */
     val saavn: JioSaavnSource = sources.filterIsInstance<JioSaavnSource>().first()
+    val youtube: YouTubeSource = sources.filterIsInstance<YouTubeSource>().first()
 
     fun enabledSources(): List<OnlineSource> {
         val s = settings.current

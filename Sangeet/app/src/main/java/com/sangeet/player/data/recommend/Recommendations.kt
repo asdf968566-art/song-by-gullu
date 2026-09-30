@@ -229,10 +229,24 @@ class RecommendationRepository(
         val saavnOn = canOnline && settings.current.jiosaavnEnabled
         val recoSeeds = buildList {
             seed?.takeIf { it.source == SourceType.JIOSAAVN }?.let(::add)
-            addAll((p.liked + p.played.map { it.track }).filter { it.source == SourceType.JIOSAAVN }.shuffled().take(6))
-        }.distinctBy { it.id }.take(6)
+            addAll((p.liked + p.played.map { it.track }).filter { it.source == SourceType.JIOSAAVN }.shuffled().take(2))
+        }.distinctBy { it.id }.take(2)
         val byReco = if (saavnOn) recoSeeds.map { s ->
             async { s to runCatching { online.saavn.similar(s.sourceId) }.getOrDefault(emptyList()) }
+        } else emptyList()
+        // YouTube Music radio (main source): YouTube ke listeners aage kya sunte hain
+        val ytOn = canOnline && settings.current.youtubeEnabled
+        val ytSeeds = buildList {
+            seed?.let(::add)
+            addAll((p.liked + p.played.map { it.track }).shuffled().take(5))
+        }.distinctBy { it.id }.take(5)
+        val byYtMix = if (ytOn) ytSeeds.map { s ->
+            async {
+                s to runCatching {
+                    val vid = if (s.source == SourceType.YOUTUBE) s.sourceId else online.youtube.find(s.title, s.artist)?.sourceId
+                    if (vid == null) emptyList() else online.youtube.similar(vid)
+                }.getOrDefault(emptyList())
+            }
         } else emptyList()
         val byPlaylists = if (saavnOn) async { runCatching { randomPlaylistTracks() }.getOrDefault(emptyList()) } else null
         val byArtistDeep = if (saavnOn) artists.take(3).map { a ->
@@ -251,6 +265,7 @@ class RecommendationRepository(
         byLanguage.awaitAll().forEach { (lang, list) ->
             list.take(40).forEach { out += Suggestion(it, "Naya ${lang.replaceFirstChar(Char::uppercase)} gaana") }
         }
+        byYtMix.awaitAll().forEach { (s, list) -> list.forEach { out += Suggestion(it, "Similar to \"${s.title}\"") } }
         byReco.awaitAll().forEach { (s, list) -> list.forEach { out += Suggestion(it, "Similar to \"${s.title}\"") } }
         byArtistDeep.awaitAll().forEach { (a, list) -> list.forEach { out += Suggestion(it, reasonFor(a, seed)) } }
         byPlaylists?.await()?.forEach { (name, t) -> out += Suggestion(t, "From $name") }
@@ -266,7 +281,7 @@ class RecommendationRepository(
     /** 2-3 random online playlists (hazaron mein se) ke gaane. */
     private suspend fun randomPlaylistTracks(): List<Pair<String, Track>> = coroutineScope {
         val page = Random.nextInt(1, 30)
-        val lists = online.saavn.featuredPlaylists(settings.current, page).shuffled().take(3)
+        val lists = online.saavn.featuredPlaylists(settings.current, page).shuffled().take(1)
         lists.map { pl -> async { runCatching { online.saavn.playlistTracks(pl.id) }.getOrDefault(emptyList()).map { pl.title to it } } }
             .awaitAll().flatten()
     }
