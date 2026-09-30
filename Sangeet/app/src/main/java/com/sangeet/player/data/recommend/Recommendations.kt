@@ -6,6 +6,7 @@ import com.sangeet.player.data.LocalMusicRepository
 import com.sangeet.player.data.OnlineRepository
 import com.sangeet.player.data.model.SourceType
 import com.sangeet.player.data.model.Track
+import com.sangeet.player.data.settings.SettingsRepository
 import kotlin.math.ln
 import kotlin.random.Random
 import kotlinx.coroutines.async
@@ -38,6 +39,7 @@ class RecommendationRepository(
     private val library: LibraryRepository,
     private val local: LocalMusicRepository,
     private val online: OnlineRepository,
+    private val settings: SettingsRepository,
 ) {
     private val prefs = context.getSharedPreferences("auto_playlists", Context.MODE_PRIVATE)
     private val mixLock = Mutex()
@@ -55,6 +57,8 @@ class RecommendationRepository(
         val artistScore: Map<String, Double>,
         private val artistNames: Map<String, String>,
         val genres: List<String>,
+        /** Sabse zyada suni bhashayein (history + settings). */
+        val languages: List<String>,
     ) {
         val playedIds: Set<String> = played.mapTo(HashSet()) { it.track.id }
         val topArtists: List<String> =
@@ -133,7 +137,13 @@ class RecommendationRepository(
             .groupingBy { it.album }.eachCount()
             .entries.sortedByDescending { it.value }.map { it.key }
 
-        return Profile(played, liked, score, names, genres)
+        // Bhasha ka wazan (tumhari record_play jaisa): jitna suna, utna wazan; phir settings wali.
+        val langScore = HashMap<String, Double>()
+        played.forEach { p -> if (p.track.language.isNotBlank()) langScore[p.track.language] = (langScore[p.track.language] ?: 0.0) + p.playCount }
+        liked.forEach { t -> if (t.language.isNotBlank()) langScore[t.language] = (langScore[t.language] ?: 0.0) + 3.0 }
+        val languages = (langScore.entries.sortedByDescending { it.value }.map { it.key } + settings.current.languages).distinct()
+
+        return Profile(played, liked, score, names, genres, languages)
     }
 
     // ------------------------------------------------------------ candidates + ranking
@@ -157,6 +167,9 @@ class RecommendationRepository(
         val byGenre = if (canOnline) p.genres.take(2).map { g ->
             async { g to runCatching { online.trending(g) }.getOrDefault(emptyList()).flatMap { it.tracks } }
         } else emptyList()
+        val byLanguage = if (canOnline) p.languages.take(2).map { lang ->
+            async { lang to runCatching { online.byLanguage(lang) }.getOrDefault(emptyList()) }
+        } else emptyList()
         val trending = if (canOnline && artists.size < 3) {
             async { runCatching { online.trending() }.getOrDefault(emptyList()).flatMap { it.tracks } }
         } else null
@@ -167,6 +180,9 @@ class RecommendationRepository(
         }
         byArtist.awaitAll().forEach { (a, list) -> list.forEach { out += Suggestion(it, reasonFor(a, seed)) } }
         byGenre.awaitAll().forEach { (g, list) -> list.take(25).forEach { out += Suggestion(it, "Aapko $g pasand hai") } }
+        byLanguage.awaitAll().forEach { (lang, list) ->
+            list.take(40).forEach { out += Suggestion(it, "Naya ${lang.replaceFirstChar(Char::uppercase)} gaana") }
+        }
         trending?.await()?.forEach { out += Suggestion(it, "Abhi trending") }
         // Thoda naya-pan: phone ke kuch random gaane
         songs.shuffled().take(20).forEach { out += Suggestion(it, "Phone se ek pick") }
@@ -186,6 +202,7 @@ class RecommendationRepository(
         // Har ghante thoda alag order, par ek ghante ke andar stable.
         val rnd = Random(System.currentTimeMillis() / 3_600_000L)
         val seedArtist = seed?.artist?.let(::norm)
+        val topLangs = p.languages.take(2).toSet()
         return list
             .filter { it.track.id !in exclude && it.track.id != seed?.id }
             .map { s ->
@@ -193,6 +210,10 @@ class RecommendationRepository(
                 var score = ln(1.0 + (p.artistScore[a] ?: 0.0))
                 if (seedArtist != null && a == seedArtist) score += 2.0
                 if (s.track.id in p.playedIds) score += if (preferNew) -1.5 else 0.4
+                // Pasandida bhasha = bonus, doosri bhasha = thoda kam
+                val lang = s.track.language
+                if (lang.isNotBlank()) score += if (lang in topLangs) 1.2 else -0.6
+                if (seed != null && lang.isNotBlank() && lang == seed.language) score += 0.8
                 score += rnd.nextDouble() * 1.5
                 s to score
             }

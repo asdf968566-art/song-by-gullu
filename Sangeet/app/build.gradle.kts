@@ -14,9 +14,27 @@ android {
         applicationId = "com.sangeet.player"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        // GitHub Actions ka run number = build number, taaki app naya version pehchaan sake.
+        val build = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
+        versionCode = build
+        versionName = "1.0.$build"
         vectorDrawables { useSupportLibrary = true }
+        buildConfigField("String", "UPDATE_REPO", "\"asdf968566-art/song-by-gullu\"")
+        buildConfigField(
+            "String",
+            "YOUTUBE_API_KEY",
+            "\"${project.findProperty("sangeet.youtubeApiKey") ?: ""}\"",
+        )
+    }
+
+    // Har build ek hi key se sign ho, taaki naya APK purane ke upar install ho jaye (data safe rahe).
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("sangeet-debug.jks")
+            storePassword = "sangeet123"
+            keyAlias = "sangeet"
+            keyPassword = "sangeet123"
+        }
     }
 
     buildTypes {
@@ -34,6 +52,8 @@ android {
     }
 
     compileOptions {
+        // NewPipeExtractor ko naye Java APIs chahiye.
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -42,6 +62,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -80,4 +101,6 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.coil.compose)
+    implementation(libs.newpipe.extractor)
+    coreLibraryDesugaring(libs.desugar.jdk.libs)
 }

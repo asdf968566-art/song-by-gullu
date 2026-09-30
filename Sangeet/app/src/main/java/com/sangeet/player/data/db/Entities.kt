@@ -1,5 +1,6 @@
 package com.sangeet.player.data.db
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -19,6 +20,7 @@ data class TrackEntity(
     val streamUrl: String?,
     val filePath: String?,
     val albumId: Long,
+    @ColumnInfo(defaultValue = "") val language: String = "",
 ) {
     fun toTrack() = Track(
         id = id,
@@ -32,13 +34,14 @@ data class TrackEntity(
         streamUrl = streamUrl,
         filePath = filePath,
         albumId = albumId,
+        language = language,
     )
 
     companion object {
         fun from(t: Track) = TrackEntity(
             id = t.id, source = t.source.name, sourceId = t.sourceId, title = t.title,
             artist = t.artist, album = t.album, durationMs = t.durationMs,
-            artworkUrl = t.artworkUrl, streamUrl = t.streamUrl, filePath = t.filePath, albumId = t.albumId,
+            artworkUrl = t.artworkUrl, streamUrl = t.streamUrl, filePath = t.filePath, albumId = t.albumId, language = t.language,
         )
     }
 }

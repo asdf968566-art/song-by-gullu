@@ -39,6 +39,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavController
 import com.sangeet.player.AppContainer
+import com.sangeet.player.data.Categories
 import com.sangeet.player.data.SourceResult
 import com.sangeet.player.data.model.Track
 import com.sangeet.player.ui.LocalAppContainer
@@ -102,7 +103,7 @@ class SearchViewModel(private val c: AppContainer) : ViewModel() {
     }
 }
 
-private val genres = listOf(
+private val globalGenres = listOf(
     "Electronic" to 0xFF8D67AB, "Hip-Hop/Rap" to 0xFFBA5D07, "Lo-Fi" to 0xFF477D95,
     "Pop" to 0xFF148A08, "Rock" to 0xFFE91429, "Ambient" to 0xFF1E3264,
     "Alternative" to 0xFFDC148C, "R&B/Soul" to 0xFF503750, "House" to 0xFF0D73EC,
@@ -159,6 +160,8 @@ fun SearchScreen(nav: NavController) {
 
         if (ui.query.isBlank()) {
             item { SectionHeader("Browse all") }
+            val genres = Categories.ordered(c.settings.current.languages).map { "${it.emoji} ${it.name}" to it.color } +
+                globalGenres
             items(genres.chunked(2)) { row ->
                 Row(
                     Modifier.padding(horizontal = 16.dp, vertical = 5.dp),
@@ -171,7 +174,7 @@ fun SearchScreen(nav: NavController) {
                                 .height(96.dp)
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(Color(color))
-                                .clickable { nav.navigate(Routes.list(ListKind.GENRE, name)) }
+                                .clickable { nav.navigate(Routes.list(ListKind.GENRE, name.substringAfter(' ').takeIf { Categories.find(it) != null } ?: name)) }
                                 .padding(12.dp),
                         ) {
                             Text(

@@ -19,6 +19,8 @@ interface OnlineSource {
     suspend fun trending(s: AppSettings, genre: String? = null): List<Track>
     suspend fun search(query: String, s: AppSettings): List<Track>
     fun streamUrl(track: Track, quality: AudioQuality, s: AppSettings): String
+    /** Kisi bhasha ke naye / trending gaane (jo source samajhta ho). */
+    suspend fun byLanguage(language: String, s: AppSettings): List<Track> = emptyList()
 }
 
 // ---------------------------------------------------------------- Audius

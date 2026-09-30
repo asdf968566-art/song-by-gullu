@@ -46,8 +46,11 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.sangeet.player.ui.components.MiniPlayer
+import com.sangeet.player.ui.components.UpdateDialog
 import com.sangeet.player.ui.discover.DiscoverScreen
 import com.sangeet.player.ui.library.MixScreen
+import com.sangeet.player.ui.library.OnlineLibraryScreen
+import com.sangeet.player.ui.library.OnlinePlaylistScreen
 import com.sangeet.player.ui.home.HomeScreen
 import com.sangeet.player.ui.library.ImportPlaylistScreen
 import com.sangeet.player.ui.library.LibraryScreen
@@ -67,6 +70,8 @@ object Routes {
     const val HOME = "home"
     const val DISCOVER = "discover"
     const val MIX = "mix/{id}"
+    const val ONLINE_LIBRARY = "online"
+    const val ONLINE_PLAYLIST = "online/{id}?title={title}"
     const val SEARCH = "search"
     const val LIBRARY = "library"
     const val SETTINGS = "settings"
@@ -79,6 +84,7 @@ object Routes {
 
     fun playlist(id: Long) = "playlist/$id"
     fun mix(id: String) = "mix/$id"
+    fun onlinePlaylist(id: String, title: String) = "online/$id?title=${android.net.Uri.encode(title)}"
     fun list(kind: ListKind, arg: String = "") = "list/${kind.name}?arg=${android.net.Uri.encode(arg)}"
 }
 
@@ -103,6 +109,10 @@ fun SangeetRoot() {
         }
     }
 
+    // Naya version chupchaap check karo (6 ghante mein ek baar)
+    LaunchedEffect(Unit) { runCatching { container.updater.checkIfDue() } }
+    UpdateDialog()
+
     BackHandler(enabled = expanded) { expanded = false }
 
     ThemedBackground {
@@ -116,9 +126,19 @@ fun SangeetRoot() {
                 }
             },
         ) { padding ->
-            NavHost(nav, startDestination = Routes.HOME, modifier = Modifier.padding(padding)) {
+            NavHost(nav, startDestination = Routes.DISCOVER, modifier = Modifier.padding(padding)) {
                 composable(Routes.HOME) { HomeScreen(nav) }
                 composable(Routes.DISCOVER) { DiscoverScreen(nav) }
+                composable(Routes.ONLINE_LIBRARY) { OnlineLibraryScreen(nav) }
+                composable(
+                    Routes.ONLINE_PLAYLIST,
+                    arguments = listOf(
+                        navArgument("id") { type = NavType.StringType },
+                        navArgument("title") { type = NavType.StringType; defaultValue = "Playlist" },
+                    ),
+                ) { entry ->
+                    OnlinePlaylistScreen(nav, entry.arguments?.getString("id") ?: "", entry.arguments?.getString("title") ?: "Playlist")
+                }
                 composable(Routes.MIX, arguments = listOf(navArgument("id") { type = NavType.StringType })) { entry ->
                     MixScreen(nav, entry.arguments?.getString("id") ?: "")
                 }
@@ -165,8 +185,8 @@ private data class Tab(val route: String, val label: String, val icon: ImageVect
 private fun BottomNav(nav: NavHostController) {
     val spec = Sangeet.spec
     val tabs = listOf(
+        Tab(Routes.DISCOVER, "For You", Icons.Outlined.Explore, Icons.Rounded.Explore),
         Tab(Routes.HOME, "Home", Icons.Outlined.Home, Icons.Rounded.Home),
-        Tab(Routes.DISCOVER, "Discover", Icons.Outlined.Explore, Icons.Rounded.Explore),
         Tab(Routes.SEARCH, "Search", Icons.Outlined.Search, Icons.Rounded.Search),
         Tab(Routes.LIBRARY, "Your Library", Icons.Outlined.LibraryMusic, Icons.Rounded.LibraryMusic),
     )

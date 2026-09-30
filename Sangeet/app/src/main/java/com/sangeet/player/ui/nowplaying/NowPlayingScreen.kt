@@ -98,6 +98,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
     val settings by c.settings.settings.collectAsStateWithLifecycle()
     val network by c.network.status.collectAsStateWithLifecycle()
     val sleep by c.player.sleep.collectAsStateWithLifecycle()
+    val pos by c.player.position.collectAsStateWithLifecycle()
     val track = state.current ?: return
 
     var lyrics by remember(track.id) { mutableStateOf<Lyrics?>(null) }
@@ -187,7 +188,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
             if (lyricsFull && lyrics != null) {
                 LyricsView(
                     lyrics!!,
-                    state.positionMs,
+                    pos.positionMs,
                     onSeek = c.player::seekTo,
                     textColor = textColor,
                     modifier = Modifier.weight(1f),
@@ -224,8 +225,8 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
             }
 
             // Seek bar
-            val duration = state.durationMs.coerceAtLeast(1)
-            val sliderValue = if (dragging) dragValue else (state.positionMs.toFloat() / duration).coerceIn(0f, 1f)
+            val duration = pos.durationMs.coerceAtLeast(1)
+            val sliderValue = if (dragging) dragValue else (pos.positionMs.toFloat() / duration).coerceIn(0f, 1f)
             Slider(
                 value = sliderValue,
                 onValueChange = { dragging = true; dragValue = it },
@@ -241,9 +242,9 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                 modifier = Modifier.padding(horizontal = 16.dp),
             )
             Row(Modifier.padding(horizontal = 24.dp)) {
-                Text(formatDuration(if (dragging) (dragValue * duration).toLong() else state.positionMs), color = muted, style = MaterialTheme.typography.labelSmall)
+                Text(formatDuration(if (dragging) (dragValue * duration).toLong() else pos.positionMs), color = muted, style = MaterialTheme.typography.labelSmall)
                 Spacer(Modifier.weight(1f))
-                Text(formatDuration(state.durationMs), color = muted, style = MaterialTheme.typography.labelSmall)
+                Text(formatDuration(pos.durationMs), color = muted, style = MaterialTheme.typography.labelSmall)
             }
             state.error?.let {
                 Text("⚠ $it", color = Color(0xFFFF8A80), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 24.dp))
@@ -366,7 +367,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                         ) {
                             LyricsView(
                                 lyrics!!,
-                                state.positionMs,
+                                pos.positionMs,
                                 onSeek = { lyricsFull = true },
                                 textColor = textColor,
                                 compact = true,

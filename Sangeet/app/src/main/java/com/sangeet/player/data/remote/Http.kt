@@ -24,13 +24,18 @@ object Http {
         .followRedirects(true)
         .followSslRedirects(true)
         .addInterceptor { chain ->
-            chain.proceed(chain.request().newBuilder().header("User-Agent", USER_AGENT).build())
+            val req = chain.request()
+            // YouTube ke stream ko wahi User-Agent chahiye jis client se link bana tha.
+            val ua = if (req.url.host.endsWith("googlevideo.com")) YouTubeSource.userAgentForStream(req.url.toString())
+            else USER_AGENT
+            chain.proceed(req.newBuilder().header("User-Agent", ua).build())
         }
         .build()
 
     /** GET karke body text lautata hai. 404 pe null. */
-    suspend fun getText(url: String): String? = withContext(Dispatchers.IO) {
-        client.newCall(Request.Builder().url(url).build()).execute().use { res ->
+    suspend fun getText(url: String, headers: Map<String, String> = emptyMap()): String? = withContext(Dispatchers.IO) {
+        val req = Request.Builder().url(url).apply { headers.forEach { (k, v) -> header(k, v) } }.build()
+        client.newCall(req).execute().use { res ->
             when {
                 res.code == 404 -> null
                 !res.isSuccessful -> throw IOException("HTTP ${res.code}")

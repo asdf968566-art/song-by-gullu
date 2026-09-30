@@ -20,11 +20,15 @@ echo "== Audius ka gaana bajao"
 ID=$(curl -fsS "https://api.audius.co/v1/tracks/trending?app_name=Sangeet&limit=1" | python3 -c 'import json,sys; print(json.load(sys.stdin)["data"][0]["id"])')
 URL="https://api.audius.co/v1/tracks/$ID/stream?app_name=Sangeet"
 echo "URL: $URL"
+# For You feed khud bhi gaana chala sakta hai, isliye pehle rok do aur phir sirf "stream" naam wala gaana dekho.
+adb shell input keyevent KEYCODE_MEDIA_PAUSE || true
+sleep 2
 adb shell "am start -W -a android.intent.action.VIEW -t audio/mpeg -d '$URL' -n $PKG/.MainActivity" || fail "Play intent fail"
 
 PLAYING=0
 for i in $(seq 1 45); do
-  if adb shell dumpsys media_session | grep -Eq "state=PlaybackState \{state=(3|PLAYING)"; then PLAYING=1; break; fi
+  D=$(adb shell dumpsys media_session)
+  if echo "$D" | grep -Eq "state=PlaybackState \{state=(3|PLAYING)" && echo "$D" | grep -q "description=stream"; then PLAYING=1; break; fi
   sleep 2
 done
 adb shell dumpsys media_session > out/media_session.txt
@@ -36,7 +40,36 @@ sleep 10
 adb shell pidof $PKG >/dev/null || fail "Bajate waqt app crash ho gaya"
 adb exec-out screencap -p > out/2-playing.png
 
-echo "== Discover tab (scroll feed)"
+# sangeet://play deep link se source ka gaana bajao, aur check karo ki wahi gaana PLAYING hai.
+play_source() {
+  local src=$1 q=$2 must=$3
+  echo "== $src: '$q'"
+  adb shell input keyevent KEYCODE_MEDIA_PAUSE || true
+  sleep 2
+  adb logcat -c
+  adb shell "am start -W -a android.intent.action.VIEW -d 'sangeet://play?q=$q&source=$src' -n $PKG/.MainActivity" >/dev/null
+  local ok=0
+  for i in $(seq 1 45); do
+    DUMP=$(adb shell dumpsys media_session)
+    if echo "$DUMP" | grep -Eq "state=PlaybackState \{state=(3|PLAYING)" && echo "$DUMP" | grep -iq "description=.*$q"; then ok=1; break; fi
+    sleep 2
+  done
+  echo "$DUMP" > "out/media_session_$src.txt"
+  adb exec-out screencap -p > "out/play-$src.png"
+  if [[ $ok == 1 ]]; then
+    echo "$src gaana baj raha hai ✅ ($(echo "$DUMP" | grep -io 'description=[^,]*,[^,]*' | head -1))"
+  elif [[ $must == 1 ]]; then
+    fail "$src se gaana nahi baja"
+  else
+    echo "::warning::$src se gaana nahi baja (CI ke server IP pe block ho sakta hai)"
+    adb logcat -d > "out/logcat_$src.txt"
+    grep -E "Sangeet|ExoPlayerImplInternal|Caused by|Exception" "out/logcat_$src.txt" | grep -v -E "Auth|GCM|Bugle|constellation|Finsky|gms" | head -40 || true
+  fi
+}
+play_source jiosaavn kesariya 1
+play_source youtube kesariya 0
+
+echo "== For You feed"
 adb shell input keyevent KEYCODE_BACK || true
 adb shell am start -n $PKG/.MainActivity
 sleep 3

@@ -5,6 +5,8 @@ import com.sangeet.player.data.model.SourceType
 import com.sangeet.player.data.model.Track
 import com.sangeet.player.data.remote.AudiusSource
 import com.sangeet.player.data.remote.JamendoSource
+import com.sangeet.player.data.remote.JioSaavnSource
+import com.sangeet.player.data.remote.YouTubeSource
 import com.sangeet.player.data.remote.OnlineSource
 import com.sangeet.player.data.remote.SubsonicSource
 import com.sangeet.player.data.settings.SettingsRepository
@@ -18,9 +20,13 @@ class OnlineRepository(
     private val settings: SettingsRepository,
     private val network: NetworkMonitor,
 ) {
-    val sources: List<OnlineSource> = listOf(AudiusSource(), JamendoSource(), SubsonicSource())
+    // Indian sources pehle, taaki Hindi / Punjabi gaane upar aayein.
+    val sources: List<OnlineSource> = listOf(JioSaavnSource(), YouTubeSource(), AudiusSource(), JamendoSource(), SubsonicSource())
 
     fun source(type: SourceType): OnlineSource? = sources.firstOrNull { it.type == type }
+
+    /** Default online library (charts + playlists) JioSaavn se. */
+    val saavn: JioSaavnSource = sources.filterIsInstance<JioSaavnSource>().first()
 
     fun enabledSources(): List<OnlineSource> {
         val s = settings.current
@@ -49,6 +55,16 @@ class OnlineRepository(
         }.awaitAll()
     }
 
+    /** Kisi bhasha ke trending / naye gaane, jo sources bhasha samajhte hain unse. */
+    suspend fun byLanguage(language: String): List<Track> = coroutineScope {
+        if (!canGoOnline) return@coroutineScope emptyList()
+        enabledSources().map { src -> async { runCatching { src.byLanguage(language, settings.current) }.getOrDefault(emptyList()) } }
+            .awaitAll().flatten().distinctBy { it.id }
+    }
+
+    /** Ek query ke saare sources ke gaane ek list mein (JioSaavn pehle). */
+    suspend fun searchAll(query: String): List<Track> = search(query).flatMap { it.tracks }.distinctBy { it.id }
+
     /** Is waqt ke network ke hisaab se kaunsi quality chahiye. */
     fun streamingQuality(): AudioQuality {
         val s = settings.current
@@ -59,13 +75,44 @@ class OnlineRepository(
     fun streamUrl(track: Track, quality: AudioQuality): String? = when (track.source) {
         SourceType.LOCAL -> null
         SourceType.URL -> track.streamUrl
+        SourceType.YOUTUBE -> try {
+            saavnOrYouTube(track, quality)
+        } catch (e: Exception) {
+            // YouTube ne roka (bot check / band video) -> wahi gaana JioSaavn pe dhoondh ke bajao.
+            jioSaavnFallback(track, quality) ?: throw e
+        }
         else -> source(track.source)?.streamUrl(track, quality, settings.current)
     }
+
+    private fun saavnOrYouTube(track: Track, quality: AudioQuality): String =
+        source(SourceType.YOUTUBE)!!.streamUrl(track, quality, settings.current)
+
+    /** Player ke loader thread se chalta hai, isliye runBlocking theek hai. */
+    private fun jioSaavnFallback(track: Track, quality: AudioQuality): String? {
+        if (!settings.current.jiosaavnEnabled) return null
+        val want = norm(track.title)
+        if (want.isBlank()) return null
+        val results = runCatching {
+            kotlinx.coroutines.runBlocking { saavn.search("${track.title} ${track.artist}".trim(), settings.current) }
+        }.getOrDefault(emptyList())
+        val match = results.firstOrNull { norm(it.title) == want }
+            ?: results.firstOrNull { norm(it.title).contains(want) || want.contains(norm(it.title)) }
+            ?: return null
+        android.util.Log.i("Sangeet", "YouTube fallback -> JioSaavn: '${track.title}' = '${match.title}' (${match.artist})")
+        return saavn.streamUrl(match, quality, settings.current)
+    }
+
+    private fun norm(s: String) = s.lowercase()
+        .replace(Regex("""\(.*?\)|\[.*?]"""), "")
+        .replace(Regex("[^\\p{L}\\p{N}]+"), " ")
+        .trim()
 
     fun qualityLabel(track: Track, quality: AudioQuality): String = when (track.source) {
         SourceType.LOCAL -> "Phone file"
         SourceType.URL -> "Original"
         SourceType.SUBSONIC -> quality.label
+        SourceType.JIOSAAVN -> if (quality == AudioQuality.LOW) "96 kbps" else if (quality == AudioQuality.MEDIUM) "160 kbps" else "320 kbps (jahan mile)"
+        SourceType.YOUTUBE -> "YouTube audio"
         SourceType.JAMENDO -> if (quality == AudioQuality.LOW) "96 kbps" else "High (VBR)"
         SourceType.AUDIUS -> "Source quality"
     }

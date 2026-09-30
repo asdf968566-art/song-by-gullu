@@ -27,6 +27,7 @@ import androidx.compose.material.icons.rounded.DownloadForOffline
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FileOpen
 import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
@@ -143,6 +144,14 @@ fun LibraryScreen(nav: NavController) {
 
         when (tab) {
             0 -> {
+                item {
+                    LibraryRow(
+                        title = "Online Library",
+                        subtitle = "Charts + hazaron playlists • lakhs gaane",
+                        gradient = listOf(Color(0xFFE13300), Color(0xFFF59B23)),
+                        icon = Icons.Rounded.Public,
+                    ) { nav.navigate(Routes.ONLINE_LIBRARY) }
+                }
                 item {
                     LibraryRow(
                         title = "Liked Songs",

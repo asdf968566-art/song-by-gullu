@@ -22,6 +22,7 @@ import com.sangeet.player.data.playlist.PlaylistImporter
 import com.sangeet.player.data.recommend.RecommendationRepository
 import com.sangeet.player.data.remote.Http
 import com.sangeet.player.data.settings.SettingsRepository
+import com.sangeet.player.data.update.AppUpdater
 import com.sangeet.player.playback.EqualizerManager
 import com.sangeet.player.playback.PlayerConnection
 import com.sangeet.player.playback.StreamResolver
@@ -31,6 +32,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import com.sangeet.player.data.model.SourceType
 
 class SangeetApplication : Application() {
     lateinit var container: AppContainer
@@ -57,13 +61,25 @@ class AppContainer(private val app: Application) {
     val lyrics = LyricsRepository(database.lyricsDao(), online)
     val importer = PlaylistImporter(app, local, online)
     val equalizer = EqualizerManager(app)
-    val recommendations = RecommendationRepository(app, library, local, online)
+    val updater = AppUpdater(app, settings)
+    val recommendations = RecommendationRepository(app, library, local, online, settings)
     val player = PlayerConnection(app, library, scope).apply {
         radio = { seed, exclude -> recommendations.radio(seed, exclude) }
         autoplayEnabled = { settings.current.autoplay }
     }
 
     init {
+        // Agle 2 gaanon ka YouTube link pehle se nikaal lo, taaki next dabate hi bajne lage.
+        scope.launch {
+            player.state.map { it.queueIndex to it.queue.map { t -> t.id } }.distinctUntilChanged().collect { (idx, _) ->
+                val q = player.state.value.queue
+                val upcoming = (1..2).mapNotNull { q.getOrNull(idx + it) }.filter { it.source == SourceType.YOUTUBE }
+                if (upcoming.isEmpty() || !online.canGoOnline) return@collect
+                launch(Dispatchers.IO) {
+                    upcoming.forEach { t -> runCatching { online.streamUrl(t, online.streamingQuality()) } }
+                }
+            }
+        }
         // Track record se auto playlists roz update hoti rehti hain.
         scope.launch {
             delay(8_000)

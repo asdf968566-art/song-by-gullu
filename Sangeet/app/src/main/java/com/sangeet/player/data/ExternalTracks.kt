@@ -5,11 +5,13 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import com.sangeet.player.data.model.SourceType
 import com.sangeet.player.data.model.Track
+import com.sangeet.player.data.remote.YouTubeSource
 import java.security.MessageDigest
 
-/** File manager / browser se "Open with Sangeet" kiya gaana. */
+/** File manager / browser / YouTube share se aaya gaana. */
 object ExternalTracks {
     fun fromUri(context: Context, uri: Uri): Track {
+        YouTubeSource.videoId(uri.toString())?.let { return youtube(it) }
         val id = MessageDigest.getInstance("SHA-1").digest(uri.toString().toByteArray())
             .joinToString("") { "%02x".format(it) }.take(20)
         val name = displayName(context, uri)
@@ -26,6 +28,19 @@ object ExternalTracks {
             streamUrl = uri.toString(),
         )
     }
+
+    /** Share kiye text mein YouTube link ho to wo gaana. */
+    fun fromSharedText(text: String): Track? =
+        Regex("""https?://\S+""").findAll(text).firstNotNullOfOrNull { YouTubeSource.videoId(it.value) }?.let(::youtube)
+
+    private fun youtube(id: String) = Track(
+        id = Track.makeId(SourceType.YOUTUBE, id),
+        source = SourceType.YOUTUBE,
+        sourceId = id,
+        title = "YouTube gaana",
+        artist = "YouTube",
+        artworkUrl = "https://i.ytimg.com/vi/$id/hqdefault.jpg",
+    )
 
     private fun displayName(context: Context, uri: Uri): String? {
         if (uri.scheme != "content") return null
