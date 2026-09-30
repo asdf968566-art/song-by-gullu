@@ -101,9 +101,13 @@ fun MiniPlayer(onExpand: () -> Unit, modifier: Modifier = Modifier) {
                     Icon(Icons.Rounded.SkipNext, "Next", tint = spec.onSurface)
                 }
             }
-            val progress = if (state.durationMs > 0) state.positionMs.toFloat() / state.durationMs else 0f
+            val pos = container.player.position.collectAsStateWithLifecycle()
             LinearProgressIndicator(
-                progress = { progress.coerceIn(0f, 1f) },
+                // Lambda draw ke waqt padhta hai: position badalne pe recomposition nahi hota.
+                progress = {
+                    val p = pos.value
+                    (if (p.durationMs > 0) p.positionMs.toFloat() / p.durationMs else 0f).coerceIn(0f, 1f)
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 8.dp)

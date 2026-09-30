@@ -71,6 +71,15 @@ data class Playlist(
     val coverUrl: String?,
 )
 
+/** Online playlist / chart (JioSaavn) — library mein browse karne ke liye. */
+data class OnlinePlaylist(
+    val id: String,
+    val title: String,
+    val subtitle: String,
+    val artworkUrl: String?,
+    val songCount: Int = 0,
+)
+
 /** Download ki halat. */
 enum class DownloadState { QUEUED, DOWNLOADING, DONE, FAILED }
 

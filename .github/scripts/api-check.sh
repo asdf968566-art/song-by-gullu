@@ -50,4 +50,31 @@ CT=$(curl -fsS -r 0-65535 -o saavn.bin -w '%{content_type}' "$URL320")
 echo "320kbps content-type=$CT bytes=$(stat -c %s saavn.bin)"
 [[ $(stat -c %s saavn.bin) -gt 10000 ]] || { echo "JioSaavn audio nahi aaya"; exit 1; }
 
+echo "== JioSaavn online library (charts + featured playlists + playlist songs)"
+B="https://www.jiosaavn.com/api.php?_format=json&_marker=0&api_version=4&ctx=web6dot0"
+curl -fsS -A "$UA" -H "Cookie: L=hindi%2Cpunjabi" "$B&__call=content.getCharts" -o charts.json || true
+curl -fsS -A "$UA" -H "Cookie: L=hindi%2Cpunjabi" "$B&__call=content.getFeaturedPlaylists&fetch_from_serialized_files=true&p=1&n=50" -o featured.json || true
+python3 - <<'PY'
+import json, urllib.request
+def items(path):
+    try: d = json.load(open(path))
+    except Exception as e: print("::warning::", path, "parse fail", e); return []
+    if isinstance(d, dict):
+        print(" ", path, "keys:", list(d.keys())[:8])
+        d = d.get("data") or d.get("results") or []
+    return [x for x in d if isinstance(x, dict) and x.get("type", "playlist") == "playlist"]
+charts, feat = items("charts.json"), items("featured.json")
+print(" charts:", len(charts), [c.get("title") for c in charts[:6]])
+print(" featured:", len(feat), [c.get("title") for c in feat[:6]])
+if not charts or not feat: print("::warning::JioSaavn charts/featured khaali")
+pid = (charts or feat or [{}])[0].get("id")
+if pid:
+    url = "https://www.jiosaavn.com/api.php?_format=json&_marker=0&api_version=4&ctx=web6dot0&__call=playlist.getDetails&n=300&p=1&listid=" + pid
+    req = urllib.request.Request(url, headers={"User-Agent": "Sangeet/1.0"})
+    d = json.load(urllib.request.urlopen(req, timeout=30))
+    songs = d.get("list") or []
+    print(" playlist", d.get("title"), "songs:", len(songs), "keys:", list(d.keys())[:10])
+    if not songs: print("::warning::playlist.getDetails mein list khaali")
+PY
+
 echo "Sab services theek chal rahi hain ✅"

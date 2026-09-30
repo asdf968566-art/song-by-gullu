@@ -113,6 +113,7 @@ fun DiscoverScreen(nav: NavController) {
     val scope = rememberCoroutineScope()
     var menuFor by remember { mutableStateOf<Track?>(null) }
     val settings by c.settings.settings.collectAsStateWithLifecycle()
+    val pos = c.player.position.collectAsStateWithLifecycle()
     val items by rememberUpdatedState(ui.items)
     // Chal rahe gaane ke lyrics (Resso jaisa feed pe hi dikhte hain)
     var lyrics by remember { mutableStateOf<Pair<String, Lyrics?>?>(null) }
@@ -199,10 +200,10 @@ fun DiscoverScreen(nav: NavController) {
                     isCurrent = isCurrent,
                     isPlaying = isCurrent && state.isPlaying,
                     isBuffering = isCurrent && state.isBuffering,
-                    progress = if (isCurrent && state.durationMs > 0) state.positionMs.toFloat() / state.durationMs else 0f,
+                    progress = { pos.value.let { if (it.durationMs > 0) it.positionMs.toFloat() / it.durationMs else 0f } },
                     liked = s.track.id in favorites,
                     lyrics = lyrics?.takeIf { isCurrent && it.first == s.track.id }?.second,
-                    positionMs = if (isCurrent) state.positionMs else 0L,
+                    positionMs = { pos.value.positionMs },
                     onSeek = c.player::seekTo,
                     showHint = page == 0,
                     onPlay = { if (isCurrent) c.player.togglePlay() else playPage(page) },
@@ -232,10 +233,10 @@ private fun FeedPage(
     isCurrent: Boolean,
     isPlaying: Boolean,
     isBuffering: Boolean,
-    progress: Float,
+    progress: () -> Float,
     liked: Boolean,
     lyrics: Lyrics?,
-    positionMs: Long,
+    positionMs: () -> Long,
     onSeek: (Long) -> Unit,
     showHint: Boolean,
     onPlay: () -> Unit,
@@ -352,19 +353,12 @@ private fun FeedPage(
             }
             if (lyrics != null) {
                 Spacer(Modifier.height(12.dp))
-                LyricsView(
-                    lyrics,
-                    positionMs,
-                    onSeek = onSeek,
-                    textColor = Color.White,
-                    compact = true,
-                    modifier = Modifier.fillMaxWidth().height(96.dp),
-                )
+                FeedLyrics(lyrics, positionMs, onSeek)
             }
             Spacer(Modifier.height(16.dp))
             if (isCurrent) {
                 LinearProgressIndicator(
-                    progress = { progress.coerceIn(0f, 1f) },
+                    progress = { progress().coerceIn(0f, 1f) },
                     modifier = Modifier.fillMaxWidth().height(3.dp),
                     color = Color.White,
                     trackColor = Color.White.copy(alpha = 0.25f),
@@ -378,4 +372,17 @@ private fun FeedPage(
             }
         }
     }
+}
+
+/** Sirf yahi hissa har tick pe dobara banta hai, poora page nahi. */
+@Composable
+private fun FeedLyrics(lyrics: Lyrics, positionMs: () -> Long, onSeek: (Long) -> Unit) {
+    LyricsView(
+        lyrics,
+        positionMs(),
+        onSeek = onSeek,
+        textColor = Color.White,
+        compact = true,
+        modifier = Modifier.fillMaxWidth().height(96.dp),
+    )
 }

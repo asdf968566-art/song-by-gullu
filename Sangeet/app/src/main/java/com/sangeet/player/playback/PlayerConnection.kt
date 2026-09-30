@@ -31,6 +31,9 @@ data class PlayerState(
     val error: String? = null,
 )
 
+/** Seek bar ki position alag flow mein, taaki har 250ms pe poori UI dobara na bane. */
+data class PlaybackPosition(val positionMs: Long = 0, val durationMs: Long = 0)
+
 enum class SleepTimerMode { OFF, MINUTES, END_OF_TRACK }
 
 data class SleepTimerState(val mode: SleepTimerMode = SleepTimerMode.OFF, val endsAt: Long = 0)
@@ -46,6 +49,9 @@ class PlayerConnection(
 
     private val _state = MutableStateFlow(PlayerState())
     val state: StateFlow<PlayerState> = _state.asStateFlow()
+
+    private val _position = MutableStateFlow(PlaybackPosition())
+    val position: StateFlow<PlaybackPosition> = _position.asStateFlow()
 
     private val _sleep = MutableStateFlow(SleepTimerState())
     val sleep: StateFlow<SleepTimerState> = _sleep.asStateFlow()
@@ -115,6 +121,7 @@ class PlayerConnection(
             queueIndex = c.currentMediaItemIndex,
             error = c.playerError?.let { it.cause?.message ?: it.message },
         )
+        _position.value = PlaybackPosition(_state.value.positionMs, _state.value.durationMs)
     }
 
     private fun startTicker() {
@@ -123,9 +130,9 @@ class PlayerConnection(
             while (isActive) {
                 val c = controller
                 if (c != null && c.isPlaying) {
-                    _state.value = _state.value.copy(
+                    _position.value = PlaybackPosition(
                         positionMs = c.currentPosition.coerceAtLeast(0),
-                        durationMs = c.duration.takeIf { it > 0 } ?: _state.value.durationMs,
+                        durationMs = c.duration.takeIf { it > 0 } ?: _position.value.durationMs,
                     )
                 }
                 delay(250)
@@ -218,7 +225,7 @@ class PlayerConnection(
     fun previous() = withController { it.seekToPrevious() }
     fun seekTo(ms: Long) = withController {
         it.seekTo(ms)
-        _state.value = _state.value.copy(positionMs = ms)
+        _position.value = _position.value.copy(positionMs = ms)
     }
     fun skipTo(index: Int) = withController { it.seekToDefaultPosition(index); it.play() }
     fun removeAt(index: Int) = withController { it.removeMediaItem(index) }

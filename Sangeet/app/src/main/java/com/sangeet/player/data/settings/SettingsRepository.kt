@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.sangeet.player.BuildConfig
 import com.sangeet.player.data.model.AudioQuality
 import java.math.BigInteger
 import java.security.MessageDigest
@@ -56,7 +57,7 @@ data class AppSettings(
     val jiosaavnEnabled: Boolean = true,
     val youtubeEnabled: Boolean = true,
     /** Optional: YouTube Data API v3 key (metadata/search/trending ke liye). Khaali = bina key (NewPipe). */
-    val youtubeApiKey: String = "",
+    val youtubeApiKey: String = BuildConfig.YOUTUBE_API_KEY,
     /** Pasandida bhashayein, jaise hindi, punjabi. Trending aur suggestions inhi se. */
     val languages: List<String> = listOf("hindi", "punjabi"),
     val jamendoClientId: String = "",

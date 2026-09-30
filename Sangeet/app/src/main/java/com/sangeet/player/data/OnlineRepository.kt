@@ -25,6 +25,9 @@ class OnlineRepository(
 
     fun source(type: SourceType): OnlineSource? = sources.firstOrNull { it.type == type }
 
+    /** Default online library (charts + playlists) JioSaavn se. */
+    val saavn: JioSaavnSource = sources.filterIsInstance<JioSaavnSource>().first()
+
     fun enabledSources(): List<OnlineSource> {
         val s = settings.current
         if (s.offlineMode) return emptyList()

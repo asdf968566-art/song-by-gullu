@@ -2,6 +2,7 @@ package com.sangeet.player.data.remote
 
 import android.util.Base64
 import com.sangeet.player.data.model.AudioQuality
+import com.sangeet.player.data.model.OnlinePlaylist
 import com.sangeet.player.data.model.SourceType
 import com.sangeet.player.data.model.Track
 import com.sangeet.player.data.settings.AppSettings
@@ -42,6 +43,40 @@ class JioSaavnSource : OnlineSource {
     override suspend fun search(query: String, s: AppSettings): List<Track> =
         songsFrom(call("search.getResults", "q" to query, "n" to "50", "p" to "1"))
 
+    // ------------------------------------------------------------ online library (charts + playlists)
+
+    /** Top charts: "Trending Today", "Bollywood Top 50", "Punjabi Top 50"... */
+    suspend fun charts(s: AppSettings): List<OnlinePlaylist> =
+        playlistsFrom(call("content.getCharts", langs = s.languages))
+
+    /** Hazaron featured playlists, page-by-page (har page ~50). */
+    suspend fun featuredPlaylists(s: AppSettings, page: Int): List<OnlinePlaylist> =
+        playlistsFrom(call("content.getFeaturedPlaylists", "fetch_from_serialized_files" to "true", "p" to page.toString(), "n" to "50", langs = s.languages))
+
+    suspend fun playlistTracks(id: String): List<Track> =
+        songsFrom(call("playlist.getDetails", "listid" to id, "n" to "300", "p" to "1"))
+
+    private fun playlistsFrom(root: JsonElement?): List<OnlinePlaylist> {
+        val items: List<JsonElement> = when (root) {
+            is JsonArray -> root
+            is JsonObject -> (root["data"] as? JsonArray) ?: (root["results"] as? JsonArray) ?: emptyList()
+            else -> emptyList()
+        }
+        return items.mapNotNull { el ->
+            val o = el as? JsonObject ?: return@mapNotNull null
+            if (o.str("type").let { it != null && it != "playlist" }) return@mapNotNull null
+            val id = o.str("id") ?: o.str("listid") ?: return@mapNotNull null
+            val info = o["more_info"] as? JsonObject
+            OnlinePlaylist(
+                id = id,
+                title = unescape(o.str("title") ?: o.str("listname") ?: return@mapNotNull null),
+                subtitle = unescape(o.str("subtitle") ?: ""),
+                artworkUrl = o.str("image")?.replace("150x150", "500x500"),
+                songCount = (info?.str("song_count") ?: o.str("count"))?.toIntOrNull() ?: 0,
+            )
+        }.distinctBy { it.id }
+    }
+
     /** 96 kbps wale link se chahiye wali quality ka link banao. */
     override fun streamUrl(track: Track, quality: AudioQuality, s: AppSettings): String {
         val raw = track.streamUrl ?: throw IllegalStateException("JioSaavn link missing")
@@ -57,7 +92,7 @@ class JioSaavnSource : OnlineSource {
 
     // ------------------------------------------------------------ http + parsing
 
-    private suspend fun call(method: String, vararg params: Pair<String, String>): JsonElement? {
+    private suspend fun call(method: String, vararg params: Pair<String, String>, langs: List<String> = emptyList()): JsonElement? {
         val url = "https://www.jiosaavn.com/api.php".toHttpUrl().newBuilder()
             .addQueryParameter("__call", method)
             .addQueryParameter("_format", "json")
@@ -66,14 +101,17 @@ class JioSaavnSource : OnlineSource {
             .addQueryParameter("ctx", "web6dot0")
             .apply { params.forEach { (k, v) -> addQueryParameter(k, v) } }
             .build()
-        val body = Http.getText(url.toString()) ?: return null
+        // JioSaavn bhasha cookie se samajhta hai (L=hindi,punjabi)
+        val headers = if (langs.isEmpty()) emptyMap() else mapOf("Cookie" to "L=${langs.joinToString("%2C")}")
+        val body = Http.getText(url.toString(), headers) ?: return null
         return Http.json.parseToJsonElement(body)
     }
 
     private fun songsFrom(root: JsonElement?): List<Track> {
         val items: List<JsonElement> = when (root) {
             is JsonArray -> root
-            is JsonObject -> (root["results"] as? JsonArray) ?: (root["data"] as? JsonArray) ?: emptyList()
+            is JsonObject -> (root["results"] as? JsonArray) ?: (root["list"] as? JsonArray)
+                ?: (root["songs"] as? JsonArray) ?: (root["data"] as? JsonArray) ?: emptyList()
             else -> emptyList()
         }
         return items.mapNotNull { (it as? JsonObject)?.let(::toTrack) }.distinctBy { it.id }

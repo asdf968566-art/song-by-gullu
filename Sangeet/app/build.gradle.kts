@@ -17,6 +17,11 @@ android {
         versionCode = 1
         versionName = "1.0.0"
         vectorDrawables { useSupportLibrary = true }
+        buildConfigField(
+            "String",
+            "YOUTUBE_API_KEY",
+            "\"${project.findProperty("sangeet.youtubeApiKey") ?: ""}\"",
+        )
     }
 
     // Har build ek hi key se sign ho, taaki naya APK purane ke upar install ho jaye (data safe rahe).
@@ -54,6 +59,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
