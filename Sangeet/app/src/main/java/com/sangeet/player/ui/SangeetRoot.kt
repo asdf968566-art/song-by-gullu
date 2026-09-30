@@ -51,6 +51,7 @@ import com.sangeet.player.ui.discover.DiscoverScreen
 import com.sangeet.player.ui.library.MixScreen
 import com.sangeet.player.ui.library.ArtistScreen
 import com.sangeet.player.ui.library.StatsScreen
+import com.sangeet.player.ui.dj.AiDjScreen
 import androidx.compose.runtime.CompositionLocalProvider
 import com.sangeet.player.ui.library.OnlineLibraryScreen
 import com.sangeet.player.ui.library.OnlinePlaylistScreen
@@ -75,6 +76,7 @@ object Routes {
     const val MIX = "mix/{id}"
     const val ARTIST = "artist/{name}"
     const val STATS = "stats"
+    const val DJ = "dj"
     const val ONLINE_LIBRARY = "online"
     const val ONLINE_PLAYLIST = "online/{id}?title={title}"
     const val SEARCH = "search"
@@ -138,6 +140,7 @@ fun SangeetRoot() {
                 composable(Routes.DISCOVER) { DiscoverScreen(nav) }
                 composable(Routes.ONLINE_LIBRARY) { OnlineLibraryScreen(nav) }
                 composable(Routes.STATS) { StatsScreen(nav) }
+                composable(Routes.DJ) { AiDjScreen(nav) }
                 composable(Routes.ARTIST, arguments = listOf(navArgument("name") { type = NavType.StringType })) { entry ->
                     ArtistScreen(nav, entry.arguments?.getString("name") ?: "")
                 }

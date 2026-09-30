@@ -308,6 +308,7 @@ fun DiscoverScreen(nav: NavController) {
                     color = Color.White,
                     modifier = Modifier.weight(1f),
                 )
+                IconButton(onClick = { nav.navigate(Routes.DJ) }) { Icon(Icons.Rounded.AutoAwesome, "AI DJ", tint = Color.White) }
                 IconButton(onClick = vm::refresh) { Icon(Icons.Rounded.Refresh, "New feed", tint = Color.White) }
             }
             Row(
@@ -455,16 +456,6 @@ private fun FeedPage(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Spacer(Modifier.height(10.dp))
-            Row(
-                Modifier
-                    .background(Color.White.copy(alpha = 0.15f), RoundedCornerShape(50))
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(Icons.Rounded.AutoAwesome, null, tint = spec.accent, modifier = Modifier.size(16.dp))
-                Text("  ${suggestion.reason}", color = Color.White, style = MaterialTheme.typography.labelLarge)
-            }
             Spacer(Modifier.height(20.dp))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 IconButton(onClick = onLike) {
@@ -513,11 +504,6 @@ private fun FeedPage(
                     tint = if (dragX > 0) spec.accent else Color.White,
                     modifier = Modifier.size(40.dp),
                 )
-            }
-            if (showHint) {
-                Spacer(Modifier.height(20.dp))
-                Icon(Icons.Rounded.KeyboardArrowUp, null, tint = Color.White.copy(alpha = 0.6f))
-                Text("Swipe up for next • → Like • ← Not for me", color = Color.White.copy(alpha = 0.6f), style = MaterialTheme.typography.labelMedium)
             }
         }
     }

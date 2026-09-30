@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -174,6 +175,7 @@ fun HomeScreen(nav: NavController) {
             ) {
                 Text(greeting(), style = MaterialTheme.typography.headlineMedium, color = spec.onSurface, modifier = Modifier.weight(1f))
                 IconButton(onClick = { vm.refresh(force = true) }) { Icon(Icons.Rounded.Refresh, "Refresh", tint = spec.onSurface) }
+                IconButton(onClick = { nav.navigate(Routes.DJ) }) { Icon(Icons.Rounded.AutoAwesome, "AI DJ", tint = spec.onSurface) }
                 IconButton(onClick = { nav.navigate(Routes.SETTINGS) }) { Icon(Icons.Rounded.Settings, "Settings", tint = spec.onSurface) }
             }
         }
@@ -238,24 +240,6 @@ fun HomeScreen(nav: NavController) {
             }
         }
 
-        // Discover feed ka rasta
-        item {
-            Row(
-                Modifier
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .fillMaxWidth()
-                    .themedCard(spec, RoundedCornerShape(12.dp), corner = 12.dp)
-                    .clickable { nav.navigate(Routes.DISCOVER) }
-                    .padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(Icons.Rounded.Explore, null, tint = spec.accent)
-                Column(Modifier.padding(start = 12.dp)) {
-                    Text("Discover feed", style = MaterialTheme.typography.titleSmall, color = spec.onSurface)
-                    Text("Scroll to play songs picked for your taste", style = MaterialTheme.typography.bodySmall, color = spec.muted)
-                }
-            }
-        }
         if (mixes.isNotEmpty()) {
             item { SectionHeader("Made for you") }
             item {

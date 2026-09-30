@@ -136,6 +136,43 @@ fun SettingsScreen(nav: NavController) {
             })
         }
 
+        SettingsGroup("AI DJ") {
+            var aiKey by remember(s.anthropicApiKey) { mutableStateOf(s.anthropicApiKey) }
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                Text(
+                    "The AI DJ works without a key using the built-in smart parser. " +
+                        "Optionally add an Anthropic API key (console.anthropic.com) to let Claude plan your mixes. API usage is billed to your Anthropic account.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Sangeet.spec.muted,
+                )
+                OutlinedTextField(
+                    value = aiKey,
+                    onValueChange = { aiKey = it },
+                    label = { Text("Anthropic API key (optional)") },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                )
+                TextButton(onClick = {
+                    scope.launch {
+                        c.settings.setAnthropicApiKey(aiKey)
+                        Toast.makeText(context, if (aiKey.isBlank()) "Using the built-in DJ" else "Key saved", Toast.LENGTH_SHORT).show()
+                    }
+                }) { Text("Save") }
+            }
+            SettingsItem(Icons.Rounded.AutoAwesome, "Open AI DJ", "Describe a vibe, get a playlist", onClick = { nav.navigate(Routes.DJ) })
+            SettingsItem(
+                Icons.Rounded.DeleteSweep,
+                "Reset For You history",
+                "Songs already shown can appear again (${c.recommendations.seenCount} remembered)",
+                onClick = {
+                    c.recommendations.clearSeen()
+                    Toast.makeText(context, "For You history cleared", Toast.LENGTH_SHORT).show()
+                },
+            )
+        }
+
         SettingsGroup("App update") {
             SettingsItem(
                 Icons.Rounded.SystemUpdate,
