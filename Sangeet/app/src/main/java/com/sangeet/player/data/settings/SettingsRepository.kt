@@ -71,6 +71,8 @@ data class AppSettings(
     val languages: List<String> = listOf("hindi", "punjabi"),
     /** App update ke liye read-only GitHub token (private repo). */
     val githubToken: String = "",
+    /** Optional Anthropic API key for the AI DJ (Claude). Empty = built-in DJ. */
+    val anthropicApiKey: String = "",
     val jamendoClientId: String = "",
     val subsonicUrl: String = "",
     val subsonicUser: String = "",
@@ -109,6 +111,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val youtubeApiKey = stringPreferencesKey("youtube_api_key")
         val languages = stringPreferencesKey("languages")
         val githubToken = stringPreferencesKey("github_token")
+        val anthropicApiKey = stringPreferencesKey("anthropic_api_key")
         val jamendoClientId = stringPreferencesKey("jamendo_client_id")
         val subsonicUrl = stringPreferencesKey("subsonic_url")
         val subsonicUser = stringPreferencesKey("subsonic_user")
@@ -146,6 +149,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             languages = p[Keys.languages]?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }
                 ?.takeIf { it.isNotEmpty() } ?: d.languages,
             githubToken = p[Keys.githubToken] ?: d.githubToken,
+            anthropicApiKey = p[Keys.anthropicApiKey] ?: d.anthropicApiKey,
             jamendoClientId = p[Keys.jamendoClientId] ?: d.jamendoClientId,
             subsonicUrl = p[Keys.subsonicUrl] ?: d.subsonicUrl,
             subsonicUser = p[Keys.subsonicUser] ?: d.subsonicUser,
@@ -179,6 +183,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     suspend fun setYouTubeEnabled(v: Boolean) = context.dataStore.edit { it[Keys.youtubeEnabled] = v }
     suspend fun setYouTubeApiKey(v: String) = context.dataStore.edit { it[Keys.youtubeApiKey] = v.trim() }
     suspend fun setLanguages(v: List<String>) = context.dataStore.edit { it[Keys.languages] = v.joinToString(",") }
+    suspend fun setAnthropicApiKey(v: String) = context.dataStore.edit { it[Keys.anthropicApiKey] = v.trim() }
     suspend fun setGithubToken(v: String) = context.dataStore.edit { it[Keys.githubToken] = v.trim() }
     suspend fun setJamendoClientId(v: String) = context.dataStore.edit { it[Keys.jamendoClientId] = v.trim() }
 

@@ -65,6 +65,7 @@ class AppContainer(private val app: Application) {
     val importer = PlaylistImporter(app, local, online)
     val equalizer = EqualizerManager(app)
     val updater = AppUpdater(app, settings)
+    val aiDj = com.sangeet.player.data.ai.AiDj(online, settings)
     val recommendations = RecommendationRepository(app, library, local, online, settings)
     val player = PlayerConnection(app, library, scope).apply {
         radio = { seed, exclude -> recommendations.radio(seed, exclude) }
