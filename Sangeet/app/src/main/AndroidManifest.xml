@@ -43,6 +43,28 @@
                 <data android:scheme="https" />
                 <data android:mimeType="audio/*" />
             </intent-filter>
+            <!-- YouTube / browser se link share karo -> Sangeet mein bajega -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <!-- YouTube links seedha Sangeet mein kholo -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="youtu.be" />
+                <data android:host="music.youtube.com" />
+            </intent-filter>
+            <!-- sangeet://play?q=... -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="sangeet" android:host="play" />
+            </intent-filter>
         </activity>
 
         <service

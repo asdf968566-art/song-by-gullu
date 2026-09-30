@@ -14,6 +14,12 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Radio
+import androidx.compose.material.icons.rounded.LibraryMusic
+import androidx.compose.material.icons.rounded.SmartDisplay
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import com.sangeet.player.data.Categories
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -45,6 +51,8 @@ fun SourcesScreen(nav: NavController) {
     val scope = rememberCoroutineScope()
     val spec = Sangeet.spec
 
+    var ytKey by remember(s.youtubeApiKey) { mutableStateOf(s.youtubeApiKey) }
+    var ytStatus by remember { mutableStateOf<String?>(null) }
     var jamendoId by remember(s.jamendoClientId) { mutableStateOf(s.jamendoClientId) }
     var url by remember(s.subsonicUrl) { mutableStateOf(s.subsonicUrl) }
     var user by remember(s.subsonicUser) { mutableStateOf(s.subsonicUser) }
@@ -61,6 +69,89 @@ fun SourcesScreen(nav: NavController) {
             color = spec.muted,
             modifier = Modifier.padding(horizontal = 20.dp),
         )
+
+        SettingsGroup("Aapki bhasha") {
+            Text(
+                "In bhashaon ke gaane feed, Home aur suggestions mein pehle aayenge.",
+                style = MaterialTheme.typography.bodySmall,
+                color = spec.muted,
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp),
+            )
+            Row(
+                Modifier
+                    .horizontalScroll(rememberScrollState())
+                    .padding(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Categories.languages.forEach { lang ->
+                    val on = lang in s.languages
+                    FilterChip(
+                        selected = on,
+                        onClick = {
+                            val next = if (on) s.languages - lang else s.languages + lang
+                            if (next.isNotEmpty()) scope.launch { c.settings.setLanguages(next) }
+                        },
+                        label = { Text(lang.replaceFirstChar(Char::uppercase)) },
+                        shape = RoundedCornerShape(50),
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = spec.accent,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                        ),
+                    )
+                }
+            }
+        }
+
+        SettingsGroup("JioSaavn (Hindi, Punjabi, Bollywood)") {
+            SettingsSwitch(
+                Icons.Rounded.LibraryMusic,
+                "JioSaavn on",
+                "Crore se zyada Indian gaane, 320 kbps tak. Koi key nahi.",
+                s.jiosaavnEnabled,
+            ) { scope.launch { c.settings.setJioSaavnEnabled(it) } }
+        }
+
+        SettingsGroup("YouTube / YouTube Music") {
+            SettingsSwitch(
+                Icons.Rounded.SmartDisplay,
+                "YouTube on",
+                "Har gaana jo YouTube pe hai. Bina key ke bhi chalta hai (NewPipe).",
+                s.youtubeEnabled,
+            ) { scope.launch { c.settings.setYouTubeEnabled(it) } }
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "Optional: YouTube Data API v3 key (free). Isse search aur India ke trending music ki " +
+                        "details official API se aati hain. Key kaise lein:\n" +
+                        "1. console.cloud.google.com kholo → naya project banao\n" +
+                        "2. APIs & Services → Library → \"YouTube Data API v3\" → Enable\n" +
+                        "3. Credentials → Create credentials → API key → copy karke yahan daalo\n" +
+                        "Free quota: 10,000 units/din (search = 100, trending = 1).",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = spec.muted,
+                )
+                OutlinedTextField(
+                    value = ytKey,
+                    onValueChange = { ytKey = it },
+                    label = { Text("YouTube API key (optional)") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = {
+                        scope.launch {
+                            c.settings.setYouTubeApiKey(ytKey)
+                            ytStatus = "Check kar rahe hain…"
+                            ytStatus = testSource(c, SourceType.YOUTUBE) { it.youtubeApiKey == ytKey.trim() }
+                        }
+                    }) { Text("Save & test") }
+                    if (s.youtubeApiKey.isNotBlank()) {
+                        OutlinedButton(onClick = { scope.launch { c.settings.setYouTubeApiKey(""); ytKey = "" } }) { Text("Hatao") }
+                    }
+                }
+                ytStatus?.let { Text(it, color = spec.accent, style = MaterialTheme.typography.bodySmall) }
+            }
+        }
 
         SettingsGroup("Audius (free, koi key nahi)") {
             SettingsSwitch(

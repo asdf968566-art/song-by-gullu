@@ -57,7 +57,7 @@ class AppContainer(private val app: Application) {
     val lyrics = LyricsRepository(database.lyricsDao(), online)
     val importer = PlaylistImporter(app, local, online)
     val equalizer = EqualizerManager(app)
-    val recommendations = RecommendationRepository(app, library, local, online)
+    val recommendations = RecommendationRepository(app, library, local, online, settings)
     val player = PlayerConnection(app, library, scope).apply {
         radio = { seed, exclude -> recommendations.radio(seed, exclude) }
         autoplayEnabled = { settings.current.autoplay }

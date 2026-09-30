@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import com.sangeet.player.data.Categories
 import com.sangeet.player.data.model.Track
 import com.sangeet.player.ui.LocalAppContainer
 import com.sangeet.player.ui.components.EmptyState
@@ -46,7 +47,10 @@ fun TrackListScreen(nav: NavController, kind: ListKind, arg: String) {
     val fromDb by flow.collectAsState(initial = null)
 
     val genreTracks by produceState<List<Track>?>(initialValue = null, kind, arg) {
-        value = if (kind == ListKind.GENRE) c.online.trending(arg).flatMap { it.tracks } else emptyList()
+        value = if (kind == ListKind.GENRE) {
+            val cat = Categories.find(arg)
+            if (cat != null) c.online.searchAll(cat.query) else c.online.trending(arg).flatMap { it.tracks }.distinctBy { it.id }
+        } else emptyList()
     }
 
     val tracks: List<Track>? = when (kind) {
@@ -64,7 +68,7 @@ fun TrackListScreen(nav: NavController, kind: ListKind, arg: String) {
         ListKind.LOCAL -> "Phone ke gaane" to "Local files"
         ListKind.ALBUM -> (tracks?.firstOrNull()?.album?.ifBlank { null } ?: "Album") to (tracks?.firstOrNull()?.artist ?: "")
         ListKind.ARTIST -> arg to "Artist"
-        ListKind.GENRE -> arg to "Trending online"
+        ListKind.GENRE -> (Categories.find(arg)?.let { "${it.emoji} ${it.name}" } ?: arg) to "Online"
     }
 
     menuFor?.let { TrackOptionsSheet(it, onDismiss = { menuFor = null }) }

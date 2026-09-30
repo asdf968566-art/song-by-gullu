@@ -116,7 +116,7 @@ fun SangeetRoot() {
                 }
             },
         ) { padding ->
-            NavHost(nav, startDestination = Routes.HOME, modifier = Modifier.padding(padding)) {
+            NavHost(nav, startDestination = Routes.DISCOVER, modifier = Modifier.padding(padding)) {
                 composable(Routes.HOME) { HomeScreen(nav) }
                 composable(Routes.DISCOVER) { DiscoverScreen(nav) }
                 composable(Routes.MIX, arguments = listOf(navArgument("id") { type = NavType.StringType })) { entry ->
@@ -165,8 +165,8 @@ private data class Tab(val route: String, val label: String, val icon: ImageVect
 private fun BottomNav(nav: NavHostController) {
     val spec = Sangeet.spec
     val tabs = listOf(
+        Tab(Routes.DISCOVER, "For You", Icons.Outlined.Explore, Icons.Rounded.Explore),
         Tab(Routes.HOME, "Home", Icons.Outlined.Home, Icons.Rounded.Home),
-        Tab(Routes.DISCOVER, "Discover", Icons.Outlined.Explore, Icons.Rounded.Explore),
         Tab(Routes.SEARCH, "Search", Icons.Outlined.Search, Icons.Rounded.Search),
         Tab(Routes.LIBRARY, "Your Library", Icons.Outlined.LibraryMusic, Icons.Rounded.LibraryMusic),
     )

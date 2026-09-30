@@ -59,7 +59,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavController
 import com.sangeet.player.AppContainer
+import com.sangeet.player.data.lyrics.Lyrics
 import com.sangeet.player.data.model.Track
+import com.sangeet.player.ui.nowplaying.LyricsView
 import com.sangeet.player.data.recommend.Suggestion
 import com.sangeet.player.ui.LocalAppContainer
 import com.sangeet.player.ui.appViewModel
@@ -110,7 +112,14 @@ fun DiscoverScreen(nav: NavController) {
     val favorites by c.library.favoriteIds.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     var menuFor by remember { mutableStateOf<Track?>(null) }
+    val settings by c.settings.settings.collectAsStateWithLifecycle()
     val items by rememberUpdatedState(ui.items)
+    // Chal rahe gaane ke lyrics (Resso jaisa feed pe hi dikhte hain)
+    var lyrics by remember { mutableStateOf<Pair<String, Lyrics?>?>(null) }
+    LaunchedEffect(state.current?.id) {
+        val t = state.current ?: return@LaunchedEffect
+        lyrics = t.id to runCatching { c.lyrics.get(t, allowOnline = settings.autoLyrics) }.getOrNull()
+    }
     val pager = rememberPagerState { items.size }
 
     menuFor?.let { TrackOptionsSheet(it, onDismiss = { menuFor = null }) }
@@ -192,6 +201,9 @@ fun DiscoverScreen(nav: NavController) {
                     isBuffering = isCurrent && state.isBuffering,
                     progress = if (isCurrent && state.durationMs > 0) state.positionMs.toFloat() / state.durationMs else 0f,
                     liked = s.track.id in favorites,
+                    lyrics = lyrics?.takeIf { isCurrent && it.first == s.track.id }?.second,
+                    positionMs = if (isCurrent) state.positionMs else 0L,
+                    onSeek = c.player::seekTo,
                     showHint = page == 0,
                     onPlay = { if (isCurrent) c.player.togglePlay() else playPage(page) },
                     onLike = { scope.launch { c.library.toggleFavorite(s.track) } },
@@ -208,7 +220,7 @@ fun DiscoverScreen(nav: NavController) {
                 .padding(start = 16.dp, end = 4.dp, top = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Discover", style = MaterialTheme.typography.headlineSmall, color = Color.White, modifier = Modifier.weight(1f))
+            Text("For You", style = MaterialTheme.typography.headlineSmall, color = Color.White, modifier = Modifier.weight(1f))
             IconButton(onClick = vm::refresh) { Icon(Icons.Rounded.Refresh, "Naya feed", tint = Color.White) }
         }
     }
@@ -222,6 +234,9 @@ private fun FeedPage(
     isBuffering: Boolean,
     progress: Float,
     liked: Boolean,
+    lyrics: Lyrics?,
+    positionMs: Long,
+    onSeek: (Long) -> Unit,
     showHint: Boolean,
     onPlay: () -> Unit,
     onLike: () -> Unit,
@@ -261,7 +276,7 @@ private fun FeedPage(
                 Artwork(
                     t.artworkUrl,
                     modifier = Modifier
-                        .widthIn(max = 320.dp)
+                        .widthIn(max = 280.dp)
                         .fillMaxWidth()
                         .aspectRatio(1f)
                         .clickable(onClick = onPlay),
@@ -334,6 +349,17 @@ private fun FeedPage(
                 IconButton(onClick = onMore) {
                     Icon(Icons.Rounded.MoreVert, "Options", tint = Color.White, modifier = Modifier.size(30.dp))
                 }
+            }
+            if (lyrics != null) {
+                Spacer(Modifier.height(12.dp))
+                LyricsView(
+                    lyrics,
+                    positionMs,
+                    onSeek = onSeek,
+                    textColor = Color.White,
+                    compact = true,
+                    modifier = Modifier.fillMaxWidth().height(96.dp),
+                )
             }
             Spacer(Modifier.height(16.dp))
             if (isCurrent) {

@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [
@@ -15,7 +17,7 @@ import androidx.room.RoomDatabase
         DownloadEntity::class,
         LyricsEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = false,
 )
 abstract class SangeetDatabase : RoomDatabase() {
@@ -27,8 +29,16 @@ abstract class SangeetDatabase : RoomDatabase() {
     abstract fun lyricsDao(): LyricsDao
 
     companion object {
+        /** v2: gaane ki bhasha (Hindi / Punjabi ...). Purana data safe rehta hai. */
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE tracks ADD COLUMN language TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         fun create(context: Context): SangeetDatabase =
             Room.databaseBuilder(context, SangeetDatabase::class.java, "sangeet.db")
+                .addMigrations(MIGRATION_1_2)
                 .fallbackToDestructiveMigration()
                 .build()
     }

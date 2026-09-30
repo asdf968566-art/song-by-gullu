@@ -40,6 +40,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavController
 import com.sangeet.player.AppContainer
+import com.sangeet.player.data.Categories
+import com.sangeet.player.data.Category
 import com.sangeet.player.data.SourceResult
 import com.sangeet.player.data.model.Track
 import com.sangeet.player.data.recommend.Suggestion
@@ -60,6 +62,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 
 class HomeViewModel(private val c: AppContainer) : ViewModel() {
@@ -67,6 +71,8 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
         val loading: Boolean = false,
         val trending: List<SourceResult> = emptyList(),
         val suggestions: List<Suggestion> = emptyList(),
+        /** "🎵 Hindi Romantic", "🥁 Punjabi Hits"... wali lines. */
+        val categories: List<Pair<Category, List<Track>>> = emptyList(),
     )
 
     private val _ui = MutableStateFlow(Ui())
@@ -94,6 +100,13 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
             launch {
                 val picks = runCatching { c.recommendations.suggestions(limit = 20) }.getOrDefault(emptyList())
                 _ui.value = _ui.value.copy(suggestions = picks)
+            }
+            launch {
+                val cats = Categories.ordered(c.settings.current.languages).take(6)
+                val rows = cats.map { cat ->
+                    async { cat to runCatching { c.online.searchAll(cat.query).take(20) }.getOrDefault(emptyList()) }
+                }.awaitAll().filter { it.second.isNotEmpty() }
+                _ui.value = _ui.value.copy(categories = rows)
             }
             launch {
                 runCatching {
@@ -234,6 +247,18 @@ fun HomeScreen(nav: NavController) {
         if (suggested.isNotEmpty()) {
             item { SectionHeader("Aapke liye suggest") }
             item { TrackShelf(suggested, onPlay = { c.player.play(suggested, it) }, onMore = { menuFor = it }) }
+        }
+        if (!offline) {
+            ui.categories.forEach { (cat, tracks) ->
+                item(key = "cat_h_${cat.name}") {
+                    SectionHeader("${cat.emoji} ${cat.name}", action = "Sab dekho") {
+                        nav.navigate(Routes.list(ListKind.GENRE, cat.name))
+                    }
+                }
+                item(key = "cat_${cat.name}") {
+                    TrackShelf(tracks, onPlay = { c.player.play(tracks, it) }, onMore = { menuFor = it })
+                }
+            }
         }
         if (filter != 1 && recent.isNotEmpty()) {
             item { SectionHeader("Recently played") }

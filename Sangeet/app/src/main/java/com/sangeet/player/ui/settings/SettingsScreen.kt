@@ -93,7 +93,7 @@ fun SettingsScreen(nav: NavController) {
             SettingsSwitch(Icons.Rounded.Wifi, "Sirf Wi-Fi pe download", "Mobile data pe download ruke rahenge", s.downloadOnWifiOnly) {
                 scope.launch { c.settings.setDownloadOnWifiOnly(it) }
             }
-            SettingsItem(Icons.Rounded.Public, "Music sources", "Audius, Jamendo, apna server (Navidrome/Subsonic)", onClick = {
+            SettingsItem(Icons.Rounded.Public, "Music sources", "JioSaavn, YouTube, Audius, Jamendo, apna server • Bhasha", onClick = {
                 nav.navigate(Routes.SOURCES)
             })
         }

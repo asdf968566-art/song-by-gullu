@@ -53,6 +53,12 @@ data class AppSettings(
     val autoplay: Boolean = true,
     val autoPlaylists: Boolean = true,
     val audiusEnabled: Boolean = true,
+    val jiosaavnEnabled: Boolean = true,
+    val youtubeEnabled: Boolean = true,
+    /** Optional: YouTube Data API v3 key (metadata/search/trending ke liye). Khaali = bina key (NewPipe). */
+    val youtubeApiKey: String = "",
+    /** Pasandida bhashayein, jaise hindi, punjabi. Trending aur suggestions inhi se. */
+    val languages: List<String> = listOf("hindi", "punjabi"),
     val jamendoClientId: String = "",
     val subsonicUrl: String = "",
     val subsonicUser: String = "",
@@ -82,6 +88,10 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val autoplay = booleanPreferencesKey("autoplay")
         val autoPlaylists = booleanPreferencesKey("auto_playlists")
         val audiusEnabled = booleanPreferencesKey("audius_enabled")
+        val jiosaavnEnabled = booleanPreferencesKey("jiosaavn_enabled")
+        val youtubeEnabled = booleanPreferencesKey("youtube_enabled")
+        val youtubeApiKey = stringPreferencesKey("youtube_api_key")
+        val languages = stringPreferencesKey("languages")
         val jamendoClientId = stringPreferencesKey("jamendo_client_id")
         val subsonicUrl = stringPreferencesKey("subsonic_url")
         val subsonicUser = stringPreferencesKey("subsonic_user")
@@ -109,6 +119,11 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             autoplay = p[Keys.autoplay] ?: d.autoplay,
             autoPlaylists = p[Keys.autoPlaylists] ?: d.autoPlaylists,
             audiusEnabled = p[Keys.audiusEnabled] ?: d.audiusEnabled,
+            jiosaavnEnabled = p[Keys.jiosaavnEnabled] ?: d.jiosaavnEnabled,
+            youtubeEnabled = p[Keys.youtubeEnabled] ?: d.youtubeEnabled,
+            youtubeApiKey = p[Keys.youtubeApiKey] ?: d.youtubeApiKey,
+            languages = p[Keys.languages]?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }
+                ?.takeIf { it.isNotEmpty() } ?: d.languages,
             jamendoClientId = p[Keys.jamendoClientId] ?: d.jamendoClientId,
             subsonicUrl = p[Keys.subsonicUrl] ?: d.subsonicUrl,
             subsonicUser = p[Keys.subsonicUser] ?: d.subsonicUser,
@@ -134,6 +149,10 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     suspend fun setAutoplay(v: Boolean) = context.dataStore.edit { it[Keys.autoplay] = v }
     suspend fun setAutoPlaylists(v: Boolean) = context.dataStore.edit { it[Keys.autoPlaylists] = v }
     suspend fun setAudiusEnabled(v: Boolean) = context.dataStore.edit { it[Keys.audiusEnabled] = v }
+    suspend fun setJioSaavnEnabled(v: Boolean) = context.dataStore.edit { it[Keys.jiosaavnEnabled] = v }
+    suspend fun setYouTubeEnabled(v: Boolean) = context.dataStore.edit { it[Keys.youtubeEnabled] = v }
+    suspend fun setYouTubeApiKey(v: String) = context.dataStore.edit { it[Keys.youtubeApiKey] = v.trim() }
+    suspend fun setLanguages(v: List<String>) = context.dataStore.edit { it[Keys.languages] = v.joinToString(",") }
     suspend fun setJamendoClientId(v: String) = context.dataStore.edit { it[Keys.jamendoClientId] = v.trim() }
 
     /** Password save nahi hota, sirf Subsonic token = md5(password + salt). */

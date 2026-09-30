@@ -6,6 +6,8 @@ import kotlinx.serialization.Serializable
 @Serializable
 enum class SourceType(val label: String) {
     LOCAL("Phone"),
+    JIOSAAVN("JioSaavn"),
+    YOUTUBE("YouTube"),
     AUDIUS("Audius"),
     JAMENDO("Jamendo"),
     SUBSONIC("My Server"),
@@ -40,6 +42,8 @@ data class Track(
     val streamUrl: String? = null,
     val filePath: String? = null,
     val albumId: Long = 0L,
+    /** "hindi", "punjabi", "english"... (pata ho to). Suggestions mein kaam aata hai. */
+    val language: String = "",
 ) {
     companion object {
         fun makeId(source: SourceType, sourceId: String) = "${source.name.lowercase()}:$sourceId"

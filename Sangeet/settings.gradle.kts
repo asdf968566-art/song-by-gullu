@@ -17,6 +17,8 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // NewPipeExtractor (YouTube) JitPack pe milta hai.
+        maven("https://jitpack.io")
     }
 }
 

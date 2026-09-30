@@ -24,7 +24,11 @@ object Http {
         .followRedirects(true)
         .followSslRedirects(true)
         .addInterceptor { chain ->
-            chain.proceed(chain.request().newBuilder().header("User-Agent", USER_AGENT).build())
+            val req = chain.request()
+            // YouTube ke stream ko wahi User-Agent chahiye jis client se link bana tha.
+            val ua = if (req.url.host.endsWith("googlevideo.com")) YouTubeSource.userAgentForStream(req.url.toString())
+            else USER_AGENT
+            chain.proceed(req.newBuilder().header("User-Agent", ua).build())
         }
         .build()
 

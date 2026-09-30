@@ -6,7 +6,11 @@ phone ke gaane + online free music, offline download aur synced lyrics.
 ## Features
 
 - **Phone ke gaane**: albums, artists, poori list (MediaStore se)
+- **For You feed (Resso jaisa)**: app khulte hi scroll feed — upar scroll karo, agla gaana apne aap, lyrics saath mein
+- **Indian gaane**: JioSaavn (Hindi, Punjabi, Bollywood, 320 kbps tak) + YouTube / YouTube Music (NewPipeExtractor, bina key)
 - **Online music**: Audius (bina key ke), Jamendo (free client_id), apna Navidrome/Subsonic server
+- **Categories**: Bollywood Hits, Hindi Romantic, Punjabi Hits, Party, Lofi, Sad, Old is Gold, Haryanvi, Bhojpuri, Bhakti...
+- **YouTube share**: YouTube app mein Share → Sangeet, gaana seedha bajega
 - **Offline downloads**: online gaane app ke andar save hote hain
 - **Lyrics**: LRCLIB se synced lyrics, ya apni `.lrc` file import karo
 - **Playlists**: banao, rename karo, M3U8 export karo; M3U / PLS / CSV (Exportify) / TXT import
@@ -51,3 +55,15 @@ Har push pe:
 - **build**: APK banta hai
 - **api-check**: Audius (gaane + stream) aur LRCLIB (lyrics) sach mein chal rahe hain ya nahi
 - **emulator-test**: Android emulator pe APK install hota hai, asli gaana bajaya jaata hai aur check hota hai ki wo PLAYING state mein hai. Screenshots `emulator-screenshots-and-logs` artifact mein milte hain.
+
+## YouTube Data API key (optional, free)
+Bina key ke bhi YouTube chalta hai. Key doge to search aur India trending official API se aayenge:
+1. https://console.cloud.google.com kholo → upar project dropdown → **New Project** banao
+2. **APIs & Services → Library** → "YouTube Data API v3" search karo → **Enable**
+3. **APIs & Services → Credentials → Create credentials → API key** → key copy karo
+4. (Behtar) key pe **Restrict key → API restrictions → YouTube Data API v3** chuno
+5. App mein **Settings → Music sources → YouTube** mein key daalo → **Save & test**
+
+Free quota: 10,000 units/din. Search = 100 units (~100 search/din), trending = 1 unit. Credit card nahi chahiye.
+
+> JioSaavn aur YouTube unofficial tareeke se chalte hain — ye app sirf personal use ke liye hai.
