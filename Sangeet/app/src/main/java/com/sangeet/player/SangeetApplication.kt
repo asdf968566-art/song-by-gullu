@@ -22,6 +22,7 @@ import com.sangeet.player.data.playlist.PlaylistImporter
 import com.sangeet.player.data.recommend.RecommendationRepository
 import com.sangeet.player.data.remote.Http
 import com.sangeet.player.data.settings.SettingsRepository
+import com.sangeet.player.data.update.AppUpdater
 import com.sangeet.player.playback.EqualizerManager
 import com.sangeet.player.playback.PlayerConnection
 import com.sangeet.player.playback.StreamResolver
@@ -60,6 +61,7 @@ class AppContainer(private val app: Application) {
     val lyrics = LyricsRepository(database.lyricsDao(), online)
     val importer = PlaylistImporter(app, local, online)
     val equalizer = EqualizerManager(app)
+    val updater = AppUpdater(app, settings)
     val recommendations = RecommendationRepository(app, library, local, online, settings)
     val player = PlayerConnection(app, library, scope).apply {
         radio = { seed, exclude -> recommendations.radio(seed, exclude) }

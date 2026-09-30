@@ -75,8 +75,37 @@ class OnlineRepository(
     fun streamUrl(track: Track, quality: AudioQuality): String? = when (track.source) {
         SourceType.LOCAL -> null
         SourceType.URL -> track.streamUrl
+        SourceType.YOUTUBE -> try {
+            saavnOrYouTube(track, quality)
+        } catch (e: Exception) {
+            // YouTube ne roka (bot check / band video) -> wahi gaana JioSaavn pe dhoondh ke bajao.
+            jioSaavnFallback(track, quality) ?: throw e
+        }
         else -> source(track.source)?.streamUrl(track, quality, settings.current)
     }
+
+    private fun saavnOrYouTube(track: Track, quality: AudioQuality): String =
+        source(SourceType.YOUTUBE)!!.streamUrl(track, quality, settings.current)
+
+    /** Player ke loader thread se chalta hai, isliye runBlocking theek hai. */
+    private fun jioSaavnFallback(track: Track, quality: AudioQuality): String? {
+        if (!settings.current.jiosaavnEnabled) return null
+        val want = norm(track.title)
+        if (want.isBlank()) return null
+        val results = runCatching {
+            kotlinx.coroutines.runBlocking { saavn.search("${track.title} ${track.artist}".trim(), settings.current) }
+        }.getOrDefault(emptyList())
+        val match = results.firstOrNull { norm(it.title) == want }
+            ?: results.firstOrNull { norm(it.title).contains(want) || want.contains(norm(it.title)) }
+            ?: return null
+        android.util.Log.i("Sangeet", "YouTube fallback -> JioSaavn: '${track.title}' = '${match.title}' (${match.artist})")
+        return saavn.streamUrl(match, quality, settings.current)
+    }
+
+    private fun norm(s: String) = s.lowercase()
+        .replace(Regex("""\(.*?\)|\[.*?]"""), "")
+        .replace(Regex("[^\\p{L}\\p{N}]+"), " ")
+        .trim()
 
     fun qualityLabel(track: Track, quality: AudioQuality): String = when (track.source) {
         SourceType.LOCAL -> "Phone file"

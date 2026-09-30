@@ -60,6 +60,8 @@ data class AppSettings(
     val youtubeApiKey: String = BuildConfig.YOUTUBE_API_KEY,
     /** Pasandida bhashayein, jaise hindi, punjabi. Trending aur suggestions inhi se. */
     val languages: List<String> = listOf("hindi", "punjabi"),
+    /** App update ke liye read-only GitHub token (private repo). */
+    val githubToken: String = "",
     val jamendoClientId: String = "",
     val subsonicUrl: String = "",
     val subsonicUser: String = "",
@@ -93,6 +95,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val youtubeEnabled = booleanPreferencesKey("youtube_enabled")
         val youtubeApiKey = stringPreferencesKey("youtube_api_key")
         val languages = stringPreferencesKey("languages")
+        val githubToken = stringPreferencesKey("github_token")
         val jamendoClientId = stringPreferencesKey("jamendo_client_id")
         val subsonicUrl = stringPreferencesKey("subsonic_url")
         val subsonicUser = stringPreferencesKey("subsonic_user")
@@ -125,6 +128,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             youtubeApiKey = p[Keys.youtubeApiKey] ?: d.youtubeApiKey,
             languages = p[Keys.languages]?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }
                 ?.takeIf { it.isNotEmpty() } ?: d.languages,
+            githubToken = p[Keys.githubToken] ?: d.githubToken,
             jamendoClientId = p[Keys.jamendoClientId] ?: d.jamendoClientId,
             subsonicUrl = p[Keys.subsonicUrl] ?: d.subsonicUrl,
             subsonicUser = p[Keys.subsonicUser] ?: d.subsonicUser,
@@ -154,6 +158,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     suspend fun setYouTubeEnabled(v: Boolean) = context.dataStore.edit { it[Keys.youtubeEnabled] = v }
     suspend fun setYouTubeApiKey(v: String) = context.dataStore.edit { it[Keys.youtubeApiKey] = v.trim() }
     suspend fun setLanguages(v: List<String>) = context.dataStore.edit { it[Keys.languages] = v.joinToString(",") }
+    suspend fun setGithubToken(v: String) = context.dataStore.edit { it[Keys.githubToken] = v.trim() }
     suspend fun setJamendoClientId(v: String) = context.dataStore.edit { it[Keys.jamendoClientId] = v.trim() }
 
     /** Password save nahi hota, sirf Subsonic token = md5(password + salt). */

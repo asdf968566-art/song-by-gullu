@@ -42,9 +42,10 @@ jobs:
         run: |
           cp Sangeet/app/build/outputs/apk/debug/app-debug.apk Sangeet.apk
           gh release delete latest --yes --cleanup-tag || true
+          # App ka updater title se "build N" padhta hai.
           gh release create latest Sangeet.apk \
-            --title "Sangeet (latest build)" \
-            --notes "Commit ${GITHUB_SHA::7} se bana APK. Sangeet.apk download karke phone me install karo."
+            --title "Sangeet build ${{ github.run_number }}" \
+            --notes "Version 1.0.${{ github.run_number }} (build ${{ github.run_number }}) — commit ${GITHUB_SHA::7}. Sangeet.apk download karke install karo, ya app mein Settings → App update."
         env:
           GH_TOKEN: ${{ github.token }}
 

@@ -46,6 +46,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.sangeet.player.ui.components.MiniPlayer
+import com.sangeet.player.ui.components.UpdateDialog
 import com.sangeet.player.ui.discover.DiscoverScreen
 import com.sangeet.player.ui.library.MixScreen
 import com.sangeet.player.ui.library.OnlineLibraryScreen
@@ -107,6 +108,10 @@ fun SangeetRoot() {
             container.local.scan()
         }
     }
+
+    // Naya version chupchaap check karo (6 ghante mein ek baar)
+    LaunchedEffect(Unit) { runCatching { container.updater.checkIfDue() } }
+    UpdateDialog()
 
     BackHandler(enabled = expanded) { expanded = false }
 

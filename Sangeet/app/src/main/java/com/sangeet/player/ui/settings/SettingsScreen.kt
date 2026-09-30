@@ -19,6 +19,20 @@ import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.Subtitles
 import androidx.compose.material.icons.rounded.Wifi
+import androidx.compose.material.icons.rounded.SystemUpdate
+import androidx.compose.material.icons.rounded.Key
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import com.sangeet.player.ui.theme.Sangeet
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
@@ -107,8 +121,43 @@ fun SettingsScreen(nav: NavController) {
             })
         }
 
+        SettingsGroup("App update") {
+            SettingsItem(
+                Icons.Rounded.SystemUpdate,
+                "Update check karo",
+                "Abhi: version ${com.sangeet.player.BuildConfig.VERSION_NAME} (build ${c.updater.currentBuild})",
+                onClick = { scope.launch { c.updater.check() } },
+            )
+            var token by remember(s.githubToken) { mutableStateOf(s.githubToken) }
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                Text(
+                    "Repo private hai, isliye ek baar GitHub token daalo (sirf padhne ki permission):\n" +
+                        "github.com/settings/personal-access-tokens/new → Repository access: Only select → song-by-gullu → " +
+                        "Permissions: Contents = Read-only → Generate → copy karke yahan daalo.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Sangeet.spec.muted,
+                )
+                OutlinedTextField(
+                    value = token,
+                    onValueChange = { token = it },
+                    label = { Text("GitHub token") },
+                    leadingIcon = { androidx.compose.material3.Icon(Icons.Rounded.Key, null) },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                )
+                TextButton(onClick = {
+                    scope.launch {
+                        c.settings.setGithubToken(token)
+                        c.updater.check()
+                    }
+                }) { Text("Save & update check karo") }
+            }
+        }
+
         SettingsGroup("About") {
-            SettingsItem(Icons.Rounded.Info, "Sangeet 1.0", "Kotlin + Jetpack Compose + Media3 • Lyrics: LRCLIB")
+            SettingsItem(Icons.Rounded.Info, "Sangeet ${com.sangeet.player.BuildConfig.VERSION_NAME}", "Kotlin + Jetpack Compose + Media3 • Lyrics: LRCLIB")
         }
         Spacer(Modifier.height(32.dp))
     }

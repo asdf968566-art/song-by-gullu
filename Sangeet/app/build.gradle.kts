@@ -14,9 +14,12 @@ android {
         applicationId = "com.sangeet.player"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        // GitHub Actions ka run number = build number, taaki app naya version pehchaan sake.
+        val build = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
+        versionCode = build
+        versionName = "1.0.$build"
         vectorDrawables { useSupportLibrary = true }
+        buildConfigField("String", "UPDATE_REPO", "\"asdf968566-art/song-by-gullu\"")
         buildConfigField(
             "String",
             "YOUTUBE_API_KEY",
