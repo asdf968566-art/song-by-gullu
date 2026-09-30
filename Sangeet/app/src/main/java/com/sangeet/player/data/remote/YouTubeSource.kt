@@ -217,19 +217,39 @@ class YouTubeSource : OnlineSource {
             .removeSuffix(" - Topic").removeSuffix("VEVO").removeSuffix("Official").trim()
             .ifBlank { "YouTube" }
 
-        /** "Arijit Singh - Kesariya (Official Video)" -> ("Arijit Singh", "Kesariya") */
+        /**
+         * Title saaf karke (artist, gaana) nikaalo.
+         *  - Indian format: "Kesariya - Brahmāstra | Ranbir | Arijit Singh | Pritam" -> ("Arijit Singh"?, "Kesariya")
+         *  - Western format: "Arijit Singh - Kesariya (Official Video)" -> ("Arijit Singh", "Kesariya")
+         */
         private fun splitTitle(raw: String, channel: String): Pair<String, String> {
             val cleaned = raw
-                .replace(Regex("""\s*[\(\[][^)\]]*(official|video|lyric|audio|full song|4k|hd|visualizer)[^)\]]*[\)\]]""", RegexOption.IGNORE_CASE), "")
+                .replace(Regex("""\s*[\(\[][^)\]]*(official|video|lyric|audio|full song|4k|8k|hd|visualizer)[^)\]]*[\)\]]""", RegexOption.IGNORE_CASE), "")
+                .replace(Regex("""^(video|audio|lyrical|full video)\s*\|\s*""", RegexOption.IGNORE_CASE), "")
+                .replace(Regex("""@\S+"""), "")
                 .trim()
-            val sep = listOf(" - ", " – ", " | ").firstOrNull { cleaned.contains(it) }
+            if (cleaned.contains(" | ")) {
+                val parts = cleaned.split(" | ").map { it.trim() }.filter { it.isNotEmpty() }
+                // Pehla hissa gaana hai ("Kesariya - Brahmāstra" -> "Kesariya")
+                val title = parts.first().substringBefore(" - ").substringBefore(" – ").trim()
+                val singer = parts.drop(1).firstOrNull { p -> KNOWN_SINGERS.any { p.contains(it, ignoreCase = true) } }
+                return (singer ?: channel) to title.ifBlank { cleaned }
+            }
+            val sep = listOf(" - ", " – ").firstOrNull { cleaned.contains(it) }
             if (sep != null) {
                 val left = cleaned.substringBefore(sep).trim()
-                val right = cleaned.substringAfter(sep).substringBefore(" | ").trim()
+                val right = cleaned.substringAfter(sep).trim()
                 if (left.isNotBlank() && right.isNotBlank()) return left to right
             }
             return channel to cleaned
         }
+
+        private val KNOWN_SINGERS = listOf(
+            "Arijit", "Shreya Ghoshal", "Atif Aslam", "Jubin", "Neha Kakkar", "Sonu Nigam", "Kishore", "Lata",
+            "Honey Singh", "Badshah", "Diljit", "Karan Aujla", "Sidhu Moose", "AP Dhillon", "Shubh", "B Praak",
+            "Darshan Raval", "Armaan Malik", "Vishal Mishra", "Pritam", "A.R. Rahman", "Sachet", "Mohit Chauhan",
+            "Sunidhi", "KK", "Anuv Jain", "King", "Pawan Singh", "Khesari", "Masoom Sharma", "Guru Randhawa",
+        )
 
         /** Thumbnail ko square cover jaisa (YouTube Music thumbnails pe size badal sakte hain). */
         private fun squareArt(url: String) = url.replace(Regex("=w\\d+-h\\d+"), "=w544-h544")

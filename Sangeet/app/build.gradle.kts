@@ -19,6 +19,16 @@ android {
         vectorDrawables { useSupportLibrary = true }
     }
 
+    // Har build ek hi key se sign ho, taaki naya APK purane ke upar install ho jaye (data safe rahe).
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("sangeet-debug.jks")
+            storePassword = "sangeet123"
+            keyAlias = "sangeet"
+            keyPassword = "sangeet123"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
