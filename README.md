@@ -16,7 +16,11 @@ phone ke gaane + online free music, offline download aur synced lyrics.
 
 ## APK kaise milega
 
-### GitHub se (bina Android Studio ke)
+### Sabse aasaan: Releases se
+Repo ke **Releases** section me **Sangeet (latest build)** kholo aur `Sangeet.apk` download karke phone me install karo.
+`main` pe har push ke baad ye APK apne aap update hota hai.
+
+### GitHub Actions se (kisi bhi branch ka build)
 1. Repo ka **Actions** tab kholo → **Build APK** workflow.
 2. Sabse upar wala green ✓ run kholo.
 3. Neeche **Artifacts** me `Sangeet-debug-apk` download karo, zip kholo, APK phone me install karo.
