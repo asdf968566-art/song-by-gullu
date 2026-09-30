@@ -9,6 +9,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CloudOff
@@ -37,11 +42,13 @@ import androidx.navigation.NavController
 import com.sangeet.player.AppContainer
 import com.sangeet.player.data.SourceResult
 import com.sangeet.player.data.model.Track
+import com.sangeet.player.data.recommend.Suggestion
 import com.sangeet.player.ui.Routes
 import com.sangeet.player.ui.appViewModel
 import com.sangeet.player.ui.components.LoadingBox
 import com.sangeet.player.ui.components.QuickTile
 import com.sangeet.player.ui.components.SectionHeader
+import com.sangeet.player.ui.components.ShelfCard
 import com.sangeet.player.ui.components.TrackOptionsSheet
 import com.sangeet.player.ui.components.TrackShelf
 import com.sangeet.player.ui.library.ListKind
@@ -52,10 +59,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChangedBy
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 class HomeViewModel(private val c: AppContainer) : ViewModel() {
-    data class Ui(val loading: Boolean = false, val trending: List<SourceResult> = emptyList())
+    data class Ui(
+        val loading: Boolean = false,
+        val trending: List<SourceResult> = emptyList(),
+        val suggestions: List<Suggestion> = emptyList(),
+    )
 
     private val _ui = MutableStateFlow(Ui())
     val ui: StateFlow<Ui> = _ui.asStateFlow()
@@ -72,11 +84,25 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
         }
     }
 
-    fun refresh() {
-        viewModelScope.launch {
+    private var job: Job? = null
+
+    /** [force] = user ne refresh dabaya: mixes aur auto playlists bhi abhi naye banao. */
+    fun refresh(force: Boolean = false) {
+        job?.cancel()
+        job = viewModelScope.launch {
             _ui.value = _ui.value.copy(loading = true)
+            launch {
+                val picks = runCatching { c.recommendations.suggestions(limit = 20) }.getOrDefault(emptyList())
+                _ui.value = _ui.value.copy(suggestions = picks)
+            }
+            launch {
+                runCatching {
+                    if (c.settings.current.autoPlaylists) c.recommendations.syncAutoPlaylists(force = force)
+                    c.recommendations.refreshMixes(force = force)
+                }
+            }
             val results = c.online.trending()
-            _ui.value = Ui(loading = false, trending = results)
+            _ui.value = _ui.value.copy(loading = false, trending = results)
         }
     }
 }
@@ -98,6 +124,7 @@ fun HomeScreen(nav: NavController) {
     val spec = Sangeet.spec
     val offline = settings.offlineMode || !network.online
     val picks = remember(localSongs) { localSongs.shuffled().take(20) }
+    val mixes by c.recommendations.mixes.collectAsStateWithLifecycle()
 
     menuFor?.let { TrackOptionsSheet(it, onDismiss = { menuFor = null }) }
 
@@ -110,7 +137,7 @@ fun HomeScreen(nav: NavController) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(greeting(), style = MaterialTheme.typography.headlineMedium, color = spec.onSurface, modifier = Modifier.weight(1f))
-                IconButton(onClick = vm::refresh) { Icon(Icons.Rounded.Refresh, "Refresh", tint = spec.onSurface) }
+                IconButton(onClick = { vm.refresh(force = true) }) { Icon(Icons.Rounded.Refresh, "Refresh", tint = spec.onSurface) }
                 IconButton(onClick = { nav.navigate(Routes.SETTINGS) }) { Icon(Icons.Rounded.Settings, "Settings", tint = spec.onSurface) }
             }
         }
@@ -175,6 +202,39 @@ fun HomeScreen(nav: NavController) {
             }
         }
 
+        // Discover feed ka rasta
+        item {
+            Row(
+                Modifier
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .fillMaxWidth()
+                    .themedCard(spec, RoundedCornerShape(12.dp), corner = 12.dp)
+                    .clickable { nav.navigate(Routes.DISCOVER) }
+                    .padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Rounded.Explore, null, tint = spec.accent)
+                Column(Modifier.padding(start = 12.dp)) {
+                    Text("Discover feed", style = MaterialTheme.typography.titleSmall, color = spec.onSurface)
+                    Text("Scroll karo, gaane apne aap bajenge — aapke taste ke hisaab se", style = MaterialTheme.typography.bodySmall, color = spec.muted)
+                }
+            }
+        }
+        if (mixes.isNotEmpty()) {
+            item { SectionHeader("Made for you") }
+            item {
+                LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    items(mixes, key = { it.id }) { m ->
+                        ShelfCard(m.title, m.subtitle, m.artworkUrl, onClick = { nav.navigate(Routes.mix(m.id)) })
+                    }
+                }
+            }
+        }
+        val suggested = ui.suggestions.map { it.track }.filter { !offline || !it.source.isOnline }
+        if (suggested.isNotEmpty()) {
+            item { SectionHeader("Aapke liye suggest") }
+            item { TrackShelf(suggested, onPlay = { c.player.play(suggested, it) }, onMore = { menuFor = it }) }
+        }
         if (filter != 1 && recent.isNotEmpty()) {
             item { SectionHeader("Recently played") }
             item { TrackShelf(recent, onPlay = { c.player.play(recent, it) }, onMore = { menuFor = it }) }

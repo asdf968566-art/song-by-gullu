@@ -50,6 +50,8 @@ data class AppSettings(
     val autoLyrics: Boolean = true,
     val skipSilence: Boolean = false,
     val playbackSpeed: Float = 1f,
+    val autoplay: Boolean = true,
+    val autoPlaylists: Boolean = true,
     val audiusEnabled: Boolean = true,
     val jamendoClientId: String = "",
     val subsonicUrl: String = "",
@@ -77,6 +79,8 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val autoLyrics = booleanPreferencesKey("auto_lyrics")
         val skipSilence = booleanPreferencesKey("skip_silence")
         val playbackSpeed = floatPreferencesKey("playback_speed")
+        val autoplay = booleanPreferencesKey("autoplay")
+        val autoPlaylists = booleanPreferencesKey("auto_playlists")
         val audiusEnabled = booleanPreferencesKey("audius_enabled")
         val jamendoClientId = stringPreferencesKey("jamendo_client_id")
         val subsonicUrl = stringPreferencesKey("subsonic_url")
@@ -102,6 +106,8 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             autoLyrics = p[Keys.autoLyrics] ?: d.autoLyrics,
             skipSilence = p[Keys.skipSilence] ?: d.skipSilence,
             playbackSpeed = p[Keys.playbackSpeed] ?: d.playbackSpeed,
+            autoplay = p[Keys.autoplay] ?: d.autoplay,
+            autoPlaylists = p[Keys.autoPlaylists] ?: d.autoPlaylists,
             audiusEnabled = p[Keys.audiusEnabled] ?: d.audiusEnabled,
             jamendoClientId = p[Keys.jamendoClientId] ?: d.jamendoClientId,
             subsonicUrl = p[Keys.subsonicUrl] ?: d.subsonicUrl,
@@ -125,6 +131,8 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     suspend fun setAutoLyrics(v: Boolean) = context.dataStore.edit { it[Keys.autoLyrics] = v }
     suspend fun setSkipSilence(v: Boolean) = context.dataStore.edit { it[Keys.skipSilence] = v }
     suspend fun setPlaybackSpeed(v: Float) = context.dataStore.edit { it[Keys.playbackSpeed] = v }
+    suspend fun setAutoplay(v: Boolean) = context.dataStore.edit { it[Keys.autoplay] = v }
+    suspend fun setAutoPlaylists(v: Boolean) = context.dataStore.edit { it[Keys.autoPlaylists] = v }
     suspend fun setAudiusEnabled(v: Boolean) = context.dataStore.edit { it[Keys.audiusEnabled] = v }
     suspend fun setJamendoClientId(v: String) = context.dataStore.edit { it[Keys.jamendoClientId] = v.trim() }
 

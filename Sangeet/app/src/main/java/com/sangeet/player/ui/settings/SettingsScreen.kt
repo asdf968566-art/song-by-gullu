@@ -8,7 +8,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.CloudOff
+import androidx.compose.material.icons.rounded.AllInclusive
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Equalizer
 import androidx.compose.material.icons.rounded.FastForward
@@ -69,6 +71,15 @@ fun SettingsScreen(nav: NavController) {
             SettingsItem(Icons.Rounded.Equalizer, "Equalizer & Bass boost", "Awaaz apne hisaab se", onClick = { nav.navigate(Routes.EQUALIZER) })
             SettingsSwitch(Icons.Rounded.FastForward, "Silence skip karo", "Gaanon ke beech ki khamoshi hatao", s.skipSilence) {
                 scope.launch { c.settings.setSkipSilence(it) }
+            }
+            SettingsSwitch(Icons.Rounded.AllInclusive, "Autoplay", "Queue khatam ho to aapke track record se milte-julte gaane chalte rahenge", s.autoplay) {
+                scope.launch { c.settings.setAutoplay(it) }
+            }
+            SettingsSwitch(Icons.Rounded.AutoAwesome, "Auto playlists", "Daily Mix, Artist Mix, On Repeat... Library mein apne aap bante aur roz update hote hain", s.autoPlaylists) {
+                scope.launch {
+                    c.settings.setAutoPlaylists(it)
+                    if (it) runCatching { c.recommendations.syncAutoPlaylists(force = true) }
+                }
             }
             SettingsSwitch(Icons.Rounded.Subtitles, "Lyrics apne aap lao", "Online LRCLIB se lyrics, phir offline save", s.autoLyrics) {
                 scope.launch { c.settings.setAutoLyrics(it) }

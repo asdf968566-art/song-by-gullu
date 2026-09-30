@@ -19,6 +19,7 @@ import com.sangeet.player.data.db.SangeetDatabase
 import com.sangeet.player.data.download.DownloadRepository
 import com.sangeet.player.data.lyrics.LyricsRepository
 import com.sangeet.player.data.playlist.PlaylistImporter
+import com.sangeet.player.data.recommend.RecommendationRepository
 import com.sangeet.player.data.remote.Http
 import com.sangeet.player.data.settings.SettingsRepository
 import com.sangeet.player.playback.EqualizerManager
@@ -28,6 +29,8 @@ import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class SangeetApplication : Application() {
     lateinit var container: AppContainer
@@ -54,7 +57,19 @@ class AppContainer(private val app: Application) {
     val lyrics = LyricsRepository(database.lyricsDao(), online)
     val importer = PlaylistImporter(app, local, online)
     val equalizer = EqualizerManager(app)
-    val player = PlayerConnection(app, library, scope)
+    val recommendations = RecommendationRepository(app, library, local, online)
+    val player = PlayerConnection(app, library, scope).apply {
+        radio = { seed, exclude -> recommendations.radio(seed, exclude) }
+        autoplayEnabled = { settings.current.autoplay }
+    }
+
+    init {
+        // Track record se auto playlists roz update hoti rehti hain.
+        scope.launch {
+            delay(8_000)
+            if (settings.current.autoPlaylists) runCatching { recommendations.syncAutoPlaylists() }
+        }
+    }
 
     /** Stream kiye gaane 512 MB tak cache mein rehte hain, dobara bajane pe data nahi lagta. */
     private val mediaCache: SimpleCache by lazy {
