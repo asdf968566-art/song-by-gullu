@@ -26,7 +26,7 @@ data class AppUpdate(val build: Int, val title: String, val notes: String, val a
 
 /**
  * App ke andar se update: GitHub ki "latest" release dekho, naya build ho to APK download karke installer kholo.
- * Repo private hai, isliye Settings mein ek read-only GitHub token chahiye (public repo pe bina token).
+ * Public repo pe bina token chalta hai; private repo ho to Settings mein read-only GitHub token.
  */
 class AppUpdater(private val context: Context, private val settings: SettingsRepository) {
 

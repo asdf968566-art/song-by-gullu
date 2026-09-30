@@ -26,6 +26,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Build debug APK
+        env:
+          # Repo public hai, isliye key Settings → Secrets → Actions mein YOUTUBE_API_KEY naam se rakho.
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon assembleDebug

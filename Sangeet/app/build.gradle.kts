@@ -23,7 +23,8 @@ android {
         buildConfigField(
             "String",
             "YOUTUBE_API_KEY",
-            "\"${project.findProperty("sangeet.youtubeApiKey") ?: ""}\"",
+            // Key repo mein nahi rakhi: GitHub Secret YOUTUBE_API_KEY se aati hai (ya local.properties / -P se).
+            "\"${System.getenv("YOUTUBE_API_KEY") ?: project.findProperty("sangeet.youtubeApiKey") ?: ""}\"",
         )
     }
 
