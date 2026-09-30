@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -41,6 +42,8 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavController
 import com.sangeet.player.AppContainer
 import com.sangeet.player.data.Categories
+import com.sangeet.player.data.Festivals
+import com.sangeet.player.data.model.inLanguages
 import com.sangeet.player.data.Category
 import com.sangeet.player.data.model.OnlinePlaylist
 import com.sangeet.player.data.SourceResult
@@ -75,6 +78,9 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
         /** "🎵 Hindi Romantic", "🥁 Punjabi Hits"... wali lines. */
         val categories: List<Pair<Category, List<Track>>> = emptyList(),
         val charts: List<OnlinePlaylist> = emptyList(),
+        val playlists: List<OnlinePlaylist> = emptyList(),
+        /** Aaj chal rahe tyohaar ke gaane (Navratri, Diwali...). */
+        val festivals: List<Pair<com.sangeet.player.data.Festival, List<Track>>> = emptyList(),
     )
 
     private val _ui = MutableStateFlow(Ui())
@@ -108,9 +114,20 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
                 _ui.value = _ui.value.copy(charts = charts)
             }
             launch {
-                val cats = Categories.ordered(c.settings.current.languages).take(6)
+                val pls = runCatching { c.online.saavn.featuredPlaylists(c.settings.current, 1) }.getOrDefault(emptyList())
+                _ui.value = _ui.value.copy(playlists = pls.take(20))
+            }
+            launch {
+                val fest = Festivals.active().take(2).map { f ->
+                    async { f to runCatching { c.online.searchAll(f.query).filter { it.inLanguages(c.settings.current.languages) }.take(20) }.getOrDefault(emptyList()) }
+                }.awaitAll().filter { it.second.isNotEmpty() }
+                _ui.value = _ui.value.copy(festivals = fest)
+            }
+            launch {
+                val langs = c.settings.current.languages
+                val cats = Categories.ordered(langs).filter { it.language in langs }.take(6)
                 val rows = cats.map { cat ->
-                    async { cat to runCatching { c.online.searchAll(cat.query).take(20) }.getOrDefault(emptyList()) }
+                    async { cat to runCatching { c.online.searchAll(cat.query).filter { it.inLanguages(langs) }.take(20) }.getOrDefault(emptyList()) }
                 }.awaitAll().filter { it.second.isNotEmpty() }
                 _ui.value = _ui.value.copy(categories = rows)
             }
@@ -120,7 +137,8 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
                     c.recommendations.refreshMixes(force = force)
                 }
             }
-            val results = c.online.trending()
+            val langs = c.settings.current.languages
+            val results = c.online.trending().map { r -> r.copy(tracks = r.tracks.filter { it.inLanguages(langs) }) }
             _ui.value = _ui.value.copy(loading = false, trending = results)
         }
     }
@@ -157,6 +175,7 @@ fun HomeScreen(nav: NavController) {
             ) {
                 Text(greeting(), style = MaterialTheme.typography.headlineMedium, color = spec.onSurface, modifier = Modifier.weight(1f))
                 IconButton(onClick = { vm.refresh(force = true) }) { Icon(Icons.Rounded.Refresh, "Refresh", tint = spec.onSurface) }
+                IconButton(onClick = { nav.navigate(Routes.DJ) }) { Icon(Icons.Rounded.AutoAwesome, "AI DJ", tint = spec.onSurface) }
                 IconButton(onClick = { nav.navigate(Routes.SETTINGS) }) { Icon(Icons.Rounded.Settings, "Settings", tint = spec.onSurface) }
             }
         }
@@ -191,8 +210,8 @@ fun HomeScreen(nav: NavController) {
                 ) {
                     Icon(Icons.Rounded.CloudOff, null, tint = spec.accent)
                     Text(
-                        if (settings.offlineMode) "  Offline mode on hai — sirf downloaded aur phone ke gaane"
-                        else "  Internet nahi hai — downloaded aur phone ke gaane chal rahe hain",
+                        if (settings.offlineMode) "  Offline mode is on — only downloads and songs on this phone"
+                        else "  You're offline — playing downloads and songs on this phone",
                         style = MaterialTheme.typography.bodyMedium,
                         color = spec.onSurface,
                     )
@@ -205,7 +224,7 @@ fun HomeScreen(nav: NavController) {
             val tiles = buildList<Triple<String, String?, () -> Unit>> {
                 add(Triple("Liked Songs", favorites.firstOrNull()?.artworkUrl) { nav.navigate(Routes.list(ListKind.LIKED)) })
                 add(Triple("Downloads", downloaded.firstOrNull()?.artworkUrl) { nav.navigate(Routes.list(ListKind.DOWNLOADS)) })
-                add(Triple("Phone ke gaane", localSongs.firstOrNull()?.artworkUrl) { nav.navigate(Routes.list(ListKind.LOCAL)) })
+                add(Triple("On this phone", localSongs.firstOrNull()?.artworkUrl) { nav.navigate(Routes.list(ListKind.LOCAL)) })
                 add(Triple("Recently played", recent.firstOrNull()?.artworkUrl) { nav.navigate(Routes.list(ListKind.RECENT)) })
                 recent.take(2).forEach { t -> add(Triple(t.title, t.artworkUrl) { c.player.play(listOf(t)) }) }
             }
@@ -221,24 +240,6 @@ fun HomeScreen(nav: NavController) {
             }
         }
 
-        // Discover feed ka rasta
-        item {
-            Row(
-                Modifier
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .fillMaxWidth()
-                    .themedCard(spec, RoundedCornerShape(12.dp), corner = 12.dp)
-                    .clickable { nav.navigate(Routes.DISCOVER) }
-                    .padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(Icons.Rounded.Explore, null, tint = spec.accent)
-                Column(Modifier.padding(start = 12.dp)) {
-                    Text("Discover feed", style = MaterialTheme.typography.titleSmall, color = spec.onSurface)
-                    Text("Scroll karo, gaane apne aap bajenge — aapke taste ke hisaab se", style = MaterialTheme.typography.bodySmall, color = spec.muted)
-                }
-            }
-        }
         if (mixes.isNotEmpty()) {
             item { SectionHeader("Made for you") }
             item {
@@ -251,11 +252,31 @@ fun HomeScreen(nav: NavController) {
         }
         val suggested = ui.suggestions.map { it.track }.filter { !offline || !it.source.isOnline }
         if (suggested.isNotEmpty()) {
-            item { SectionHeader("Aapke liye suggest") }
+            item { SectionHeader("Recommended for you") }
             item { TrackShelf(suggested, onPlay = { c.player.play(suggested, it) }, onMore = { menuFor = it }) }
         }
+        if (!offline) {
+            ui.festivals.forEach { (f, tracks) ->
+                item(key = "fest_h_${f.name}") {
+                    SectionHeader("${f.emoji} ${f.name} special", action = "See all") { nav.navigate(Routes.list(ListKind.GENRE, f.name)) }
+                }
+                item(key = "fest_${f.name}") {
+                    TrackShelf(tracks, onPlay = { c.player.play(tracks, it) }, onMore = { menuFor = it })
+                }
+            }
+        }
+        if (!offline && ui.playlists.isNotEmpty()) {
+            item { SectionHeader("🎶 Playlists for you", action = "See all") { nav.navigate(Routes.ONLINE_LIBRARY) } }
+            item {
+                LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    items(ui.playlists, key = { "pl" + it.id }) { p ->
+                        ShelfCard(p.title, p.subtitle, p.artworkUrl, onClick = { nav.navigate(Routes.onlinePlaylist(p.id, p.title)) })
+                    }
+                }
+            }
+        }
         if (!offline && ui.charts.isNotEmpty()) {
-            item { SectionHeader("📊 Top Charts", action = "Sab dekho") { nav.navigate(Routes.ONLINE_LIBRARY) } }
+            item { SectionHeader("📊 Top Charts", action = "See all") { nav.navigate(Routes.ONLINE_LIBRARY) } }
             item {
                 LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     items(ui.charts, key = { "chart" + it.id }) { p ->
@@ -267,7 +288,7 @@ fun HomeScreen(nav: NavController) {
         if (!offline) {
             ui.categories.forEach { (cat, tracks) ->
                 item(key = "cat_h_${cat.name}") {
-                    SectionHeader("${cat.emoji} ${cat.name}", action = "Sab dekho") {
+                    SectionHeader("${cat.emoji} ${cat.name}", action = "See all") {
                         nav.navigate(Routes.list(ListKind.GENRE, cat.name))
                     }
                 }
@@ -281,7 +302,7 @@ fun HomeScreen(nav: NavController) {
             item { TrackShelf(recent, onPlay = { c.player.play(recent, it) }, onMore = { menuFor = it }) }
         }
         if (filter != 1 && mostPlayed.size >= 3) {
-            item { SectionHeader("Aapke favourite (sabse zyada suna)") }
+            item { SectionHeader("Your top songs") }
             item { TrackShelf(mostPlayed, onPlay = { c.player.play(mostPlayed, it) }, onMore = { menuFor = it }) }
         }
         if (filter != 2 && !offline) {
@@ -305,11 +326,11 @@ fun HomeScreen(nav: NavController) {
             }
         }
         if (filter != 1 && downloaded.isNotEmpty()) {
-            item { SectionHeader("Aapke downloads", action = "Sab dekho") { nav.navigate(Routes.list(ListKind.DOWNLOADS)) } }
+            item { SectionHeader("Your downloads", action = "See all") { nav.navigate(Routes.list(ListKind.DOWNLOADS)) } }
             item { TrackShelf(downloaded, onPlay = { c.player.play(downloaded, it) }, onMore = { menuFor = it }) }
         }
         if (filter != 1 && localSongs.isNotEmpty()) {
-            item { SectionHeader("Phone se", action = "Sab dekho") { nav.navigate(Routes.list(ListKind.LOCAL)) } }
+            item { SectionHeader("From your phone", action = "See all") { nav.navigate(Routes.list(ListKind.LOCAL)) } }
             item { TrackShelf(picks, onPlay = { c.player.play(picks, it) }, onMore = { menuFor = it }) }
         }
         item { Spacer(Modifier.height(24.dp)) }

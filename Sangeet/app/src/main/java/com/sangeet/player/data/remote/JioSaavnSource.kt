@@ -40,8 +40,15 @@ class JioSaavnSource : OnlineSource {
         return (trending + search("$lang new songs", s)).distinctBy { it.id }
     }
 
-    override suspend fun search(query: String, s: AppSettings): List<Track> =
-        songsFrom(call("search.getResults", "q" to query, "n" to "50", "p" to "1"))
+    override suspend fun search(query: String, s: AppSettings): List<Track> = searchPage(query, 1)
+
+    /** Search ke aage ke pages (variety ke liye). */
+    suspend fun searchPage(query: String, page: Int): List<Track> =
+        songsFrom(call("search.getResults", "q" to query, "n" to "50", "p" to page.toString()))
+
+    /** JioSaavn ki apni recommendations: is gaane ko sunne wale ye bhi sunte hain (users ke data se). */
+    suspend fun similar(songId: String): List<Track> =
+        songsFrom(call("reco.getreco", "pid" to songId))
 
     // ------------------------------------------------------------ online library (charts + playlists)
 

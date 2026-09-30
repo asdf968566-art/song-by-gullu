@@ -207,3 +207,43 @@ interface LyricsDao {
     @Query("DELETE FROM lyrics WHERE trackId = :trackId")
     suspend fun delete(trackId: String)
 }
+
+data class ArtistTime(val artist: String, val ms: Long)
+data class TrackTime(val trackId: String, val title: String, val artist: String, val ms: Long, val plays: Int)
+data class HourTime(val hour: Int, val ms: Long)
+
+@Dao
+interface ListenDao {
+    @Insert
+    suspend fun insert(e: ListenEntity)
+
+    @Query("SELECT COALESCE(SUM(playedMs), 0) FROM listen_log WHERE startedAt >= :since")
+    suspend fun totalMs(since: Long): Long
+
+    @Query(
+        """
+        SELECT artist, SUM(playedMs) AS ms FROM listen_log
+        WHERE startedAt >= :since AND artist != '' GROUP BY artist ORDER BY ms DESC LIMIT :limit
+        """
+    )
+    suspend fun topArtists(since: Long, limit: Int): List<ArtistTime>
+
+    @Query(
+        """
+        SELECT trackId, MAX(title) AS title, MAX(artist) AS artist, SUM(playedMs) AS ms, COUNT(*) AS plays
+        FROM listen_log WHERE startedAt >= :since GROUP BY trackId ORDER BY ms DESC LIMIT :limit
+        """
+    )
+    suspend fun topTracks(since: Long, limit: Int): List<TrackTime>
+
+    @Query(
+        """
+        SELECT CAST(strftime('%H', startedAt / 1000, 'unixepoch', 'localtime') AS INTEGER) AS hour, SUM(playedMs) AS ms
+        FROM listen_log WHERE startedAt >= :since GROUP BY hour ORDER BY ms DESC
+        """
+    )
+    suspend fun byHour(since: Long): List<HourTime>
+
+    @Query("SELECT DISTINCT date(startedAt / 1000, 'unixepoch', 'localtime') FROM listen_log WHERE startedAt >= :since ORDER BY 1 DESC")
+    suspend fun activeDays(since: Long): List<String>
+}

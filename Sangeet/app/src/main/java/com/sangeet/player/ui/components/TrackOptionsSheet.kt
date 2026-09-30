@@ -50,6 +50,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sangeet.player.data.model.DownloadState
 import com.sangeet.player.data.model.Track
 import com.sangeet.player.ui.LocalAppContainer
+import com.sangeet.player.ui.LocalNav
+import com.sangeet.player.ui.Routes
+import androidx.compose.material.icons.rounded.Radio
+import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Share
 import com.sangeet.player.ui.theme.Sangeet
 import kotlinx.coroutines.launch
 
@@ -95,37 +100,50 @@ fun TrackOptionsSheet(
                     )
                 }
             }
-            SheetItem(if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, if (liked) "Liked Songs se hatao" else "Like karo") {
+            SheetItem(if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, if (liked) "Remove from Liked Songs" else "Like") {
                 scope.launch { container.library.toggleFavorite(track) }
                 onDismiss()
             }
-            SheetItem(Icons.Rounded.SkipNext, "Agla bajao (Play next)") {
+            SheetItem(Icons.Rounded.SkipNext, "Play next") {
                 container.player.playNext(track); onDismiss()
             }
-            SheetItem(Icons.Rounded.QueueMusic, "Queue mein daalo") {
+            SheetItem(Icons.Rounded.QueueMusic, "Add to queue") {
                 container.player.addToQueue(listOf(track)); onDismiss()
             }
-            SheetItem(Icons.Rounded.PlaylistAdd, "Playlist mein daalo") { showPlaylists = true }
+            SheetItem(Icons.Rounded.PlaylistAdd, "Add to playlist") { showPlaylists = true }
+            SheetItem(Icons.Rounded.Radio, "Start radio") {
+                container.player.startRadio(track); onDismiss()
+            }
+            val nav = LocalNav.current
+            if (nav != null && track.artist.isNotBlank()) {
+                SheetItem(Icons.Rounded.Person, "Go to artist") {
+                    onDismiss(); nav.navigate(Routes.artist(track.artist))
+                }
+            }
+            SheetItem(Icons.Rounded.Share, "Share") {
+                scope.launch { runCatching { ShareCard.share(context, track) } }
+                onDismiss()
+            }
             if (playlistId != null) {
-                SheetItem(Icons.Rounded.RemoveCircleOutline, "Is playlist se hatao") {
+                SheetItem(Icons.Rounded.RemoveCircleOutline, "Remove from this playlist") {
                     scope.launch { container.library.removeFromPlaylist(playlistId, track.id) }
                     onDismiss()
                 }
             }
             if (track.source.isOnline) {
                 when (dl?.state) {
-                    DownloadState.DONE -> SheetItem(Icons.Rounded.Delete, "Download delete karo") {
+                    DownloadState.DONE -> SheetItem(Icons.Rounded.Delete, "Remove download") {
                         scope.launch { container.downloads.remove(track.id) }
                         onDismiss()
                     }
-                    DownloadState.QUEUED, DownloadState.DOWNLOADING -> SheetItem(Icons.Rounded.DownloadDone, "Download ho raha hai… ${dl?.progress ?: 0}% (cancel)") {
+                    DownloadState.QUEUED, DownloadState.DOWNLOADING -> SheetItem(Icons.Rounded.DownloadDone, "Downloading… ${dl?.progress ?: 0}% (tap to cancel)") {
                         scope.launch { container.downloads.remove(track.id) }
                         onDismiss()
                     }
-                    else -> SheetItem(Icons.Rounded.Download, "Download karo (offline ke liye)") {
+                    else -> SheetItem(Icons.Rounded.Download, "Download") {
                         scope.launch {
                             container.downloads.download(track)
-                            Toast.makeText(context, "Download shuru: ${track.title}", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Downloading: ${track.title}", Toast.LENGTH_SHORT).show()
                         }
                         onDismiss()
                     }
@@ -162,13 +180,13 @@ fun AddToPlaylistDialog(tracks: List<Track>, startCreating: Boolean = false, onD
 
     AlertDialog(
         onDismissRequest = onDone,
-        title = { Text(if (creating) "Nayi playlist" else "Playlist mein daalo") },
+        title = { Text(if (creating) "New playlist" else "Add to playlist") },
         text = {
             if (creating) {
                 OutlinedTextField(
                     value = newName,
                     onValueChange = { newName = it },
-                    label = { Text("Naam") },
+                    label = { Text("Name") },
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
                 )
@@ -184,7 +202,7 @@ fun AddToPlaylistDialog(tracks: List<Track>, startCreating: Boolean = false, onD
                         ) {
                             Icon(Icons.Rounded.Add, null, tint = Sangeet.spec.accent)
                             Spacer(Modifier.width(12.dp))
-                            Text("Nayi playlist banao", color = Sangeet.spec.accent)
+                            Text("New playlist", color = Sangeet.spec.accent)
                         }
                     }
                     items(playlists, key = { it.id }) { p ->
@@ -194,7 +212,7 @@ fun AddToPlaylistDialog(tracks: List<Track>, startCreating: Boolean = false, onD
                                 .clickable {
                                     scope.launch {
                                         container.library.addToPlaylist(p.id, tracks)
-                                        Toast.makeText(context, "${p.name} mein add hua", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "Added to ${p.name}", Toast.LENGTH_SHORT).show()
                                         onDone()
                                     }
                                 }
@@ -205,7 +223,7 @@ fun AddToPlaylistDialog(tracks: List<Track>, startCreating: Boolean = false, onD
                             Spacer(Modifier.width(12.dp))
                             Column {
                                 Text(p.name, style = MaterialTheme.typography.titleSmall)
-                                Text("${p.trackCount} gaane", style = MaterialTheme.typography.bodySmall, color = Sangeet.spec.muted)
+                                Text("${if (p.trackCount == 1) "1 song" else "${p.trackCount} songs"}", style = MaterialTheme.typography.bodySmall, color = Sangeet.spec.muted)
                             }
                         }
                     }
@@ -217,10 +235,10 @@ fun AddToPlaylistDialog(tracks: List<Track>, startCreating: Boolean = false, onD
                 TextButton(onClick = {
                     scope.launch {
                         container.library.createPlaylist(newName.trim(), tracks)
-                        Toast.makeText(context, "Playlist bani", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Playlist created", Toast.LENGTH_SHORT).show()
                         onDone()
                     }
-                }) { Text("Banao") }
+                }) { Text("Create") }
             }
         },
         dismissButton = { TextButton(onClick = onDone) { Text("Cancel") } },

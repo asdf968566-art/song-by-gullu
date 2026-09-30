@@ -40,6 +40,18 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavController
 import com.sangeet.player.AppContainer
 import com.sangeet.player.data.Categories
+import com.sangeet.player.data.Festivals
+import com.sangeet.player.data.Transliterate
+import com.sangeet.player.data.remote.Http
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonPrimitive
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.NorthWest
+import android.content.Context
 import com.sangeet.player.data.SourceResult
 import com.sangeet.player.data.model.Track
 import com.sangeet.player.ui.LocalAppContainer
@@ -68,14 +80,31 @@ class SearchViewModel(private val c: AppContainer) : ViewModel() {
         val loading: Boolean = false,
         val local: List<Track> = emptyList(),
         val online: List<SourceResult> = emptyList(),
+        /** Likhte waqt suggestions ("kes" -> "kesariya"). */
+        val suggestions: List<String> = emptyList(),
+        val recent: List<String> = emptyList(),
     )
 
     private val _ui = MutableStateFlow(Ui())
     val ui: StateFlow<Ui> = _ui.asStateFlow()
     private val queries = MutableStateFlow("")
     private var downloaded: List<Track> = emptyList()
+    private val prefs = c.appContext.getSharedPreferences("search", Context.MODE_PRIVATE)
 
     init {
+        _ui.value = _ui.value.copy(recent = loadRecent())
+        // Live suggestions (YouTube suggest, free)
+        viewModelScope.launch {
+            queries.debounce(200).distinctUntilChanged().collectLatest { q ->
+                val t = q.trim()
+                if (t.length < 2 || !c.online.canGoOnline) {
+                    _ui.value = _ui.value.copy(suggestions = emptyList())
+                    return@collectLatest
+                }
+                val list = runCatching { fetchSuggestions(t) }.getOrDefault(emptyList())
+                _ui.value = _ui.value.copy(suggestions = list)
+            }
+        }
         viewModelScope.launch { c.downloads.downloadedTracks.collect { downloaded = it } }
         viewModelScope.launch {
             queries.debounce(400).distinctUntilChanged().collectLatest { q ->
@@ -91,7 +120,15 @@ class SearchViewModel(private val c: AppContainer) : ViewModel() {
                             it.album.lowercase().contains(needle)
                     }.take(30)
                 _ui.value = _ui.value.copy(loading = true, local = local)
-                val online = c.online.search(q.trim())
+                // Hindi mein likha ho to Hinglish mein bhi dhoondho ("तुम ही हो" + "tum hi ho")
+                val alt = q.trim().takeIf(Transliterate::hasDevanagari)?.let(Transliterate::toLatin)
+                val online = if (alt.isNullOrBlank()) c.online.search(q.trim()) else {
+                    val a = c.online.search(q.trim())
+                    val b = c.online.search(alt)
+                    (a + b).groupBy { it.source }.map { (src, rs) ->
+                        SourceResult(src, rs.flatMap { it.tracks }.distinctBy { it.id }, rs.firstNotNullOfOrNull { it.error })
+                    }
+                }
                 _ui.value = _ui.value.copy(loading = false, online = online)
             }
         }
@@ -100,6 +137,34 @@ class SearchViewModel(private val c: AppContainer) : ViewModel() {
     fun onQuery(q: String) {
         _ui.value = _ui.value.copy(query = q)
         queries.value = q
+    }
+
+    /** Result pe tap kiya -> ye search "Recent" mein yaad rakho. */
+    fun rememberQuery() {
+        val q = _ui.value.query.trim()
+        if (q.length < 2) return
+        val list = (listOf(q) + loadRecent().filterNot { it.equals(q, true) }).take(10)
+        prefs.edit().putString("recent", list.joinToString("\n")).apply()
+        _ui.value = _ui.value.copy(recent = list)
+    }
+
+    fun clearRecent() {
+        prefs.edit().remove("recent").apply()
+        _ui.value = _ui.value.copy(recent = emptyList())
+    }
+
+    private fun loadRecent(): List<String> =
+        prefs.getString("recent", null)?.split("\n")?.filter { it.isNotBlank() }.orEmpty()
+
+    private suspend fun fetchSuggestions(q: String): List<String> {
+        val url = "https://suggestqueries.google.com/complete/search?client=firefox&ds=yt&hl=hi&q=" +
+            java.net.URLEncoder.encode(q, "UTF-8")
+        val body = Http.getText(url) ?: return emptyList()
+        val arr = Http.json.parseToJsonElement(body) as? JsonArray ?: return emptyList()
+        return (arr.getOrNull(1) as? JsonArray).orEmpty()
+            .mapNotNull { (it as? JsonPrimitive)?.content }
+            .filter { !it.equals(q, true) }
+            .take(8)
     }
 }
 
@@ -134,7 +199,7 @@ fun SearchScreen(nav: NavController) {
             TextField(
                 value = ui.query,
                 onValueChange = vm::onQuery,
-                placeholder = { Text("Kya sunna hai? Gaana, artist…", color = Color(0xFF535353)) },
+                placeholder = { Text("What do you want to listen to?", color = Color(0xFF535353)) },
                 leadingIcon = { Icon(Icons.Rounded.Search, null, tint = Color(0xFF121212)) },
                 trailingIcon = {
                     if (ui.query.isNotEmpty()) {
@@ -158,7 +223,66 @@ fun SearchScreen(nav: NavController) {
             )
         }
 
+        if (ui.query.isNotBlank() && ui.suggestions.isNotEmpty()) {
+            item {
+                Row(
+                    Modifier
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    ui.suggestions.forEach { s ->
+                        AssistChip(
+                            onClick = { vm.onQuery(s) },
+                            label = { Text(s) },
+                            leadingIcon = { Icon(Icons.Rounded.NorthWest, null, Modifier.height(16.dp)) },
+                            colors = AssistChipDefaults.assistChipColors(labelColor = spec.onSurface, leadingIconContentColor = spec.muted),
+                        )
+                    }
+                }
+            }
+        }
+
+        if (ui.query.isBlank() && ui.recent.isNotEmpty()) {
+            item { SectionHeader("Recent searches", action = "Clear") { vm.clearRecent() } }
+            item {
+                Row(
+                    Modifier
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    ui.recent.forEach { r ->
+                        AssistChip(
+                            onClick = { vm.onQuery(r) },
+                            label = { Text(r) },
+                            leadingIcon = { Icon(Icons.Rounded.History, null, Modifier.height(16.dp)) },
+                            colors = AssistChipDefaults.assistChipColors(labelColor = spec.onSurface, leadingIconContentColor = spec.muted),
+                        )
+                    }
+                }
+            }
+        }
+
         if (ui.query.isBlank()) {
+            val festivals = Festivals.all
+            item { SectionHeader("🎉 Festivals & seasons") }
+            item {
+                Row(
+                    Modifier
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    festivals.forEach { f ->
+                        AssistChip(
+                            onClick = { nav.navigate(Routes.list(ListKind.GENRE, f.name)) },
+                            label = { Text("${f.emoji} ${f.name}") },
+                            colors = AssistChipDefaults.assistChipColors(labelColor = spec.onSurface),
+                        )
+                    }
+                }
+            }
             item { SectionHeader("Browse all") }
             val genres = Categories.ordered(c.settings.current.languages).map { "${it.emoji} ${it.name}" to it.color } +
                 globalGenres
@@ -188,16 +312,16 @@ fun SearchScreen(nav: NavController) {
             }
         } else {
             if (ui.local.isNotEmpty()) {
-                item { SectionHeader("Phone par") }
+                item { SectionHeader("On this phone") }
                 items(ui.local, key = { "l_" + it.id }) { t ->
-                    TrackRow(t, onClick = { c.player.play(ui.local, ui.local.indexOf(t)) }, onMore = { menuFor = t })
+                    TrackRow(t, onClick = { vm.rememberQuery(); c.player.play(ui.local, ui.local.indexOf(t)) }, onMore = { menuFor = t })
                 }
             }
             ui.online.forEach { res ->
                 if (res.tracks.isNotEmpty()) {
                     item(key = "h_${res.source}") { SectionHeader(res.source.label) }
                     items(res.tracks, key = { "o_" + it.id }) { t ->
-                        TrackRow(t, onClick = { c.player.play(res.tracks, res.tracks.indexOf(t)) }, onMore = { menuFor = t })
+                        TrackRow(t, onClick = { vm.rememberQuery(); c.player.play(res.tracks, res.tracks.indexOf(t)) }, onMore = { menuFor = t })
                     }
                 }
             }
@@ -206,8 +330,8 @@ fun SearchScreen(nav: NavController) {
                 item {
                     EmptyState(
                         Icons.Rounded.SearchOff,
-                        "Kuch nahi mila",
-                        if (c.online.canGoOnline) "Doosre shabd try karo." else "Internet nahi hai — sirf phone ke gaane search hue.",
+                        "No results",
+                        if (c.online.canGoOnline) "Try different keywords." else "You're offline — only songs on this phone were searched.",
                     )
                 }
             }

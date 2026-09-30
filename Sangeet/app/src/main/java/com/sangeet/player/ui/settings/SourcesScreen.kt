@@ -64,15 +64,15 @@ fun SourcesScreen(nav: NavController) {
         SettingsTopBar(nav, "Music sources")
 
         Text(
-            "Sab gaane app ke andar hi bajte hain aur download ho sakte hain. Koi bahar ka link nahi khulta.",
+            "All songs play inside the app and can be downloaded. No external links are opened.",
             style = MaterialTheme.typography.bodyMedium,
             color = spec.muted,
             modifier = Modifier.padding(horizontal = 20.dp),
         )
 
-        SettingsGroup("Aapki bhasha") {
+        SettingsGroup("Your languages") {
             Text(
-                "In bhashaon ke gaane feed, Home aur suggestions mein pehle aayenge.",
+                "Songs in these languages appear first in your feed, Home and recommendations.",
                 style = MaterialTheme.typography.bodySmall,
                 color = spec.muted,
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp),
@@ -106,7 +106,7 @@ fun SourcesScreen(nav: NavController) {
             SettingsSwitch(
                 Icons.Rounded.LibraryMusic,
                 "JioSaavn on",
-                "Crore se zyada Indian gaane, 320 kbps tak. Koi key nahi.",
+                "Tens of millions of Indian songs, up to 320 kbps. No key needed.",
                 s.jiosaavnEnabled,
             ) { scope.launch { c.settings.setJioSaavnEnabled(it) } }
         }
@@ -115,17 +115,17 @@ fun SourcesScreen(nav: NavController) {
             SettingsSwitch(
                 Icons.Rounded.SmartDisplay,
                 "YouTube on",
-                "Har gaana jo YouTube pe hai. Bina key ke bhi chalta hai (NewPipe).",
+                "Every song on YouTube. Works without a key (NewPipe).",
                 s.youtubeEnabled,
             ) { scope.launch { c.settings.setYouTubeEnabled(it) } }
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    "Optional: YouTube Data API v3 key (free). Isse search aur India ke trending music ki " +
-                        "details official API se aati hain. Key kaise lein:\n" +
-                        "1. console.cloud.google.com kholo → naya project banao\n" +
+                    "Optional: YouTube Data API v3 key (free). With a key, search and trending music in India " +
+                        "come from the official API. How to get a key:\n" +
+                        "1. Open console.cloud.google.com → create a new project\n" +
                         "2. APIs & Services → Library → \"YouTube Data API v3\" → Enable\n" +
-                        "3. Credentials → Create credentials → API key → copy karke yahan daalo\n" +
-                        "Free quota: 10,000 units/din (search = 100, trending = 1).",
+                        "3. Credentials → Create credentials → API key → copy it and paste it here\n" +
+                        "Free quota: 10,000 units/day (search = 100, trending = 1).",
                     style = MaterialTheme.typography.bodySmall,
                     color = spec.muted,
                 )
@@ -141,23 +141,23 @@ fun SourcesScreen(nav: NavController) {
                     Button(onClick = {
                         scope.launch {
                             c.settings.setYouTubeApiKey(ytKey)
-                            ytStatus = "Check kar rahe hain…"
+                            ytStatus = "Checking…"
                             ytStatus = testSource(c, SourceType.YOUTUBE) { it.youtubeApiKey == ytKey.trim() }
                         }
                     }) { Text("Save & test") }
                     if (s.youtubeApiKey.isNotBlank()) {
-                        OutlinedButton(onClick = { scope.launch { c.settings.setYouTubeApiKey(""); ytKey = "" } }) { Text("Hatao") }
+                        OutlinedButton(onClick = { scope.launch { c.settings.setYouTubeApiKey(""); ytKey = "" } }) { Text("Remove") }
                     }
                 }
                 ytStatus?.let { Text(it, color = spec.accent, style = MaterialTheme.typography.bodySmall) }
             }
         }
 
-        SettingsGroup("Audius (free, koi key nahi)") {
+        SettingsGroup("Audius (free, no key needed)") {
             SettingsSwitch(
                 Icons.Rounded.Radio,
                 "Audius on",
-                "Lakhon independent artists ke gaane. Turant chalta hai.",
+                "Music from thousands of independent artists. Works right away.",
                 s.audiusEnabled,
             ) { scope.launch { c.settings.setAudiusEnabled(it) } }
         }
@@ -165,7 +165,7 @@ fun SourcesScreen(nav: NavController) {
         SettingsGroup("Jamendo (free Creative Commons music)") {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    "devportal.jamendo.com pe free account banao → 'client_id' copy karke yahan daalo.",
+                    "Create a free account at devportal.jamendo.com → copy your 'client_id' and paste it here.",
                     style = MaterialTheme.typography.bodySmall,
                     color = spec.muted,
                 )
@@ -181,22 +181,22 @@ fun SourcesScreen(nav: NavController) {
                     Button(onClick = {
                         scope.launch {
                             c.settings.setJamendoClientId(jamendoId)
-                            jamendoStatus = "Check kar rahe hain…"
+                            jamendoStatus = "Checking…"
                             jamendoStatus = testSource(c, SourceType.JAMENDO) { it.jamendoClientId == jamendoId.trim() }
                         }
                     }) { Text("Save & test") }
                     if (s.jamendoClientId.isNotBlank()) {
-                        OutlinedButton(onClick = { scope.launch { c.settings.setJamendoClientId(""); jamendoId = "" } }) { Text("Hatao") }
+                        OutlinedButton(onClick = { scope.launch { c.settings.setJamendoClientId(""); jamendoId = "" } }) { Text("Remove") }
                     }
                 }
                 jamendoStatus?.let { Text(it, color = spec.accent, style = MaterialTheme.typography.bodySmall) }
             }
         }
 
-        SettingsGroup("Apna server — Navidrome / Subsonic") {
+        SettingsGroup("Your server — Navidrome / Subsonic") {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    "Apne PC ke gaane phone pe stream karo. Yahan 128/256/320 kbps bilkul exact milta hai. " +
+                    "Stream music from your own computer at exactly 128/256/320 kbps. " +
                         "Example URL: http://192.168.1.5:4533",
                     style = MaterialTheme.typography.bodySmall,
                     color = spec.muted,
@@ -214,14 +214,14 @@ fun SourcesScreen(nav: NavController) {
                 )
                 OutlinedTextField(
                     value = password, onValueChange = { password = it },
-                    label = { Text(if (s.subsonicConfigured) "Password (badalna ho to hi)" else "Password") },
+                    label = { Text(if (s.subsonicConfigured) "Password (only to change it)" else "Password") },
                     singleLine = true, shape = RoundedCornerShape(12.dp),
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Text(
-                    "Password save nahi hota — sirf uska secure token (md5 + salt).",
+                    "Your password isn't stored — only a secure token (md5 + salt).",
                     style = MaterialTheme.typography.labelSmall,
                     color = spec.muted,
                 )
@@ -230,12 +230,12 @@ fun SourcesScreen(nav: NavController) {
                         scope.launch {
                             c.settings.setSubsonic(url, user, password)
                             password = ""
-                            serverStatus = "Check kar rahe hain…"
+                            serverStatus = "Checking…"
                             serverStatus = testSource(c, SourceType.SUBSONIC) { it.subsonicUser == user.trim() && it.subsonicConfigured }
                         }
                     }) { Text("Save & test") }
                     if (s.subsonicConfigured) {
-                        OutlinedButton(onClick = { scope.launch { c.settings.clearSubsonic(); serverStatus = null } }) { Text("Hatao") }
+                        OutlinedButton(onClick = { scope.launch { c.settings.clearSubsonic(); serverStatus = null } }) { Text("Remove") }
                     }
                 }
                 serverStatus?.let { Text(it, color = spec.accent, style = MaterialTheme.typography.bodySmall) }
@@ -250,13 +250,13 @@ private suspend fun testSource(
     type: SourceType,
     ready: (com.sangeet.player.data.settings.AppSettings) -> Boolean,
 ): String {
-    val src = c.online.source(type) ?: return "Source nahi mila"
+    val src = c.online.source(type) ?: return "Source not found"
     // Naya setting DataStore se aane tak ruko.
     val settings = withTimeoutOrNull(3000) { c.settings.settings.first(ready) } ?: c.settings.settings.value
-    if (!src.isEnabled(settings)) return "Details adhoori hain"
+    if (!src.isEnabled(settings)) return "Details are incomplete"
     return try {
         val n = src.trending(settings).size
-        if (n > 0) "✓ Jud gaya! $n gaane mile." else "Jud gaya, par koi gaana nahi mila."
+        if (n > 0) "✓ Connected! Found ${if (n == 1) "1 song" else "${n} songs"}." else "Connected, but no songs were found."
     } catch (e: Exception) {
         "✗ Error: ${e.message}"
     }

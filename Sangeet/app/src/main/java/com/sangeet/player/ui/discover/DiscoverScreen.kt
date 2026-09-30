@@ -60,6 +60,29 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavController
 import com.sangeet.player.AppContainer
 import com.sangeet.player.data.lyrics.Lyrics
+import com.sangeet.player.data.Mood
+import com.sangeet.player.data.Moods
+import com.sangeet.player.data.model.inLanguages
+import com.sangeet.player.ui.Routes
+import android.widget.Toast
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material.icons.rounded.ThumbDown
+import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.runtime.mutableFloatStateOf as floatState
+import com.sangeet.player.ui.components.formatDuration
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import com.sangeet.player.data.model.Track
 import com.sangeet.player.ui.nowplaying.LyricsView
 import com.sangeet.player.data.recommend.Suggestion
@@ -74,11 +97,18 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class DiscoverViewModel(private val c: AppContainer) : ViewModel() {
-    data class Ui(val items: List<Suggestion> = emptyList(), val loading: Boolean = true, val exhausted: Boolean = false)
+    data class Ui(
+        val items: List<Suggestion> = emptyList(),
+        val loading: Boolean = true,
+        val exhausted: Boolean = false,
+        /** null = "For You" (track record se); warna chuna hua mood. */
+        val mood: Mood? = null,
+    )
 
     private val _ui = MutableStateFlow(Ui())
     val ui: StateFlow<Ui> = _ui.asStateFlow()
     private var loadingMore = false
+    private var moodPage = 0
 
     init { loadMore() }
 
@@ -88,8 +118,13 @@ class DiscoverViewModel(private val c: AppContainer) : ViewModel() {
         viewModelScope.launch {
             _ui.value = _ui.value.copy(loading = true)
             val have = _ui.value.items.mapTo(HashSet()) { it.track.id }
-            val more = runCatching { c.recommendations.suggestions(limit = 25, exclude = have) }.getOrDefault(emptyList())
-            _ui.value = Ui(items = _ui.value.items + more, loading = false, exhausted = more.isEmpty())
+            val mood = _ui.value.mood
+            val more = runCatching {
+                if (mood == null) c.recommendations.suggestions(limit = 25, exclude = have)
+                else moodBatch(mood, have)
+            }.getOrDefault(emptyList())
+            if (mood != _ui.value.mood) { loadingMore = false; return@launch }
+            _ui.value = _ui.value.copy(items = _ui.value.items + more, loading = false, exhausted = more.isEmpty())
             // Feed chal raha hai to naye gaane queue ke aakhir mein bhi jodo.
             if (more.isNotEmpty() && c.player.feedActive) c.player.addToQueue(more.map { it.track })
             loadingMore = false
@@ -97,8 +132,37 @@ class DiscoverViewModel(private val c: AppContainer) : ViewModel() {
     }
 
     fun refresh() {
-        _ui.value = Ui()
+        _ui.value = Ui(mood = _ui.value.mood)
+        moodPage = 0
+        loadingMore = false
         loadMore()
+    }
+
+    fun setMood(m: Mood?) {
+        if (m == _ui.value.mood) return
+        _ui.value = Ui(mood = m)
+        moodPage = 0
+        loadingMore = false
+        loadMore()
+    }
+
+    /** Left swipe: ye gaana / artist kam dikhao. */
+    fun dislike(t: Track) = c.recommendations.dislike(t)
+
+    /** Mood ke gaane: pasandida bhasha + mood, har page pe thodi alag query (endless feed). */
+    private suspend fun moodBatch(mood: Mood, have: Set<String>): List<Suggestion> = kotlinx.coroutines.coroutineScope {
+        val variants = listOf("", "new", "best", "hits", "2024", "90s", "latest", "top")
+        val v = variants[moodPage % variants.size]
+        moodPage++
+        Moods.queries(mood, c.settings.current.languages)
+            .map { q -> async { runCatching { c.online.searchAll("$q $v".trim()) }.getOrDefault(emptyList()) } }
+            .awaitAll()
+            .flatten()
+            .distinctBy { it.id }
+            .filter { it.id !in have && it.inLanguages(c.settings.current.languages) }
+            .shuffled()
+            .take(25)
+            .map { Suggestion(it, "${mood.emoji} ${mood.name} mood") }
     }
 }
 
@@ -111,6 +175,7 @@ fun DiscoverScreen(nav: NavController) {
     val state by c.player.state.collectAsStateWithLifecycle()
     val favorites by c.library.favoriteIds.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var menuFor by remember { mutableStateOf<Track?>(null) }
     val settings by c.settings.settings.collectAsStateWithLifecycle()
     val pos = c.player.position.collectAsStateWithLifecycle()
@@ -131,7 +196,10 @@ fun DiscoverScreen(nav: NavController) {
         val ps = c.player.state.value
         if (ps.current?.id == t.id) return
         val inQueue = if (c.player.feedActive) ps.queue.indexOfFirst { it.id == t.id } else -1
-        if (inQueue >= 0) c.player.skipTo(inQueue) else c.player.play(list.map { it.track }, page, fromFeed = true)
+        // Hook preview: lambe gaane chorus ke paas (~30%) se shuru, reels jaisa
+        val hook = if (c.settings.current.hookPreview && t.durationMs > 90_000) (t.durationMs * 0.3).toLong().coerceAtMost(75_000) else 0L
+        if (inQueue >= 0) c.player.skipTo(inQueue, hook)
+        else c.player.play(list.map { it.track }, page, fromFeed = true, startPositionMs = hook)
     }
 
     // Page par rukte hi wahi gaana bajao. Pehli baar tab khulne par kuch aur baj raha ho to use mat roko.
@@ -166,7 +234,7 @@ fun DiscoverScreen(nav: NavController) {
             ) {
                 CircularProgressIndicator(color = Sangeet.spec.accent)
                 Spacer(Modifier.height(12.dp))
-                Text("Aapke liye gaane chun rahe hain…", color = Color.White.copy(alpha = 0.8f))
+                Text("Finding songs for you…", color = Color.White.copy(alpha = 0.8f))
             }
 
             ui.items.isEmpty() -> Column(
@@ -178,13 +246,13 @@ fun DiscoverScreen(nav: NavController) {
                 Icon(Icons.Rounded.Explore, null, tint = Color.White, modifier = Modifier.size(56.dp))
                 Spacer(Modifier.height(12.dp))
                 Text(
-                    "Abhi suggest karne ke liye kuch nahi mila. Internet on karo ya phone ke gaane allow karo, " +
-                        "aur kuch gaane suno — feed aapke hisaab se banega.",
+                    "Nothing to recommend yet. Go online or allow access to songs on your phone, " +
+                        "then listen to a few songs — your feed will adapt to your taste.",
                     color = Color.White.copy(alpha = 0.8f),
                     textAlign = TextAlign.Center,
                 )
                 Spacer(Modifier.height(16.dp))
-                Button(onClick = vm::refresh) { Text("Dobara try karo") }
+                Button(onClick = vm::refresh) { Text("Try again") }
             }
 
             else -> VerticalPager(
@@ -209,20 +277,69 @@ fun DiscoverScreen(nav: NavController) {
                     onPlay = { if (isCurrent) c.player.togglePlay() else playPage(page) },
                     onLike = { scope.launch { c.library.toggleFavorite(s.track) } },
                     onMore = { menuFor = s.track },
+                    onArtist = { nav.navigate(Routes.artist(s.track.artist)) },
+                    durationMs = { pos.value.durationMs },
+                    onNext = { scope.launch { if (page + 1 < items.size) pager.animateScrollToPage(page + 1) } },
+                    onPrev = { scope.launch { if (page > 0) pager.animateScrollToPage(page - 1) } },
+                    onSwipeLike = {
+                        if (s.track.id !in favorites) scope.launch { c.library.toggleFavorite(s.track) }
+                        Toast.makeText(context, "♥ Added to Liked Songs", Toast.LENGTH_SHORT).show()
+                    },
+                    onSwipeDislike = {
+                        vm.dislike(s.track)
+                        Toast.makeText(context, "Got it. You'll see fewer songs like this.", Toast.LENGTH_SHORT).show()
+                        scope.launch { if (page + 1 < items.size) pager.animateScrollToPage(page + 1) }
+                    },
                 )
             }
         }
 
-        // Upar ka title
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .statusBarsPadding()
-                .padding(start = 16.dp, end = 4.dp, top = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text("For You", style = MaterialTheme.typography.headlineSmall, color = Color.White, modifier = Modifier.weight(1f))
-            IconButton(onClick = vm::refresh) { Icon(Icons.Rounded.Refresh, "Naya feed", tint = Color.White) }
+        // Upar ka title + mood buttons
+        Column(Modifier.fillMaxWidth().statusBarsPadding()) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 4.dp, top = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    ui.mood?.let { "${it.emoji} ${it.name}" } ?: "For You",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = Color.White,
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(onClick = { nav.navigate(Routes.DJ) }) { Icon(Icons.Rounded.AutoAwesome, "AI DJ", tint = Color.White) }
+                IconButton(onClick = vm::refresh) { Icon(Icons.Rounded.Refresh, "New feed", tint = Color.White) }
+            }
+            Row(
+                Modifier
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                val chipColors = FilterChipDefaults.filterChipColors(
+                    containerColor = Color.White.copy(alpha = 0.12f),
+                    labelColor = Color.White,
+                    selectedContainerColor = Color.White,
+                    selectedLabelColor = Color.Black,
+                )
+                FilterChip(
+                    selected = ui.mood == null,
+                    onClick = { vm.setMood(null) },
+                    label = { Text("✨ For You") },
+                    colors = chipColors,
+                    border = null,
+                )
+                Moods.all.forEach { m ->
+                    FilterChip(
+                        selected = ui.mood == m,
+                        onClick = { vm.setMood(m) },
+                        label = { Text("${m.emoji} ${m.name}") },
+                        colors = chipColors,
+                        border = null,
+                    )
+                }
+            }
         }
     }
 }
@@ -242,10 +359,35 @@ private fun FeedPage(
     onPlay: () -> Unit,
     onLike: () -> Unit,
     onMore: () -> Unit,
+    onArtist: () -> Unit,
+    durationMs: () -> Long,
+    onNext: () -> Unit,
+    onPrev: () -> Unit,
+    onSwipeLike: () -> Unit,
+    onSwipeDislike: () -> Unit,
 ) {
     val t = suggestion.track
     val spec = Sangeet.spec
-    Box(Modifier.fillMaxSize()) {
+    // Right swipe = like, left swipe = "aisa mat dikhao"
+    var dragX by remember { mutableFloatStateOf(0f) }
+    Box(
+        Modifier
+            .fillMaxSize()
+            .pointerInput(t.id) {
+                detectHorizontalDragGestures(
+                    onDragEnd = {
+                        when {
+                            dragX > SWIPE_PX -> onSwipeLike()
+                            dragX < -SWIPE_PX -> onSwipeDislike()
+                        }
+                        dragX = 0f
+                    },
+                    onDragCancel = { dragX = 0f },
+                    onHorizontalDrag = { _, d -> dragX += d },
+                )
+            }
+            .graphicsLayer { translationX = dragX * 0.35f },
+    ) {
         // Peeche dhundhla cover (Android 12+ pe blur, purane phones pe halka)
         Artwork(
             t.artworkUrl,
@@ -308,23 +450,14 @@ private fun FeedPage(
             )
             Text(
                 "${t.artist} • ${t.source.label}",
+                modifier = Modifier.clickable(onClick = onArtist),
                 style = MaterialTheme.typography.bodyLarge,
                 color = Color.White.copy(alpha = 0.75f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Spacer(Modifier.height(10.dp))
-            Row(
-                Modifier
-                    .background(Color.White.copy(alpha = 0.15f), RoundedCornerShape(50))
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(Icons.Rounded.AutoAwesome, null, tint = spec.accent, modifier = Modifier.size(16.dp))
-                Text("  ${suggestion.reason}", color = Color.White, style = MaterialTheme.typography.labelLarge)
-            }
             Spacer(Modifier.height(20.dp))
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 IconButton(onClick = onLike) {
                     Icon(
                         if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
@@ -332,6 +465,9 @@ private fun FeedPage(
                         tint = if (liked) spec.accent else Color.White,
                         modifier = Modifier.size(30.dp),
                     )
+                }
+                IconButton(onClick = onPrev) {
+                    Icon(Icons.Rounded.SkipPrevious, "Previous", tint = Color.White, modifier = Modifier.size(34.dp))
                 }
                 Box(
                     Modifier
@@ -347,6 +483,9 @@ private fun FeedPage(
                         modifier = Modifier.size(36.dp),
                     )
                 }
+                IconButton(onClick = onNext) {
+                    Icon(Icons.Rounded.SkipNext, "Next", tint = Color.White, modifier = Modifier.size(34.dp))
+                }
                 IconButton(onClick = onMore) {
                     Icon(Icons.Rounded.MoreVert, "Options", tint = Color.White, modifier = Modifier.size(30.dp))
                 }
@@ -356,19 +495,15 @@ private fun FeedPage(
                 FeedLyrics(lyrics, positionMs, onSeek)
             }
             Spacer(Modifier.height(16.dp))
-            if (isCurrent) {
-                LinearProgressIndicator(
-                    progress = { progress().coerceIn(0f, 1f) },
-                    modifier = Modifier.fillMaxWidth().height(3.dp),
-                    color = Color.White,
-                    trackColor = Color.White.copy(alpha = 0.25f),
-                    drawStopIndicator = {},
+            if (isCurrent) FeedSeekBar(positionMs, durationMs, onSeek)
+            if (dragX > SWIPE_PX / 2 || dragX < -SWIPE_PX / 2) {
+                Spacer(Modifier.height(12.dp))
+                Icon(
+                    if (dragX > 0) Icons.Rounded.Favorite else Icons.Rounded.ThumbDown,
+                    null,
+                    tint = if (dragX > 0) spec.accent else Color.White,
+                    modifier = Modifier.size(40.dp),
                 )
-            }
-            if (showHint) {
-                Spacer(Modifier.height(20.dp))
-                Icon(Icons.Rounded.KeyboardArrowUp, null, tint = Color.White.copy(alpha = 0.6f))
-                Text("Upar scroll karo — agla gaana", color = Color.White.copy(alpha = 0.6f), style = MaterialTheme.typography.labelMedium)
             }
         }
     }
@@ -385,4 +520,28 @@ private fun FeedLyrics(lyrics: Lyrics, positionMs: () -> Long, onSeek: (Long) ->
         compact = true,
         modifier = Modifier.fillMaxWidth().height(96.dp),
     )
+}
+
+private const val SWIPE_PX = 180f
+
+/** Feed ka seek bar: sirf yahi har tick pe update hota hai. Kheencho = gaana aage/peeche. */
+@Composable
+private fun FeedSeekBar(positionMs: () -> Long, durationMs: () -> Long, onSeek: (Long) -> Unit) {
+    var dragging by remember { mutableStateOf(false) }
+    var dragValue by remember { floatState(0f) }
+    val dur = durationMs().coerceAtLeast(1)
+    val pos = positionMs()
+    Column(Modifier.fillMaxWidth()) {
+        Slider(
+            value = if (dragging) dragValue else (pos.toFloat() / dur).coerceIn(0f, 1f),
+            onValueChange = { dragging = true; dragValue = it },
+            onValueChangeFinished = { onSeek((dragValue * dur).toLong()); dragging = false },
+            colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = Color.White, inactiveTrackColor = Color.White.copy(alpha = 0.25f)),
+        )
+        Row(Modifier.fillMaxWidth()) {
+            Text(formatDuration(if (dragging) (dragValue * dur).toLong() else pos), color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall)
+            Spacer(Modifier.weight(1f))
+            Text(formatDuration(durationMs()), color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall)
+        }
+    }
 }

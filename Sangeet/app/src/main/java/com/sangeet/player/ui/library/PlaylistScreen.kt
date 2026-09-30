@@ -66,7 +66,7 @@ fun PlaylistScreen(nav: NavController, playlistId: Long) {
                     }
                 }.isSuccess
             }
-            Toast.makeText(context, if (ok) "Playlist export hui" else "Export fail", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, if (ok) "Playlist exported" else "Export failed", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -76,7 +76,7 @@ fun PlaylistScreen(nav: NavController, playlistId: Long) {
         var text by remember { mutableStateOf(name) }
         AlertDialog(
             onDismissRequest = { renaming = false },
-            title = { Text("Naam badlo") },
+            title = { Text("Rename") },
             text = { OutlinedTextField(text, { text = it }, singleLine = true, shape = RoundedCornerShape(12.dp)) },
             confirmButton = {
                 TextButton(onClick = {
@@ -90,8 +90,8 @@ fun PlaylistScreen(nav: NavController, playlistId: Long) {
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("Playlist delete karein?") },
-            text = { Text("\"$name\" hat jayegi. Gaane aur downloads safe rahenge.") },
+            title = { Text("Delete playlist?") },
+            text = { Text("\"$name\" will be deleted. Your songs and downloads won't be affected.") },
             confirmButton = {
                 TextButton(onClick = {
                     confirmDelete = false
@@ -111,8 +111,8 @@ fun PlaylistScreen(nav: NavController, playlistId: Long) {
                 Box {
                     IconButton(onClick = { showMenu = true }) { Icon(Icons.Rounded.MoreVert, "Options", tint = spec.muted) }
                     DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                        DropdownMenuItem(text = { Text("Naam badlo") }, onClick = { showMenu = false; renaming = true })
-                        DropdownMenuItem(text = { Text("Queue mein daalo") }, onClick = { showMenu = false; c.player.addToQueue(tracks) })
+                        DropdownMenuItem(text = { Text("Rename") }, onClick = { showMenu = false; renaming = true })
+                        DropdownMenuItem(text = { Text("Add to queue") }, onClick = { showMenu = false; c.player.addToQueue(tracks) })
                         DropdownMenuItem(text = { Text("Export (.m3u8)") }, onClick = { showMenu = false; exporter.launch("$name.m3u8") })
                         DropdownMenuItem(text = { Text("Delete playlist") }, onClick = { showMenu = false; confirmDelete = true })
                     }
@@ -123,8 +123,8 @@ fun PlaylistScreen(nav: NavController, playlistId: Long) {
             item {
                 EmptyState(
                     Icons.Rounded.QueueMusic,
-                    "Playlist khaali hai",
-                    "Kisi bhi gaane ke ⋮ menu se 'Playlist mein daalo' dabao.",
+                    "This playlist is empty",
+                    "Tap ⋮ on any song and choose 'Add to playlist'.",
                 )
             }
         }

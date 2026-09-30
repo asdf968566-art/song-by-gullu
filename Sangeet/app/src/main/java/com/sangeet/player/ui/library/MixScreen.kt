@@ -45,19 +45,19 @@ fun MixScreen(nav: NavController, mixId: String) {
 
     LazyColumn(Modifier.fillMaxSize()) {
         item {
-            CollectionHeader(nav, mix?.title ?: "Mix", mix?.subtitle ?: "Aapke liye", tracks, artwork = mix?.artworkUrl) {
+            CollectionHeader(nav, mix?.title ?: "Mix", mix?.subtitle ?: "Made for you", tracks, artwork = mix?.artworkUrl) {
                 if (mix != null) {
                     IconButton(onClick = {
                         scope.launch {
                             c.library.createPlaylist(mix.title, mix.tracks)
-                            Toast.makeText(context, "\"${mix.title}\" playlist mein save hui", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Saved \"${mix.title}\" as a playlist", Toast.LENGTH_SHORT).show()
                         }
-                    }) { Icon(Icons.Rounded.LibraryAdd, "Playlist mein save karo", tint = Sangeet.spec.muted) }
+                    }) { Icon(Icons.Rounded.LibraryAdd, "Save as playlist", tint = Sangeet.spec.muted) }
                 }
             }
         }
         if (tracks.isEmpty()) {
-            item { EmptyState(Icons.Rounded.AutoAwesome, "Mix abhi taiyaar nahi", "Home pe refresh dabao ya kuch gaane suno.") }
+            item { EmptyState(Icons.Rounded.AutoAwesome, "This mix isn't ready yet", "Refresh on Home or listen to a few songs.") }
         }
         itemsIndexed(tracks, key = { _, t -> t.id }) { i, t ->
             TrackRow(t, onClick = { c.player.play(tracks, i) }, index = i, onMore = { menuFor = t })

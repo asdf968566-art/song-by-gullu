@@ -17,6 +17,8 @@ import com.sangeet.player.data.NetworkMonitor
 import com.sangeet.player.data.OnlineRepository
 import com.sangeet.player.data.db.SangeetDatabase
 import com.sangeet.player.data.download.DownloadRepository
+import com.sangeet.player.data.download.SmartDownloadWorker
+import com.sangeet.player.data.db.ListenEntity
 import com.sangeet.player.data.lyrics.LyricsRepository
 import com.sangeet.player.data.playlist.PlaylistImporter
 import com.sangeet.player.data.recommend.RecommendationRepository
@@ -49,6 +51,7 @@ class SangeetApplication : Application() {
 /** Saari repositories ek jagah (simple manual dependency injection). */
 @OptIn(UnstableApi::class)
 class AppContainer(private val app: Application) {
+    val appContext: android.content.Context get() = app
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     val database = SangeetDatabase.create(app)
@@ -62,13 +65,30 @@ class AppContainer(private val app: Application) {
     val importer = PlaylistImporter(app, local, online)
     val equalizer = EqualizerManager(app)
     val updater = AppUpdater(app, settings)
+    val aiDj = com.sangeet.player.data.ai.AiDj(online, settings)
     val recommendations = RecommendationRepository(app, library, local, online, settings)
     val player = PlayerConnection(app, library, scope).apply {
         radio = { seed, exclude -> recommendations.radio(seed, exclude) }
         autoplayEnabled = { settings.current.autoplay }
+        crossfadeMs = { settings.current.crossfadeSec * 1000L }
+        onListened = { t, start, ms ->
+            database.listenDao().insert(ListenEntity(trackId = t.id, title = t.title, artist = t.artist, startedAt = start, playedMs = ms))
+        }
     }
 
     init {
+        // Home screen widget ko player ke saath update rakho
+        scope.launch {
+            player.state.map { Triple(it.current?.id, it.isPlaying, it.current?.artworkUrl) }.distinctUntilChanged().collect {
+                runCatching { com.sangeet.player.ui.widget.SangeetWidget.update(app, player.state.value) }
+            }
+        }
+        // Smart downloads on/off ke hisaab se roz ka kaam lagao / hatao
+        scope.launch {
+            settings.settings.map { it.smartDownloads }.distinctUntilChanged().collect {
+                runCatching { SmartDownloadWorker.schedule(app, it) }
+            }
+        }
         // Agle 2 gaanon ka YouTube link pehle se nikaal lo, taaki next dabate hi bajne lage.
         scope.launch {
             player.state.map { it.queueIndex to it.queue.map { t -> t.id } }.distinctUntilChanged().collect { (idx, _) ->

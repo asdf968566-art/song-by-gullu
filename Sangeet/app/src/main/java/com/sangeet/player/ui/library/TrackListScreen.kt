@@ -48,8 +48,8 @@ fun TrackListScreen(nav: NavController, kind: ListKind, arg: String) {
 
     val genreTracks by produceState<List<Track>?>(initialValue = null, kind, arg) {
         value = if (kind == ListKind.GENRE) {
-            val cat = Categories.find(arg)
-            if (cat != null) c.online.searchAll(cat.query) else c.online.trending(arg).flatMap { it.tracks }.distinctBy { it.id }
+            val q = Categories.queryFor(arg)
+            if (q != null) c.online.searchAll(q) else c.online.trending(arg).flatMap { it.tracks }.distinctBy { it.id }
         } else emptyList()
     }
 
@@ -62,13 +62,13 @@ fun TrackListScreen(nav: NavController, kind: ListKind, arg: String) {
     }
 
     val (title, subtitle) = when (kind) {
-        ListKind.LIKED -> "Liked Songs" to "Aapke pasandida"
-        ListKind.DOWNLOADS -> "Downloads" to "Bina internet ke chalenge"
+        ListKind.LIKED -> "Liked Songs" to "Songs you like"
+        ListKind.DOWNLOADS -> "Downloads" to "Available offline"
         ListKind.RECENT -> "Recently played" to "History"
-        ListKind.LOCAL -> "Phone ke gaane" to "Local files"
+        ListKind.LOCAL -> "On this phone" to "Local files"
         ListKind.ALBUM -> (tracks?.firstOrNull()?.album?.ifBlank { null } ?: "Album") to (tracks?.firstOrNull()?.artist ?: "")
         ListKind.ARTIST -> arg to "Artist"
-        ListKind.GENRE -> (Categories.find(arg)?.let { "${it.emoji} ${it.name}" } ?: arg) to "Online"
+        ListKind.GENRE -> (Categories.titleFor(arg) ?: arg) to "Online"
     }
 
     menuFor?.let { TrackOptionsSheet(it, onDismiss = { menuFor = null }) }
@@ -80,12 +80,12 @@ fun TrackListScreen(nav: NavController, kind: ListKind, arg: String) {
             tracks.isEmpty() -> item {
                 EmptyState(
                     Icons.Rounded.LibraryMusic,
-                    "Yahan abhi kuch nahi",
+                    "Nothing here yet",
                     when (kind) {
-                        ListKind.LIKED -> "Kisi gaane pe ♥ dabao, yahan aa jayega."
-                        ListKind.DOWNLOADS -> "Online gaane ke menu mein 'Download' dabao."
-                        ListKind.GENRE -> "Internet check karo ya Settings mein source on karo."
-                        else -> "Gaane bajao, yahan dikhenge."
+                        ListKind.LIKED -> "Tap ♥ on a song to save it here."
+                        ListKind.DOWNLOADS -> "Tap 'Download' in any online song's menu."
+                        ListKind.GENRE -> "Check your connection or turn on a source in Settings."
+                        else -> "Songs you play will show up here."
                     },
                 )
             }

@@ -37,7 +37,7 @@ class PlaylistImporter(
     suspend fun read(uri: Uri): Pair<String, List<ImportEntry>> = withContext(Dispatchers.IO) {
         val fileName = displayName(uri) ?: "Imported playlist"
         val text = context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
-            ?: throw IllegalArgumentException("File nahi khul payi")
+            ?: throw IllegalArgumentException("Couldn't open the file")
         val name = fileName.substringBeforeLast('.').ifBlank { "Imported playlist" }
         val ext = fileName.substringAfterLast('.', "").lowercase()
         val entries = when {

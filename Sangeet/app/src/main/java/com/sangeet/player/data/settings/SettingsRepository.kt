@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.sangeet.player.BuildConfig
@@ -19,12 +20,12 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
 enum class ThemeStyle(val label: String, val tagline: String) {
-    SPOTIFY("Classic Dark", "Spotify jaisa dark look"),
-    AURORA("Aurora", "Chalti hui northern-lights gradient"),
+    SPOTIFY("Classic Dark", "Sleek dark look"),
+    AURORA("Aurora", "Animated northern-lights gradient"),
     GLASS("Glassmorphism", "Frosted glass cards"),
-    NEUMORPHISM("Neumorphism", "Soft 3D ubhre hue buttons"),
-    AMOLED("AMOLED Black", "Pure black, battery bachao"),
-    MATERIAL_YOU("Material You", "Wallpaper se rang (Android 12+)"),
+    NEUMORPHISM("Neumorphism", "Soft 3D raised buttons"),
+    AMOLED("AMOLED Black", "Pure black, saves battery"),
+    MATERIAL_YOU("Material You", "Colors from your wallpaper (Android 12+)"),
 }
 
 enum class DarkMode(val label: String) { SYSTEM("System"), LIGHT("Light"), DARK("Dark") }
@@ -52,6 +53,14 @@ data class AppSettings(
     val skipSilence: Boolean = false,
     val playbackSpeed: Float = 1f,
     val autoplay: Boolean = true,
+    /** Gaano ke beech fade (seconds). 0 = band. */
+    val crossfadeSec: Int = 4,
+    /** For You feed mein gaana hook (chorus ke paas) se shuru ho. */
+    val hookPreview: Boolean = true,
+    /** Headphone / Bluetooth wapas lagate hi gaana resume. */
+    val headphoneResume: Boolean = true,
+    /** Wi-Fi + charging pe liked aur Daily Mix apne aap download. */
+    val smartDownloads: Boolean = true,
     val autoPlaylists: Boolean = true,
     val audiusEnabled: Boolean = true,
     val jiosaavnEnabled: Boolean = true,
@@ -62,6 +71,8 @@ data class AppSettings(
     val languages: List<String> = listOf("hindi", "punjabi"),
     /** App update ke liye read-only GitHub token (private repo). */
     val githubToken: String = "",
+    /** Optional Anthropic API key for the AI DJ (Claude). Empty = built-in DJ. */
+    val anthropicApiKey: String = "",
     val jamendoClientId: String = "",
     val subsonicUrl: String = "",
     val subsonicUser: String = "",
@@ -89,6 +100,10 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val skipSilence = booleanPreferencesKey("skip_silence")
         val playbackSpeed = floatPreferencesKey("playback_speed")
         val autoplay = booleanPreferencesKey("autoplay")
+        val crossfadeSec = intPreferencesKey("crossfade_sec")
+        val hookPreview = booleanPreferencesKey("hook_preview")
+        val headphoneResume = booleanPreferencesKey("headphone_resume")
+        val smartDownloads = booleanPreferencesKey("smart_downloads")
         val autoPlaylists = booleanPreferencesKey("auto_playlists")
         val audiusEnabled = booleanPreferencesKey("audius_enabled")
         val jiosaavnEnabled = booleanPreferencesKey("jiosaavn_enabled")
@@ -96,6 +111,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val youtubeApiKey = stringPreferencesKey("youtube_api_key")
         val languages = stringPreferencesKey("languages")
         val githubToken = stringPreferencesKey("github_token")
+        val anthropicApiKey = stringPreferencesKey("anthropic_api_key")
         val jamendoClientId = stringPreferencesKey("jamendo_client_id")
         val subsonicUrl = stringPreferencesKey("subsonic_url")
         val subsonicUser = stringPreferencesKey("subsonic_user")
@@ -121,6 +137,10 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             skipSilence = p[Keys.skipSilence] ?: d.skipSilence,
             playbackSpeed = p[Keys.playbackSpeed] ?: d.playbackSpeed,
             autoplay = p[Keys.autoplay] ?: d.autoplay,
+            crossfadeSec = p[Keys.crossfadeSec] ?: d.crossfadeSec,
+            hookPreview = p[Keys.hookPreview] ?: d.hookPreview,
+            headphoneResume = p[Keys.headphoneResume] ?: d.headphoneResume,
+            smartDownloads = p[Keys.smartDownloads] ?: d.smartDownloads,
             autoPlaylists = p[Keys.autoPlaylists] ?: d.autoPlaylists,
             audiusEnabled = p[Keys.audiusEnabled] ?: d.audiusEnabled,
             jiosaavnEnabled = p[Keys.jiosaavnEnabled] ?: d.jiosaavnEnabled,
@@ -129,6 +149,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             languages = p[Keys.languages]?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }
                 ?.takeIf { it.isNotEmpty() } ?: d.languages,
             githubToken = p[Keys.githubToken] ?: d.githubToken,
+            anthropicApiKey = p[Keys.anthropicApiKey] ?: d.anthropicApiKey,
             jamendoClientId = p[Keys.jamendoClientId] ?: d.jamendoClientId,
             subsonicUrl = p[Keys.subsonicUrl] ?: d.subsonicUrl,
             subsonicUser = p[Keys.subsonicUser] ?: d.subsonicUser,
@@ -151,6 +172,10 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     suspend fun setAutoLyrics(v: Boolean) = context.dataStore.edit { it[Keys.autoLyrics] = v }
     suspend fun setSkipSilence(v: Boolean) = context.dataStore.edit { it[Keys.skipSilence] = v }
     suspend fun setPlaybackSpeed(v: Float) = context.dataStore.edit { it[Keys.playbackSpeed] = v }
+    suspend fun setCrossfadeSec(v: Int) = context.dataStore.edit { it[Keys.crossfadeSec] = v }
+    suspend fun setHookPreview(v: Boolean) = context.dataStore.edit { it[Keys.hookPreview] = v }
+    suspend fun setHeadphoneResume(v: Boolean) = context.dataStore.edit { it[Keys.headphoneResume] = v }
+    suspend fun setSmartDownloads(v: Boolean) = context.dataStore.edit { it[Keys.smartDownloads] = v }
     suspend fun setAutoplay(v: Boolean) = context.dataStore.edit { it[Keys.autoplay] = v }
     suspend fun setAutoPlaylists(v: Boolean) = context.dataStore.edit { it[Keys.autoPlaylists] = v }
     suspend fun setAudiusEnabled(v: Boolean) = context.dataStore.edit { it[Keys.audiusEnabled] = v }
@@ -158,6 +183,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     suspend fun setYouTubeEnabled(v: Boolean) = context.dataStore.edit { it[Keys.youtubeEnabled] = v }
     suspend fun setYouTubeApiKey(v: String) = context.dataStore.edit { it[Keys.youtubeApiKey] = v.trim() }
     suspend fun setLanguages(v: List<String>) = context.dataStore.edit { it[Keys.languages] = v.joinToString(",") }
+    suspend fun setAnthropicApiKey(v: String) = context.dataStore.edit { it[Keys.anthropicApiKey] = v.trim() }
     suspend fun setGithubToken(v: String) = context.dataStore.edit { it[Keys.githubToken] = v.trim() }
     suspend fun setJamendoClientId(v: String) = context.dataStore.edit { it[Keys.jamendoClientId] = v.trim() }
 

@@ -95,3 +95,14 @@ data class LyricsEntity(
     val source: String,
     val fetchedAt: Long = System.currentTimeMillis(),
 )
+
+/** Kaunsa gaana kab aur kitni der suna — Stats (Wrapped jaisa) ke liye. */
+@Entity(tableName = "listen_log")
+data class ListenEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val trackId: String,
+    val title: String,
+    val artist: String,
+    val startedAt: Long,
+    val playedMs: Long,
+)

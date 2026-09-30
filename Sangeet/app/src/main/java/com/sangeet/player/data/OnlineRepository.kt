@@ -21,12 +21,13 @@ class OnlineRepository(
     private val network: NetworkMonitor,
 ) {
     // Indian sources pehle, taaki Hindi / Punjabi gaane upar aayein.
-    val sources: List<OnlineSource> = listOf(JioSaavnSource(), YouTubeSource(), AudiusSource(), JamendoSource(), SubsonicSource())
+    val sources: List<OnlineSource> = listOf(YouTubeSource(), JioSaavnSource(), AudiusSource(), JamendoSource(), SubsonicSource())
 
     fun source(type: SourceType): OnlineSource? = sources.firstOrNull { it.type == type }
 
     /** Default online library (charts + playlists) JioSaavn se. */
     val saavn: JioSaavnSource = sources.filterIsInstance<JioSaavnSource>().first()
+    val youtube: YouTubeSource = sources.filterIsInstance<YouTubeSource>().first()
 
     fun enabledSources(): List<OnlineSource> {
         val s = settings.current
@@ -111,7 +112,7 @@ class OnlineRepository(
         SourceType.LOCAL -> "Phone file"
         SourceType.URL -> "Original"
         SourceType.SUBSONIC -> quality.label
-        SourceType.JIOSAAVN -> if (quality == AudioQuality.LOW) "96 kbps" else if (quality == AudioQuality.MEDIUM) "160 kbps" else "320 kbps (jahan mile)"
+        SourceType.JIOSAAVN -> if (quality == AudioQuality.LOW) "96 kbps" else if (quality == AudioQuality.MEDIUM) "160 kbps" else "320 kbps (when available)"
         SourceType.YOUTUBE -> "YouTube audio"
         SourceType.JAMENDO -> if (quality == AudioQuality.LOW) "96 kbps" else "High (VBR)"
         SourceType.AUDIUS -> "Source quality"

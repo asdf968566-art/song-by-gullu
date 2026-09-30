@@ -64,6 +64,15 @@ class PlayerConnection(
     var autoplayEnabled: () -> Boolean = { false }
     private var radioJob: Job? = null
 
+    /** Gaano ke beech fade kitna (ms). AppContainer settings se set karta hai. */
+    var crossfadeMs: () -> Long = { 0L }
+    /** Suna hua time record karne wala (Stats). */
+    var onListened: (suspend (track: Track, startedAt: Long, playedMs: Long) -> Unit)? = null
+    private var listenTrack: Track? = null
+    private var listenStart = 0L
+    private var listenMs = 0L
+    private var lastVolume = 1f
+
     /** true = Discover feed chal raha hai; tab feed khud queue bharta hai, radio nahi. */
     var feedActive: Boolean = false
         private set
@@ -94,6 +103,7 @@ class PlayerConnection(
     private val listener = object : Player.Listener {
         override fun onEvents(player: Player, events: Player.Events) {
             refresh()
+            if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) flushListen()
             if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION) && _sleep.value.mode == SleepTimerMode.END_OF_TRACK) {
                 player.pause()
                 cancelSleepTimer()
@@ -130,6 +140,8 @@ class PlayerConnection(
             while (isActive) {
                 val c = controller
                 if (c != null && c.isPlaying) {
+                    accumulateListen(250)
+                    applyVolume(c)
                     _position.value = PlaybackPosition(
                         positionMs = c.currentPosition.coerceAtLeast(0),
                         durationMs = c.duration.takeIf { it > 0 } ?: _position.value.durationMs,
@@ -152,6 +164,63 @@ class PlayerConnection(
             album = md.albumTitle?.toString() ?: "",
             artworkUrl = md.artworkUri?.toString(),
         )
+    }
+
+    // ------------------------------------------------------------ listening record (Stats)
+
+    private fun accumulateListen(ms: Long) {
+        val cur = _state.value.current ?: return
+        if (listenTrack?.id != cur.id) {
+            flushListen()
+            listenTrack = cur
+            listenStart = System.currentTimeMillis()
+            listenMs = 0
+        }
+        listenMs += ms
+    }
+
+    /** 10 second se kam suna to gina nahi jaata. */
+    private fun flushListen() {
+        val t = listenTrack ?: return
+        val ms = listenMs
+        val start = listenStart
+        listenTrack = null
+        listenMs = 0
+        if (ms < 10_000) return
+        val sink = onListened ?: return
+        scope.launch { runCatching { sink(t, start, ms) } }
+    }
+
+    // ------------------------------------------------------------ fades (crossfade + sleep timer)
+
+    /** Gaane ke shuru/aakhir mein awaaz dheere badhe/ghate, aur sleep timer ke aakhri 30s mein dheere band. */
+    private fun applyVolume(c: MediaController) {
+        val pos = c.currentPosition
+        val dur = c.duration
+        val fade = crossfadeMs()
+        var v = 1f
+        if (fade > 0 && dur > fade * 3) {
+            if (pos < fade) v = minOf(v, (pos.toFloat() / fade).coerceIn(0.05f, 1f))
+            val left = dur - pos
+            if (left < fade && c.hasNextMediaItem()) v = minOf(v, (left.toFloat() / fade).coerceIn(0f, 1f))
+        }
+        val sleep = _sleep.value
+        if (sleep.mode == SleepTimerMode.MINUTES) {
+            val left = sleep.endsAt - System.currentTimeMillis()
+            if (left < SLEEP_FADE_MS) v = minOf(v, (left.toFloat() / SLEEP_FADE_MS).coerceIn(0f, 1f))
+        } else if (sleep.mode == SleepTimerMode.END_OF_TRACK && dur > 0) {
+            val left = dur - pos
+            if (left < 10_000) v = minOf(v, (left / 10_000f).coerceIn(0f, 1f))
+        }
+        if (kotlin.math.abs(v - lastVolume) > 0.01f) {
+            lastVolume = v
+            c.volume = v
+        }
+    }
+
+    private fun resetVolume() {
+        lastVolume = 1f
+        controller?.volume = 1f
     }
 
     /** Aakhri gaana baj raha hai -> track record ke hisaab se aur gaane jodo (autoplay). */
@@ -178,7 +247,13 @@ class PlayerConnection(
     // ------------------------------------------------------------ controls
 
     /** Ek list bajao, [startIndex] wale gaane se. */
-    fun play(tracks: List<Track>, startIndex: Int = 0, shuffle: Boolean = false, fromFeed: Boolean = false) {
+    fun play(
+        tracks: List<Track>,
+        startIndex: Int = 0,
+        shuffle: Boolean = false,
+        fromFeed: Boolean = false,
+        startPositionMs: Long = 0L,
+    ) {
         if (tracks.isEmpty()) return
         feedActive = fromFeed
         radioJob?.cancel()
@@ -186,7 +261,9 @@ class PlayerConnection(
             library.remember(tracks)
             withController { c ->
                 c.shuffleModeEnabled = shuffle
-                c.setMediaItems(tracks.map(MediaItems::fromTrack), startIndex.coerceIn(tracks.indices), 0L)
+                // Naya gaana/list = "ek hi gaana repeat" band (user khud dobara chala sakta hai)
+                if (c.repeatMode == Player.REPEAT_MODE_ONE) c.repeatMode = Player.REPEAT_MODE_OFF
+                c.setMediaItems(tracks.map(MediaItems::fromTrack), startIndex.coerceIn(tracks.indices), startPositionMs)
                 c.prepare()
                 c.play()
             }
@@ -227,7 +304,20 @@ class PlayerConnection(
         it.seekTo(ms)
         _position.value = _position.value.copy(positionMs = ms)
     }
-    fun skipTo(index: Int) = withController { it.seekToDefaultPosition(index); it.play() }
+    fun skipTo(index: Int, positionMs: Long = 0L) = withController {
+        if (positionMs > 0) it.seekTo(index, positionMs) else it.seekToDefaultPosition(index)
+        it.play()
+    }
+
+    /** Radio: ye gaana + iske jaise gaane, lagatar (autoplay aage bhi bharta rahega). */
+    fun startRadio(seed: Track) {
+        play(listOf(seed))
+        val source = radio ?: return
+        radioJob = scope.launch {
+            val more = runCatching { source(seed, setOf(seed.id)) }.getOrDefault(emptyList())
+            if (more.isNotEmpty()) addToQueue(more)
+        }
+    }
     fun removeAt(index: Int) = withController { it.removeMediaItem(index) }
     fun move(from: Int, to: Int) = withController { it.moveMediaItem(from, to) }
     fun toggleShuffle() = withController { it.shuffleModeEnabled = !it.shuffleModeEnabled }
@@ -242,6 +332,7 @@ class PlayerConnection(
     // ------------------------------------------------------------ sleep timer
 
     fun startSleepTimer(minutes: Int) {
+        resetVolume()
         sleepJob?.cancel()
         val endsAt = System.currentTimeMillis() + minutes * 60_000L
         _sleep.value = SleepTimerState(SleepTimerMode.MINUTES, endsAt)
@@ -249,6 +340,8 @@ class PlayerConnection(
             delay(minutes * 60_000L)
             withController { it.pause() }
             _sleep.value = SleepTimerState()
+            delay(500)
+            resetVolume()
         }
     }
 
@@ -260,5 +353,10 @@ class PlayerConnection(
     fun cancelSleepTimer() {
         sleepJob?.cancel()
         _sleep.value = SleepTimerState()
+        resetVolume()
+    }
+
+    private companion object {
+        const val SLEEP_FADE_MS = 30_000L
     }
 }
