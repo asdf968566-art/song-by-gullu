@@ -1,0 +1,79 @@
+package com.sangeet.player.data.model
+
+import kotlinx.serialization.Serializable
+
+/** Gaana kahan se aa raha hai. */
+@Serializable
+enum class SourceType(val label: String) {
+    LOCAL("Phone"),
+    AUDIUS("Audius"),
+    JAMENDO("Jamendo"),
+    SUBSONIC("My Server"),
+    URL("Web link");
+
+    val isOnline: Boolean get() = this != LOCAL
+}
+
+/** Streaming / download quality. */
+@Serializable
+enum class AudioQuality(val kbps: Int, val label: String) {
+    LOW(128, "128 kbps"),
+    MEDIUM(256, "256 kbps"),
+    HIGH(320, "320 kbps");
+}
+
+/**
+ * Ek gaana. [id] poore app mein unique hai: "<source>:<sourceId>".
+ * [streamUrl] source ke hisaab se: local ke liye content:// uri, Jamendo ke liye audio url,
+ * URL source ke liye direct link. Audius / Subsonic ka url play ke time banta hai.
+ */
+@Serializable
+data class Track(
+    val id: String,
+    val source: SourceType,
+    val sourceId: String,
+    val title: String,
+    val artist: String,
+    val album: String = "",
+    val durationMs: Long = 0L,
+    val artworkUrl: String? = null,
+    val streamUrl: String? = null,
+    val filePath: String? = null,
+    val albumId: Long = 0L,
+) {
+    companion object {
+        fun makeId(source: SourceType, sourceId: String) = "${source.name.lowercase()}:$sourceId"
+    }
+}
+
+data class Album(
+    val id: Long,
+    val title: String,
+    val artist: String,
+    val artworkUrl: String?,
+    val tracks: List<Track>,
+)
+
+data class Artist(
+    val name: String,
+    val tracks: List<Track>,
+    val artworkUrl: String?,
+)
+
+data class Playlist(
+    val id: Long,
+    val name: String,
+    val trackCount: Int,
+    val coverUrl: String?,
+)
+
+/** Download ki halat. */
+enum class DownloadState { QUEUED, DOWNLOADING, DONE, FAILED }
+
+data class DownloadInfo(
+    val trackId: String,
+    val state: DownloadState,
+    val progress: Int,
+    val filePath: String?,
+    val quality: AudioQuality,
+)

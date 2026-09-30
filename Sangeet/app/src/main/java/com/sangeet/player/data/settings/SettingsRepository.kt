@@ -1,0 +1,151 @@
+package com.sangeet.player.data.settings
+
+import android.content.Context
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
+import com.sangeet.player.data.model.AudioQuality
+import java.math.BigInteger
+import java.security.MessageDigest
+import java.util.UUID
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+
+enum class ThemeStyle(val label: String, val tagline: String) {
+    SPOTIFY("Classic Dark", "Spotify jaisa dark look"),
+    AURORA("Aurora", "Chalti hui northern-lights gradient"),
+    GLASS("Glassmorphism", "Frosted glass cards"),
+    NEUMORPHISM("Neumorphism", "Soft 3D ubhre hue buttons"),
+    AMOLED("AMOLED Black", "Pure black, battery bachao"),
+    MATERIAL_YOU("Material You", "Wallpaper se rang (Android 12+)"),
+}
+
+enum class DarkMode(val label: String) { SYSTEM("System"), LIGHT("Light"), DARK("Dark") }
+
+enum class AccentColor(val label: String, val argb: Long) {
+    GREEN("Green", 0xFF1DB954),
+    VIOLET("Violet", 0xFF8B5CF6),
+    BLUE("Blue", 0xFF3B82F6),
+    TEAL("Teal", 0xFF14B8A6),
+    ORANGE("Orange", 0xFFF97316),
+    PINK("Pink", 0xFFEC4899),
+    RED("Red", 0xFFEF4444),
+}
+
+data class AppSettings(
+    val theme: ThemeStyle = ThemeStyle.SPOTIFY,
+    val darkMode: DarkMode = DarkMode.DARK,
+    val accent: AccentColor = AccentColor.GREEN,
+    val wifiQuality: AudioQuality = AudioQuality.HIGH,
+    val mobileQuality: AudioQuality = AudioQuality.MEDIUM,
+    val downloadQuality: AudioQuality = AudioQuality.HIGH,
+    val offlineMode: Boolean = false,
+    val downloadOnWifiOnly: Boolean = false,
+    val autoLyrics: Boolean = true,
+    val skipSilence: Boolean = false,
+    val playbackSpeed: Float = 1f,
+    val audiusEnabled: Boolean = true,
+    val jamendoClientId: String = "",
+    val subsonicUrl: String = "",
+    val subsonicUser: String = "",
+    val subsonicToken: String = "",
+    val subsonicSalt: String = "",
+) {
+    val subsonicConfigured: Boolean
+        get() = subsonicUrl.isNotBlank() && subsonicUser.isNotBlank() && subsonicToken.isNotBlank()
+}
+
+private val Context.dataStore by preferencesDataStore(name = "settings")
+
+class SettingsRepository(private val context: Context, scope: CoroutineScope) {
+
+    private object Keys {
+        val theme = stringPreferencesKey("theme")
+        val darkMode = stringPreferencesKey("dark_mode")
+        val accent = stringPreferencesKey("accent")
+        val wifiQuality = stringPreferencesKey("wifi_quality")
+        val mobileQuality = stringPreferencesKey("mobile_quality")
+        val downloadQuality = stringPreferencesKey("download_quality")
+        val offlineMode = booleanPreferencesKey("offline_mode")
+        val downloadOnWifiOnly = booleanPreferencesKey("download_wifi_only")
+        val autoLyrics = booleanPreferencesKey("auto_lyrics")
+        val skipSilence = booleanPreferencesKey("skip_silence")
+        val playbackSpeed = floatPreferencesKey("playback_speed")
+        val audiusEnabled = booleanPreferencesKey("audius_enabled")
+        val jamendoClientId = stringPreferencesKey("jamendo_client_id")
+        val subsonicUrl = stringPreferencesKey("subsonic_url")
+        val subsonicUser = stringPreferencesKey("subsonic_user")
+        val subsonicToken = stringPreferencesKey("subsonic_token")
+        val subsonicSalt = stringPreferencesKey("subsonic_salt")
+    }
+
+    private inline fun <reified T : Enum<T>> Preferences.enumOf(key: Preferences.Key<String>, default: T): T =
+        this[key]?.let { name -> enumValues<T>().firstOrNull { it.name == name } } ?: default
+
+    val settings: StateFlow<AppSettings> = context.dataStore.data.map { p ->
+        val d = AppSettings()
+        AppSettings(
+            theme = p.enumOf(Keys.theme, d.theme),
+            darkMode = p.enumOf(Keys.darkMode, d.darkMode),
+            accent = p.enumOf(Keys.accent, d.accent),
+            wifiQuality = p.enumOf(Keys.wifiQuality, d.wifiQuality),
+            mobileQuality = p.enumOf(Keys.mobileQuality, d.mobileQuality),
+            downloadQuality = p.enumOf(Keys.downloadQuality, d.downloadQuality),
+            offlineMode = p[Keys.offlineMode] ?: d.offlineMode,
+            downloadOnWifiOnly = p[Keys.downloadOnWifiOnly] ?: d.downloadOnWifiOnly,
+            autoLyrics = p[Keys.autoLyrics] ?: d.autoLyrics,
+            skipSilence = p[Keys.skipSilence] ?: d.skipSilence,
+            playbackSpeed = p[Keys.playbackSpeed] ?: d.playbackSpeed,
+            audiusEnabled = p[Keys.audiusEnabled] ?: d.audiusEnabled,
+            jamendoClientId = p[Keys.jamendoClientId] ?: d.jamendoClientId,
+            subsonicUrl = p[Keys.subsonicUrl] ?: d.subsonicUrl,
+            subsonicUser = p[Keys.subsonicUser] ?: d.subsonicUser,
+            subsonicToken = p[Keys.subsonicToken] ?: d.subsonicToken,
+            subsonicSalt = p[Keys.subsonicSalt] ?: d.subsonicSalt,
+        )
+    }.stateIn(scope, SharingStarted.Eagerly, AppSettings())
+
+    /** Resolver jaise blocking code ke liye turant value. */
+    val current: AppSettings get() = settings.value
+
+    suspend fun setTheme(v: ThemeStyle) = context.dataStore.edit { it[Keys.theme] = v.name }
+    suspend fun setDarkMode(v: DarkMode) = context.dataStore.edit { it[Keys.darkMode] = v.name }
+    suspend fun setAccent(v: AccentColor) = context.dataStore.edit { it[Keys.accent] = v.name }
+    suspend fun setWifiQuality(v: AudioQuality) = context.dataStore.edit { it[Keys.wifiQuality] = v.name }
+    suspend fun setMobileQuality(v: AudioQuality) = context.dataStore.edit { it[Keys.mobileQuality] = v.name }
+    suspend fun setDownloadQuality(v: AudioQuality) = context.dataStore.edit { it[Keys.downloadQuality] = v.name }
+    suspend fun setOfflineMode(v: Boolean) = context.dataStore.edit { it[Keys.offlineMode] = v }
+    suspend fun setDownloadOnWifiOnly(v: Boolean) = context.dataStore.edit { it[Keys.downloadOnWifiOnly] = v }
+    suspend fun setAutoLyrics(v: Boolean) = context.dataStore.edit { it[Keys.autoLyrics] = v }
+    suspend fun setSkipSilence(v: Boolean) = context.dataStore.edit { it[Keys.skipSilence] = v }
+    suspend fun setPlaybackSpeed(v: Float) = context.dataStore.edit { it[Keys.playbackSpeed] = v }
+    suspend fun setAudiusEnabled(v: Boolean) = context.dataStore.edit { it[Keys.audiusEnabled] = v }
+    suspend fun setJamendoClientId(v: String) = context.dataStore.edit { it[Keys.jamendoClientId] = v.trim() }
+
+    /** Password save nahi hota, sirf Subsonic token = md5(password + salt). */
+    suspend fun setSubsonic(url: String, user: String, password: String) = context.dataStore.edit {
+        it[Keys.subsonicUrl] = url.trim().trimEnd('/')
+        it[Keys.subsonicUser] = user.trim()
+        if (password.isNotEmpty()) {
+            val salt = UUID.randomUUID().toString().replace("-", "").take(12)
+            it[Keys.subsonicSalt] = salt
+            it[Keys.subsonicToken] = md5(password + salt)
+        }
+    }
+
+    suspend fun clearSubsonic() = context.dataStore.edit {
+        it.remove(Keys.subsonicUrl); it.remove(Keys.subsonicUser)
+        it.remove(Keys.subsonicToken); it.remove(Keys.subsonicSalt)
+    }
+
+    private fun md5(s: String): String {
+        val digest = MessageDigest.getInstance("MD5").digest(s.toByteArray())
+        return BigInteger(1, digest).toString(16).padStart(32, '0')
+    }
+}
