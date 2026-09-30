@@ -40,7 +40,8 @@ class OnlineRepository(
         enabledSources().map { src ->
             async {
                 try {
-                    SourceResult(src.type, block(src))
+                    // Duplicate id se Lazy lists crash karti hain, isliye ek hi baar rakho.
+                    SourceResult(src.type, block(src).distinctBy { it.id })
                 } catch (e: Exception) {
                     SourceResult(src.type, emptyList(), e.message ?: "Network error")
                 }
