@@ -10,6 +10,7 @@ import com.sangeet.player.data.model.inLanguages
 import com.sangeet.player.data.settings.SettingsRepository
 import kotlin.math.ln
 import kotlin.random.Random
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -248,7 +249,8 @@ class RecommendationRepository(
                 }.getOrDefault(emptyList())
             }
         } else emptyList()
-        val byPlaylists = if (saavnOn) async { runCatching { randomPlaylistTracks() }.getOrDefault(emptyList()) } else null
+        val byPlaylists: Deferred<List<Pair<String, Track>>>? =
+            if (saavnOn) async { runCatching { randomPlaylistTracks() }.getOrDefault(emptyList()) } else null
         val byArtistDeep = if (saavnOn) artists.take(3).map { a ->
             async { a to runCatching { online.saavn.searchPage(a, Random.nextInt(2, 5)) }.getOrDefault(emptyList()).filter { artistMatch(it.artist, a) } }
         } else emptyList()
