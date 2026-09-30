@@ -84,6 +84,7 @@ class PlaybackService : MediaLibraryService() {
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 val id = mediaItem?.mediaId ?: return
+                container.recommendations.markSeen(listOf(id))
                 scope.launch { container.library.find(id)?.let { container.library.recordPlay(it) } }
             }
 

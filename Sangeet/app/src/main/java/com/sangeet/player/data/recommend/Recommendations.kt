@@ -66,6 +66,33 @@ class RecommendationRepository(
             .apply()
     }
 
+    // ------------------------------------------------------------ seen: ek baar aaya gaana auto mein dobara nahi
+
+    private val seenPrefs = context.getSharedPreferences("seen", Context.MODE_PRIVATE)
+    private val seen: LinkedHashSet<String> by lazy {
+        LinkedHashSet(seenPrefs.getString("ids", "").orEmpty().split('\n').filter { it.isNotBlank() })
+    }
+
+    /** Feed mein dikha / baja gaana yaad rakho (max 20,000). */
+    fun markSeen(ids: Collection<String>) {
+        if (ids.isEmpty()) return
+        val snapshot = synchronized(seen) {
+            ids.forEach { seen.remove(it); seen.add(it) }
+            while (seen.size > MAX_SEEN) seen.remove(seen.first())
+            seen.joinToString("\n")
+        }
+        seenPrefs.edit().putString("ids", snapshot).apply()
+    }
+
+    fun clearSeen() {
+        synchronized(seen) { seen.clear() }
+        seenPrefs.edit().remove("ids").apply()
+    }
+
+    val seenCount: Int get() = synchronized(seen) { seen.size }
+
+    private fun seenIds(): Set<String> = synchronized(seen) { HashSet(seen) }
+
     private fun dislikedIds(): Set<String> = taste.getStringSet("disliked_ids", emptySet()).orEmpty()
     private fun artistDislikes(artist: String): Int = taste.getInt("artist_" + norm(artist), 0)
 
@@ -92,13 +119,18 @@ class RecommendationRepository(
 
     suspend fun suggestions(limit: Int = 30, exclude: Set<String> = emptySet()): List<Suggestion> {
         val p = profile()
-        return rank(p, candidates(p, null), null, exclude + p.recentIds, preferNew = true).take(limit)
+        val pool = candidates(p, null)
+        val fresh = rank(p, pool, null, exclude + p.recentIds + seenIds(), preferNew = true)
+        // Sab dekh liya ho (bahut kam hota hai) tabhi purane mein se
+        return (fresh.ifEmpty { rank(p, pool, null, exclude + p.recentIds, preferNew = true) }).take(limit)
     }
 
     /** Autoplay / radio: haal hi mein (12 ghante) suna gaana apne aap dobara nahi aata. */
     suspend fun radio(seed: Track, exclude: Set<String>, limit: Int = 15): List<Track> {
         val p = profile()
-        return rank(p, candidates(p, seed), seed, exclude + p.recentIds, preferNew = false).take(limit).map { it.track }
+        val pool = candidates(p, seed)
+        val fresh = rank(p, pool, seed, exclude + p.recentIds + seenIds(), preferNew = false)
+        return fresh.ifEmpty { rank(p, pool, seed, exclude + p.recentIds, preferNew = false) }.take(limit).map { it.track }
     }
 
     suspend fun refreshMixes(force: Boolean = false): List<Mix> = mixLock.withLock {
@@ -193,6 +225,19 @@ class RecommendationRepository(
         val byLanguage = if (canOnline) p.languages.take(2).map { lang ->
             async { lang to runCatching { online.byLanguage(lang) }.getOrDefault(emptyList()) }
         } else emptyList()
+        // Lakhon gaano se variety: JioSaavn ki "similar" (users ke data se), random playlists, search ke aage ke pages
+        val saavnOn = canOnline && settings.current.jiosaavnEnabled
+        val recoSeeds = buildList {
+            seed?.takeIf { it.source == SourceType.JIOSAAVN }?.let(::add)
+            addAll((p.liked + p.played.map { it.track }).filter { it.source == SourceType.JIOSAAVN }.shuffled().take(6))
+        }.distinctBy { it.id }.take(6)
+        val byReco = if (saavnOn) recoSeeds.map { s ->
+            async { s to runCatching { online.saavn.similar(s.sourceId) }.getOrDefault(emptyList()) }
+        } else emptyList()
+        val byPlaylists = if (saavnOn) async { runCatching { randomPlaylistTracks() }.getOrDefault(emptyList()) } else null
+        val byArtistDeep = if (saavnOn) artists.take(3).map { a ->
+            async { a to runCatching { online.saavn.searchPage(a, Random.nextInt(2, 5)) }.getOrDefault(emptyList()).filter { artistMatch(it.artist, a) } }
+        } else emptyList()
         val trending = if (canOnline && artists.size < 3) {
             async { runCatching { online.trending() }.getOrDefault(emptyList()).flatMap { it.tracks } }
         } else null
@@ -206,6 +251,9 @@ class RecommendationRepository(
         byLanguage.awaitAll().forEach { (lang, list) ->
             list.take(40).forEach { out += Suggestion(it, "Naya ${lang.replaceFirstChar(Char::uppercase)} gaana") }
         }
+        byReco.awaitAll().forEach { (s, list) -> list.forEach { out += Suggestion(it, "Similar to \"${s.title}\"") } }
+        byArtistDeep.awaitAll().forEach { (a, list) -> list.forEach { out += Suggestion(it, reasonFor(a, seed)) } }
+        byPlaylists?.await()?.forEach { (name, t) -> out += Suggestion(t, "From $name") }
         trending?.await()?.forEach { out += Suggestion(it, "Abhi trending") }
         // Thoda naya-pan: phone ke kuch random gaane
         songs.shuffled().take(20).forEach { out += Suggestion(it, "Phone se ek pick") }
@@ -213,6 +261,14 @@ class RecommendationRepository(
         p.liked.take(30).forEach { out += Suggestion(it, "Aapka liked gaana") }
 
         out.distinctBy { it.track.id }
+    }
+
+    /** 2-3 random online playlists (hazaron mein se) ke gaane. */
+    private suspend fun randomPlaylistTracks(): List<Pair<String, Track>> = coroutineScope {
+        val page = Random.nextInt(1, 30)
+        val lists = online.saavn.featuredPlaylists(settings.current, page).shuffled().take(3)
+        lists.map { pl -> async { runCatching { online.saavn.playlistTracks(pl.id) }.getOrDefault(emptyList()).map { pl.title to it } } }
+            .awaitAll().flatten()
     }
 
     private fun rank(
@@ -223,7 +279,7 @@ class RecommendationRepository(
         preferNew: Boolean,
     ): List<Suggestion> {
         // Har ghante thoda alag order, par ek ghante ke andar stable.
-        val rnd = Random(System.currentTimeMillis() / 3_600_000L)
+        val rnd = Random(System.nanoTime())
         val seedArtist = seed?.artist?.let(::norm)
         val topLangs = p.languages.take(2).toSet()
         val disliked = dislikedIds()
@@ -242,7 +298,7 @@ class RecommendationRepository(
                 val lang = s.track.language
                 if (lang.isNotBlank()) score += if (lang in topLangs) 1.2 else -0.6
                 if (seed != null && lang.isNotBlank() && lang == seed.language) score += 0.8
-                score += rnd.nextDouble() * 1.5
+                score += rnd.nextDouble() * 2.5
                 s to score
             }
             .sortedByDescending { it.second }
@@ -337,5 +393,6 @@ class RecommendationRepository(
 
     companion object {
         private const val KEY_LAST_SYNC = "last_sync"
+        private const val MAX_SEEN = 20_000
     }
 }
