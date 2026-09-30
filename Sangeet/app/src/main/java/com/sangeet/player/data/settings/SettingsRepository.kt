@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.sangeet.player.BuildConfig
@@ -52,6 +53,14 @@ data class AppSettings(
     val skipSilence: Boolean = false,
     val playbackSpeed: Float = 1f,
     val autoplay: Boolean = true,
+    /** Gaano ke beech fade (seconds). 0 = band. */
+    val crossfadeSec: Int = 4,
+    /** For You feed mein gaana hook (chorus ke paas) se shuru ho. */
+    val hookPreview: Boolean = true,
+    /** Headphone / Bluetooth wapas lagate hi gaana resume. */
+    val headphoneResume: Boolean = true,
+    /** Wi-Fi + charging pe liked aur Daily Mix apne aap download. */
+    val smartDownloads: Boolean = true,
     val autoPlaylists: Boolean = true,
     val audiusEnabled: Boolean = true,
     val jiosaavnEnabled: Boolean = true,
@@ -89,6 +98,10 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val skipSilence = booleanPreferencesKey("skip_silence")
         val playbackSpeed = floatPreferencesKey("playback_speed")
         val autoplay = booleanPreferencesKey("autoplay")
+        val crossfadeSec = intPreferencesKey("crossfade_sec")
+        val hookPreview = booleanPreferencesKey("hook_preview")
+        val headphoneResume = booleanPreferencesKey("headphone_resume")
+        val smartDownloads = booleanPreferencesKey("smart_downloads")
         val autoPlaylists = booleanPreferencesKey("auto_playlists")
         val audiusEnabled = booleanPreferencesKey("audius_enabled")
         val jiosaavnEnabled = booleanPreferencesKey("jiosaavn_enabled")
@@ -121,6 +134,10 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             skipSilence = p[Keys.skipSilence] ?: d.skipSilence,
             playbackSpeed = p[Keys.playbackSpeed] ?: d.playbackSpeed,
             autoplay = p[Keys.autoplay] ?: d.autoplay,
+            crossfadeSec = p[Keys.crossfadeSec] ?: d.crossfadeSec,
+            hookPreview = p[Keys.hookPreview] ?: d.hookPreview,
+            headphoneResume = p[Keys.headphoneResume] ?: d.headphoneResume,
+            smartDownloads = p[Keys.smartDownloads] ?: d.smartDownloads,
             autoPlaylists = p[Keys.autoPlaylists] ?: d.autoPlaylists,
             audiusEnabled = p[Keys.audiusEnabled] ?: d.audiusEnabled,
             jiosaavnEnabled = p[Keys.jiosaavnEnabled] ?: d.jiosaavnEnabled,
@@ -151,6 +168,10 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     suspend fun setAutoLyrics(v: Boolean) = context.dataStore.edit { it[Keys.autoLyrics] = v }
     suspend fun setSkipSilence(v: Boolean) = context.dataStore.edit { it[Keys.skipSilence] = v }
     suspend fun setPlaybackSpeed(v: Float) = context.dataStore.edit { it[Keys.playbackSpeed] = v }
+    suspend fun setCrossfadeSec(v: Int) = context.dataStore.edit { it[Keys.crossfadeSec] = v }
+    suspend fun setHookPreview(v: Boolean) = context.dataStore.edit { it[Keys.hookPreview] = v }
+    suspend fun setHeadphoneResume(v: Boolean) = context.dataStore.edit { it[Keys.headphoneResume] = v }
+    suspend fun setSmartDownloads(v: Boolean) = context.dataStore.edit { it[Keys.smartDownloads] = v }
     suspend fun setAutoplay(v: Boolean) = context.dataStore.edit { it[Keys.autoplay] = v }
     suspend fun setAutoPlaylists(v: Boolean) = context.dataStore.edit { it[Keys.autoPlaylists] = v }
     suspend fun setAudiusEnabled(v: Boolean) = context.dataStore.edit { it[Keys.audiusEnabled] = v }

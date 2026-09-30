@@ -17,6 +17,8 @@ import com.sangeet.player.data.NetworkMonitor
 import com.sangeet.player.data.OnlineRepository
 import com.sangeet.player.data.db.SangeetDatabase
 import com.sangeet.player.data.download.DownloadRepository
+import com.sangeet.player.data.download.SmartDownloadWorker
+import com.sangeet.player.data.db.ListenEntity
 import com.sangeet.player.data.lyrics.LyricsRepository
 import com.sangeet.player.data.playlist.PlaylistImporter
 import com.sangeet.player.data.recommend.RecommendationRepository
@@ -66,9 +68,19 @@ class AppContainer(private val app: Application) {
     val player = PlayerConnection(app, library, scope).apply {
         radio = { seed, exclude -> recommendations.radio(seed, exclude) }
         autoplayEnabled = { settings.current.autoplay }
+        crossfadeMs = { settings.current.crossfadeSec * 1000L }
+        onListened = { t, start, ms ->
+            database.listenDao().insert(ListenEntity(trackId = t.id, title = t.title, artist = t.artist, startedAt = start, playedMs = ms))
+        }
     }
 
     init {
+        // Smart downloads on/off ke hisaab se roz ka kaam lagao / hatao
+        scope.launch {
+            settings.settings.map { it.smartDownloads }.distinctUntilChanged().collect {
+                runCatching { SmartDownloadWorker.schedule(app, it) }
+            }
+        }
         // Agle 2 gaanon ka YouTube link pehle se nikaal lo, taaki next dabate hi bajne lage.
         scope.launch {
             player.state.map { it.queueIndex to it.queue.map { t -> t.id } }.distinctUntilChanged().collect { (idx, _) ->

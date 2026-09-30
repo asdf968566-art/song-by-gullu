@@ -16,8 +16,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         HistoryEntity::class,
         DownloadEntity::class,
         LyricsEntity::class,
+        ListenEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = false,
 )
 abstract class SangeetDatabase : RoomDatabase() {
@@ -27,8 +28,20 @@ abstract class SangeetDatabase : RoomDatabase() {
     abstract fun historyDao(): HistoryDao
     abstract fun downloadDao(): DownloadDao
     abstract fun lyricsDao(): LyricsDao
+    abstract fun listenDao(): ListenDao
 
     companion object {
+        /** v3: listen_log (Stats). */
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `listen_log` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`trackId` TEXT NOT NULL, `title` TEXT NOT NULL, `artist` TEXT NOT NULL, " +
+                        "`startedAt` INTEGER NOT NULL, `playedMs` INTEGER NOT NULL)"
+                )
+            }
+        }
+
         /** v2: gaane ki bhasha (Hindi / Punjabi ...). Purana data safe rehta hai. */
         private val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -38,7 +51,7 @@ abstract class SangeetDatabase : RoomDatabase() {
 
         fun create(context: Context): SangeetDatabase =
             Room.databaseBuilder(context, SangeetDatabase::class.java, "sangeet.db")
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .fallbackToDestructiveMigration()
                 .build()
     }
