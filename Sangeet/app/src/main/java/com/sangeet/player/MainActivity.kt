@@ -61,7 +61,9 @@ class MainActivity : ComponentActivity() {
                         val results = runCatching {
                             if (type != null) container.online.source(type)?.search(q, container.settings.current).orEmpty()
                             else container.online.searchAll(q)
-                        }.getOrDefault(emptyList())
+                        }.onFailure { android.util.Log.w("Sangeet", "deep link search fail ($type, $q)", it) }
+                            .getOrDefault(emptyList())
+                        android.util.Log.i("Sangeet", "deep link $type '$q': ${results.size} results, first=${results.firstOrNull()?.title}")
                         if (results.isNotEmpty()) container.player.play(results.take(20))
                     }
                 } else {

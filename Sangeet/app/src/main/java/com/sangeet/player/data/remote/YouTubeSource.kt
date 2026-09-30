@@ -64,7 +64,14 @@ class YouTubeSource : OnlineSource {
         search("latest $language songs", s).map { if (it.language.isBlank()) it.copy(language = language.lowercase()) else it }
 
     /** Player ke loader thread pe chalta hai (blocking theek hai). Link ~ghante bhar cache rehta hai. */
-    override fun streamUrl(track: Track, quality: AudioQuality, s: AppSettings): String {
+    override fun streamUrl(track: Track, quality: AudioQuality, s: AppSettings): String = try {
+        resolveStream(track, quality)
+    } catch (e: Exception) {
+        android.util.Log.w("Sangeet", "YouTube stream fail ${track.sourceId}: ${e.javaClass.simpleName}: ${e.message}", e)
+        throw IOException("YouTube: ${e.message ?: e.javaClass.simpleName}", e)
+    }
+
+    private fun resolveStream(track: Track, quality: AudioQuality): String {
         val key = "${track.sourceId}@${quality.name}"
         streamCache[key]?.takeIf { it.second > System.currentTimeMillis() }?.let { return it.first }
         ensureInit()
@@ -76,6 +83,7 @@ class YouTubeSource : OnlineSource {
             ?: streams.minByOrNull { if (it.averageBitrate > 0) it.averageBitrate else Int.MAX_VALUE }!!
         val url = pick.content
         streamCache[key] = url to System.currentTimeMillis() + 60 * 60_000L
+        android.util.Log.i("Sangeet", "YouTube stream ${track.sourceId}: ${pick.format} ${pick.averageBitrate}kbps")
         return url
     }
 

@@ -46,6 +46,7 @@ play_source() {
   echo "== $src: '$q'"
   adb shell input keyevent KEYCODE_MEDIA_PAUSE || true
   sleep 2
+  adb logcat -c
   adb shell "am start -W -a android.intent.action.VIEW -d 'sangeet://play?q=$q&source=$src' -n $PKG/.MainActivity" >/dev/null
   local ok=0
   for i in $(seq 1 45); do
@@ -61,7 +62,8 @@ play_source() {
     fail "$src se gaana nahi baja"
   else
     echo "::warning::$src se gaana nahi baja (CI ke server IP pe block ho sakta hai)"
-    grep -E "PlaybackException|ExtractionException|ReCaptcha|IOException" -m 10 <(adb logcat -d) || true
+    adb logcat -d > "out/logcat_$src.txt"
+    grep -E "Sangeet|ExoPlayerImplInternal|Caused by|Exception" "out/logcat_$src.txt" | grep -v -E "Auth|GCM|Bugle|constellation|Finsky|gms" | head -40 || true
   fi
 }
 play_source jiosaavn kesariya 1
