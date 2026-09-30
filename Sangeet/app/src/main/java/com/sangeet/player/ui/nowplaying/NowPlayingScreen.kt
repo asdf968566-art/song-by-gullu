@@ -129,11 +129,11 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                 runCatching { context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() } }.getOrNull()
             }
             if (text.isNullOrBlank()) {
-                Toast.makeText(context, "File khaali hai", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "File is empty", Toast.LENGTH_SHORT).show()
             } else {
                 c.lyrics.save(track.id, text, "Imported .lrc")
                 lyrics = c.lyrics.get(track, allowOnline = false)
-                Toast.makeText(context, "Lyrics save hue (offline bhi chalenge)", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Lyrics saved (available offline)", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -170,7 +170,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
             // Top bar
             Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = { if (lyricsFull) lyricsFull = false else onCollapse() }) {
-                    Icon(Icons.Rounded.KeyboardArrowDown, "Band karo", tint = textColor, modifier = Modifier.size(32.dp))
+                    Icon(Icons.Rounded.KeyboardArrowDown, "Close", tint = textColor, modifier = Modifier.size(32.dp))
                 }
                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("PLAYING FROM ${track.source.label.uppercase()}", color = muted, style = MaterialTheme.typography.labelSmall)
@@ -335,11 +335,11 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                         Box {
                             IconButton(onClick = { showLyricsMenu = true }) { Icon(Icons.Rounded.MoreVert, "Lyrics options", tint = textColor) }
                             DropdownMenu(expanded = showLyricsMenu, onDismissRequest = { showLyricsMenu = false }) {
-                                DropdownMenuItem(text = { Text(".lrc file import karo") }, onClick = {
+                                DropdownMenuItem(text = { Text("Import .lrc file") }, onClick = {
                                     showLyricsMenu = false
                                     lrcPicker.launch(arrayOf("*/*"))
                                 })
-                                DropdownMenuItem(text = { Text("Online se dobara lao") }, onClick = {
+                                DropdownMenuItem(text = { Text("Reload from online") }, onClick = {
                                     showLyricsMenu = false
                                     scope.launch {
                                         lyricsLoading = true
@@ -352,10 +352,10 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                         }
                     }
                     when {
-                        lyricsLoading -> Text("Lyrics dhoondh rahe hain…", color = muted, modifier = Modifier.padding(16.dp))
+                        lyricsLoading -> Text("Searching for lyrics…", color = muted, modifier = Modifier.padding(16.dp))
                         lyrics == null -> Text(
-                            if (c.online.canGoOnline) "Is gaane ke lyrics nahi mile. ⋮ se .lrc file import kar sakte ho."
-                            else "Offline ho — lyrics pehle se save nahi hain.",
+                            if (c.online.canGoOnline) "No lyrics found for this song. You can import an .lrc file from ⋮."
+                            else "You're offline and no lyrics are saved.",
                             color = muted,
                             modifier = Modifier.padding(16.dp),
                         )
@@ -377,7 +377,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                     }
                     if (lyrics != null) {
                         Text(
-                            "Poore lyrics dekhne ke liye dabao",
+                            "Tap to see full lyrics",
                             color = muted,
                             style = MaterialTheme.typography.labelSmall,
                             textAlign = TextAlign.Center,

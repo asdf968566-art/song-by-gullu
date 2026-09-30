@@ -261,19 +261,19 @@ class RecommendationRepository(
             songs.filter { artistMatch(it.artist, a) }.forEach { out += Suggestion(it, reasonFor(a, seed)) }
         }
         byArtist.awaitAll().forEach { (a, list) -> list.forEach { out += Suggestion(it, reasonFor(a, seed)) } }
-        byGenre.awaitAll().forEach { (g, list) -> list.take(25).forEach { out += Suggestion(it, "Aapko $g pasand hai") } }
+        byGenre.awaitAll().forEach { (g, list) -> list.take(25).forEach { out += Suggestion(it, "Because you like $g") } }
         byLanguage.awaitAll().forEach { (lang, list) ->
-            list.take(40).forEach { out += Suggestion(it, "Naya ${lang.replaceFirstChar(Char::uppercase)} gaana") }
+            list.take(40).forEach { out += Suggestion(it, "New in ${lang.replaceFirstChar(Char::uppercase)}") }
         }
         byYtMix.awaitAll().forEach { (s, list) -> list.forEach { out += Suggestion(it, "Similar to \"${s.title}\"") } }
         byReco.awaitAll().forEach { (s, list) -> list.forEach { out += Suggestion(it, "Similar to \"${s.title}\"") } }
         byArtistDeep.awaitAll().forEach { (a, list) -> list.forEach { out += Suggestion(it, reasonFor(a, seed)) } }
         byPlaylists?.await()?.forEach { (name, t) -> out += Suggestion(t, "From $name") }
-        trending?.await()?.forEach { out += Suggestion(it, "Abhi trending") }
+        trending?.await()?.forEach { out += Suggestion(it, "Trending now") }
         // Thoda naya-pan: phone ke kuch random gaane
-        songs.shuffled().take(20).forEach { out += Suggestion(it, "Phone se ek pick") }
+        songs.shuffled().take(20).forEach { out += Suggestion(it, "From your phone") }
         // Pehle se liked gaane bhi (radio / mix mein kaam aate hain)
-        p.liked.take(30).forEach { out += Suggestion(it, "Aapka liked gaana") }
+        p.liked.take(30).forEach { out += Suggestion(it, "From your likes") }
 
         out.distinctBy { it.track.id }
     }
@@ -343,7 +343,7 @@ class RecommendationRepository(
         if (p.isEmpty) {
             val starter = ranked.take(30)
             if (starter.size >= 5) {
-                out += Mix("starter", "Shuruaat Mix", "Trending + phone ke gaane. Jitna sunoge, utna behtar banega", starter)
+                out += Mix("starter", "Starter Mix", "Trending songs and music on your phone. Gets better the more you listen", starter)
             }
             return out
         }
@@ -353,25 +353,25 @@ class RecommendationRepository(
             .distinctBy { it.id }
 
         val daily = interleave(favs.shuffled().take(12), newOnes.take(18))
-        if (daily.size >= 5) out += Mix("daily", "Daily Mix", "Aapke favourite + naye gaane, roz badalta hai", daily)
+        if (daily.size >= 5) out += Mix("daily", "Daily Mix", "Your favorites plus new songs, updated daily", daily)
 
         p.topArtists.take(3).forEachIndexed { i, artist ->
             val mine = (p.played.map { it.track } + p.liked + local.songs.value).filter { artistMatch(it.artist, artist) }
             val more = ranked.filter { artistMatch(it.artist, artist) }
             val tracks = (mine.shuffled() + more).distinctBy { it.id }.take(30)
-            if (tracks.size >= 5) out += Mix("artist${i + 1}", "$artist Mix", "$artist aur unke jaise gaane", tracks)
+            if (tracks.size >= 5) out += Mix("artist${i + 1}", "$artist Mix", "$artist and similar artists", tracks)
         }
 
         val discover = newOnes.take(30)
-        if (discover.size >= 5) out += Mix("fresh", "Naye gaane aapke liye", "Jo aapne abhi tak nahi sune", discover)
+        if (discover.size >= 5) out += Mix("fresh", "Fresh Finds", "New songs you haven't heard yet", discover)
 
         val onRepeat = p.played.filter { it.playCount >= 2 }.sortedByDescending { it.playCount }.map { it.track }.take(25)
-        if (onRepeat.size >= 5) out += Mix("repeat", "On Repeat", "Jo aap baar-baar sunte ho", onRepeat)
+        if (onRepeat.size >= 5) out += Mix("repeat", "On Repeat", "Songs you can't stop playing", onRepeat)
 
         val cutoff = System.currentTimeMillis() - 14 * 86_400_000L
         val forgotten = p.played.filter { it.playCount >= 2 && it.playedAt < cutoff }
             .sortedByDescending { it.playCount }.map { it.track }.take(25)
-        if (forgotten.size >= 5) out += Mix("forgotten", "Bhoole-bisre gaane", "Pehle bahut sune, ab yaad dilate hain", forgotten)
+        if (forgotten.size >= 5) out += Mix("forgotten", "Rediscover", "Songs you used to love", forgotten)
 
         return out
     }
@@ -391,8 +391,8 @@ class RecommendationRepository(
     // ------------------------------------------------------------ helpers
 
     private fun reasonFor(artist: String, seed: Track?): String =
-        if (seed != null && norm(artist) == norm(seed.artist)) "\"${seed.title}\" jaisa"
-        else "Kyunki aap $artist sunte ho"
+        if (seed != null && norm(artist) == norm(seed.artist)) "Similar to \"${seed.title}\""
+        else "Because you listen to $artist"
 
     private fun artistMatch(candidate: String, artist: String): Boolean {
         val c = norm(candidate)

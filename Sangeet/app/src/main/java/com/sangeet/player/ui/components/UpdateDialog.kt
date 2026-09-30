@@ -29,20 +29,20 @@ fun UpdateDialog() {
     when (val s = state) {
         is AppUpdater.State.Available -> AlertDialog(
             onDismissRequest = { updater.dismiss() },
-            title = { Text("Naya version aaya hai 🎉") },
+            title = { Text("New version available 🎉") },
             text = {
                 Text(
-                    "Build ${s.update.build} (abhi aapke paas ${updater.currentBuild}).\n" +
-                        "Size: ${s.update.sizeBytes / 1_048_576} MB. Aapka data safe rahega.",
+                    "Build ${s.update.build} (you have ${updater.currentBuild}).\n" +
+                        "Size: ${s.update.sizeBytes / 1_048_576} MB. Your data will be kept.",
                 )
             },
-            confirmButton = { TextButton(onClick = { scope.launch { updater.download(s.update) } }) { Text("Update karo") } },
-            dismissButton = { TextButton(onClick = { updater.skip(s.update) }) { Text("Baad mein") } },
+            confirmButton = { TextButton(onClick = { scope.launch { updater.download(s.update) } }) { Text("Update") } },
+            dismissButton = { TextButton(onClick = { updater.skip(s.update) }) { Text("Later") } },
         )
 
         is AppUpdater.State.Downloading -> AlertDialog(
             onDismissRequest = {},
-            title = { Text("Download ho raha hai…") },
+            title = { Text("Downloading…") },
             text = {
                 Column {
                     LinearProgressIndicator(progress = { s.percent / 100f }, modifier = Modifier.fillMaxWidth())
@@ -55,27 +55,27 @@ fun UpdateDialog() {
 
         is AppUpdater.State.ReadyToInstall -> AlertDialog(
             onDismissRequest = { updater.dismiss() },
-            title = { Text("Install karo") },
+            title = { Text("Install") },
             text = {
                 Text(
-                    "Download ho gaya. \"Install\" dabao.\n" +
-                        "Pehli baar Android puchega — \"Is source se allow karo\" on karke wapas aao aur dobara Install dabao.",
+                    "Download complete. Tap \"Install\".\n" +
+                        "The first time, Android will ask you to turn on \"Allow from this source\". Turn it on, come back and tap Install again.",
                 )
             },
             confirmButton = { TextButton(onClick = { updater.install(s.file) }) { Text("Install") } },
-            dismissButton = { TextButton(onClick = { updater.dismiss() }) { Text("Baad mein") } },
+            dismissButton = { TextButton(onClick = { updater.dismiss() }) { Text("Later") } },
         )
 
         is AppUpdater.State.UpToDate -> AlertDialog(
             onDismissRequest = { updater.dismiss() },
-            title = { Text("Sab latest hai ✅") },
-            text = { Text("Aap sabse naye version (build ${updater.currentBuild}) pe ho.") },
+            title = { Text("You're up to date ✅") },
+            text = { Text("You have the latest version (build ${updater.currentBuild}).") },
             confirmButton = { TextButton(onClick = { updater.dismiss() }) { Text("OK") } },
         )
 
         is AppUpdater.State.Error -> AlertDialog(
             onDismissRequest = { updater.dismiss() },
-            title = { Text("Update nahi hua") },
+            title = { Text("Update failed") },
             text = { Text(s.message) },
             confirmButton = { TextButton(onClick = { updater.dismiss() }) { Text("OK") } },
         )

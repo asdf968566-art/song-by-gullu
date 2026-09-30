@@ -58,13 +58,13 @@ class AppUpdater(private val context: Context, private val settings: SettingsRep
             val update = fetchLatest()
             prefs.edit().putLong("last_check", System.currentTimeMillis()).apply()
             when {
-                update == null -> if (silent) State.Idle else State.Error("Release nahi mili")
+                update == null -> if (silent) State.Idle else State.Error("No release found")
                 update.build > currentBuild && update.build != prefs.getInt("skipped", -1) || (!silent && update.build > currentBuild) ->
                     State.Available(update)
                 else -> if (silent) State.Idle else State.UpToDate
             }
         } catch (e: Exception) {
-            if (silent) State.Idle else State.Error(e.message ?: "Update check fail")
+            if (silent) State.Idle else State.Error(e.message ?: "Update check failed")
         }
     }
 
@@ -80,7 +80,7 @@ class AppUpdater(private val context: Context, private val settings: SettingsRep
         _state.value = try {
             State.ReadyToInstall(fetchApk(update))
         } catch (e: Exception) {
-            State.Error("Download fail: ${e.message}")
+            State.Error("Download failed: ${e.message}")
         }
     }
 
@@ -117,10 +117,10 @@ class AppUpdater(private val context: Context, private val settings: SettingsRep
         Http.client.newCall(req).execute().use { res ->
             when (res.code) {
                 200 -> Unit
-                401, 403 -> throw IOException("GitHub token galat hai ya expire ho gaya")
+                401, 403 -> throw IOException("GitHub token is invalid or expired")
                 404 -> throw IOException(
-                    if (settings.current.githubToken.isBlank()) "Repo private hai — Settings → App update mein GitHub token daalo"
-                    else "Release nahi mili (ya token ko is repo ki permission nahi)"
+                    if (settings.current.githubToken.isBlank()) "The repo is private — add a GitHub token in Settings → App update"
+                    else "No release found (or the token can't access this repo)"
                 )
                 else -> throw IOException("GitHub HTTP ${res.code}")
             }
@@ -150,7 +150,7 @@ class AppUpdater(private val context: Context, private val settings: SettingsRep
         val req = authed(Request.Builder()).url(update.assetApiUrl).header("Accept", "application/octet-stream").build()
         Http.client.newCall(req).execute().use { res ->
             if (!res.isSuccessful) throw IOException("HTTP ${res.code}")
-            val body = res.body ?: throw IOException("Khaali file")
+            val body = res.body ?: throw IOException("Empty file")
             val total = body.contentLength().takeIf { it > 0 } ?: update.sizeBytes
             var done = 0L
             var last = -1

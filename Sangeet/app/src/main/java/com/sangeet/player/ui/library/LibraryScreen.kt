@@ -94,7 +94,7 @@ fun LibraryScreen(nav: NavController) {
             ) {
                 Text("Your Library", style = MaterialTheme.typography.headlineMedium, color = spec.onSurface, modifier = Modifier.weight(1f))
                 IconButton(onClick = { nav.navigate(Routes.IMPORT) }) { Icon(Icons.Rounded.FileOpen, "Import playlist", tint = spec.onSurface) }
-                IconButton(onClick = { creating = true }) { Icon(Icons.Rounded.Add, "Nayi playlist", tint = spec.onSurface) }
+                IconButton(onClick = { creating = true }) { Icon(Icons.Rounded.Add, "New playlist", tint = spec.onSurface) }
             }
         }
         item {
@@ -131,14 +131,14 @@ fun LibraryScreen(nav: NavController) {
                         .themedCard(spec, RoundedCornerShape(14.dp), corner = 14.dp)
                         .padding(16.dp)
                 ) {
-                    Text("Phone ke gaane dikhane hain?", style = MaterialTheme.typography.titleMedium, color = spec.onSurface)
+                    Text("Show songs on this phone?", style = MaterialTheme.typography.titleMedium, color = spec.onSurface)
                     Text(
-                        "Offline gaane chalane ke liye audio files padhne ki permission do.",
+                        "Allow access to audio files to play music stored on your phone.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = spec.muted,
                     )
                     Spacer(Modifier.height(10.dp))
-                    Button(onClick = { permissionLauncher.launch(audioPermission) }) { Text("Allow karo") }
+                    Button(onClick = { permissionLauncher.launch(audioPermission) }) { Text("Allow") }
                 }
             }
         }
@@ -148,7 +148,7 @@ fun LibraryScreen(nav: NavController) {
                 item {
                     LibraryRow(
                         title = "Online Library",
-                        subtitle = "Charts + hazaron playlists • lakhs gaane",
+                        subtitle = "Charts, playlists and millions of songs",
                         gradient = listOf(Color(0xFFE13300), Color(0xFFF59B23)),
                         icon = Icons.Rounded.Public,
                     ) { nav.navigate(Routes.ONLINE_LIBRARY) }
@@ -164,7 +164,7 @@ fun LibraryScreen(nav: NavController) {
                 item {
                     LibraryRow(
                         title = "Liked Songs",
-                        subtitle = "Playlist • ${favorites.size} gaane",
+                        subtitle = "Playlist • ${if (favorites.size == 1) "1 song" else "${favorites.size} songs"}",
                         gradient = listOf(Color(0xFF4A2BD8), Color(0xFF8EC5E8)),
                         icon = Icons.Rounded.Favorite,
                     ) { nav.navigate(Routes.list(ListKind.LIKED)) }
@@ -172,15 +172,15 @@ fun LibraryScreen(nav: NavController) {
                 item {
                     LibraryRow(
                         title = "Downloads",
-                        subtitle = "Offline • ${downloaded.size} gaane",
+                        subtitle = "Offline • ${if (downloaded.size == 1) "1 song" else "${downloaded.size} songs"}",
                         gradient = listOf(Color(0xFF0B6E4F), Color(0xFF1DB954)),
                         icon = Icons.Rounded.DownloadForOffline,
                     ) { nav.navigate(Routes.list(ListKind.DOWNLOADS)) }
                 }
                 item {
                     LibraryRow(
-                        title = "Phone ke gaane",
-                        subtitle = "Local • ${localSongs.size} gaane",
+                        title = "On this phone",
+                        subtitle = "Local • ${if (localSongs.size == 1) "1 song" else "${localSongs.size} songs"}",
                         gradient = listOf(Color(0xFFB2458C), Color(0xFFF7B267)),
                         icon = Icons.Rounded.PhoneAndroid,
                     ) { nav.navigate(Routes.list(ListKind.LOCAL)) }
@@ -194,7 +194,7 @@ fun LibraryScreen(nav: NavController) {
                     ) { nav.navigate(Routes.list(ListKind.RECENT)) }
                 }
                 items(playlists, key = { "p${it.id}" }) { p ->
-                    LibraryRow(title = p.name, subtitle = "Playlist • ${p.trackCount} gaane", artwork = p.coverUrl) {
+                    LibraryRow(title = p.name, subtitle = "Playlist • ${if (p.trackCount == 1) "1 song" else "${p.trackCount} songs"}", artwork = p.coverUrl) {
                         nav.navigate(Routes.playlist(p.id))
                     }
                 }
@@ -205,7 +205,7 @@ fun LibraryScreen(nav: NavController) {
                 }
             }
             else -> items(artists, key = { "r${it.name}" }) { a ->
-                LibraryRow(title = a.name, subtitle = "Artist • ${a.tracks.size} gaane", artwork = a.artworkUrl, circle = true) {
+                LibraryRow(title = a.name, subtitle = "Artist • ${if (a.tracks.size == 1) "1 song" else "${a.tracks.size} songs"}", artwork = a.artworkUrl, circle = true) {
                     nav.navigate(Routes.list(ListKind.ARTIST, a.name))
                 }
             }

@@ -78,7 +78,7 @@ class YouTubeSource : OnlineSource {
         ensureInit()
         val info = StreamInfo.getInfo(ServiceList.YouTube, watchUrl(track.sourceId))
         val streams = info.audioStreams.filter { it.isUrl && it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP }
-        if (streams.isEmpty()) throw IOException("YouTube audio nahi mila")
+        if (streams.isEmpty()) throw IOException("No YouTube audio found")
         val target = if (quality == AudioQuality.LOW) 64 else quality.kbps
         val pick = streams.filter { it.averageBitrate in 1..target }.maxByOrNull { it.averageBitrate }
             ?: streams.minByOrNull { if (it.averageBitrate > 0) it.averageBitrate else Int.MAX_VALUE }!!
@@ -313,7 +313,7 @@ private object NewPipeDownloader : Downloader() {
             values.forEach { builder.addHeader(name, it) }
         }
         client.newCall(builder.build()).execute().use { res ->
-            if (res.code == 429) throw ReCaptchaException("YouTube ne captcha maanga", request.url())
+            if (res.code == 429) throw ReCaptchaException("YouTube asked for a captcha", request.url())
             return Response(res.code, res.message, res.headers.toMultimap(), res.body?.string(), res.request.url.toString())
         }
     }

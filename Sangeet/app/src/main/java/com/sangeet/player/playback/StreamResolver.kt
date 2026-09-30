@@ -33,15 +33,15 @@ class StreamResolver(
             return dataSpec.withUri(Uri.fromFile(File(path)))
         }
 
-        val track = library.findBlocking(id) ?: throw IOException("Gaana nahi mila: $id")
+        val track = library.findBlocking(id) ?: throw IOException("Song not found: $id")
         val isDeviceFile = track.streamUrl?.let { it.startsWith("content:") || it.startsWith("file:") } == true
         if (track.source == SourceType.LOCAL || isDeviceFile) {
             val uri = track.streamUrl ?: throw IOException("File missing")
             return dataSpec.withUri(Uri.parse(uri))
         }
-        if (!online.canGoOnline) throw IOException("Internet nahi hai / Offline mode on hai")
+        if (!online.canGoOnline) throw IOException("You're offline or offline mode is on")
         val url = online.streamUrl(track, online.streamingQuality())
-            ?: throw IOException("Stream URL nahi bana")
+            ?: throw IOException("Couldn't get stream URL")
         return dataSpec.withUri(Uri.parse(url))
     }
 }

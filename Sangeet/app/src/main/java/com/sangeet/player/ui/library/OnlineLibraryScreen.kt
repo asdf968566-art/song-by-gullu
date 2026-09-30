@@ -124,12 +124,12 @@ fun OnlineLibraryScreen(nav: NavController) {
                 IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back", tint = spec.onSurface) }
                 Column {
                     Text("Online Library", style = MaterialTheme.typography.titleLarge, color = spec.onSurface)
-                    Text("Charts + hazaron playlists • lakhs gaane", style = MaterialTheme.typography.bodySmall, color = spec.muted)
+                    Text("Charts, playlists and millions of songs", style = MaterialTheme.typography.bodySmall, color = spec.muted)
                 }
             }
         }
         if (!c.online.canGoOnline) {
-            item { EmptyState(Icons.Rounded.CloudOff, "Internet nahi hai", "Online library ke liye internet chahiye.") }
+            item { EmptyState(Icons.Rounded.CloudOff, "You're offline", "Connect to the internet to browse the online library.") }
         }
         if (ui.charts.isNotEmpty()) {
             item { SectionHeader("📊 Top Charts") }
@@ -155,7 +155,7 @@ fun OnlineLibraryScreen(nav: NavController) {
                 Column(Modifier.weight(1f)) {
                     Text(p.title, style = MaterialTheme.typography.titleMedium, color = spec.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(
-                        listOfNotNull(p.subtitle.takeIf { it.isNotBlank() }, p.songCount.takeIf { it > 0 }?.let { "$it gaane" }).joinToString(" • "),
+                        listOfNotNull(p.subtitle.takeIf { it.isNotBlank() }, p.songCount.takeIf { it > 0 }?.let { if (it == 1) "1 song" else "$it songs" }).joinToString(" • "),
                         style = MaterialTheme.typography.bodyMedium,
                         color = spec.muted,
                         maxLines = 1,
@@ -190,16 +190,16 @@ fun OnlinePlaylistScreen(nav: NavController, id: String, title: String) {
                     IconButton(onClick = {
                         scope.launch {
                             c.library.createPlaylist(title, list)
-                            Toast.makeText(context, "\"$title\" aapki Library mein save hui", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Saved \"$title\" to your library", Toast.LENGTH_SHORT).show()
                         }
-                    }) { Icon(Icons.Rounded.LibraryAdd, "Library mein save karo", tint = Sangeet.spec.muted) }
+                    }) { Icon(Icons.Rounded.LibraryAdd, "Save to library", tint = Sangeet.spec.muted) }
                 }
             }
         }
         val list = tracks
         when {
             list == null -> item { LoadingBox() }
-            list.isEmpty() -> item { EmptyState(Icons.Rounded.CloudOff, "Gaane nahi mile", "Internet check karke dobara kholo.") }
+            list.isEmpty() -> item { EmptyState(Icons.Rounded.CloudOff, "No songs found", "Check your connection and try again.") }
             else -> itemsIndexed(list, key = { _, t -> t.id }) { i, t ->
                 TrackRow(t, onClick = { c.player.play(list, i) }, index = i, onMore = { menuFor = t })
             }

@@ -20,12 +20,12 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
 enum class ThemeStyle(val label: String, val tagline: String) {
-    SPOTIFY("Classic Dark", "Spotify jaisa dark look"),
-    AURORA("Aurora", "Chalti hui northern-lights gradient"),
+    SPOTIFY("Classic Dark", "Sleek dark look"),
+    AURORA("Aurora", "Animated northern-lights gradient"),
     GLASS("Glassmorphism", "Frosted glass cards"),
-    NEUMORPHISM("Neumorphism", "Soft 3D ubhre hue buttons"),
-    AMOLED("AMOLED Black", "Pure black, battery bachao"),
-    MATERIAL_YOU("Material You", "Wallpaper se rang (Android 12+)"),
+    NEUMORPHISM("Neumorphism", "Soft 3D raised buttons"),
+    AMOLED("AMOLED Black", "Pure black, saves battery"),
+    MATERIAL_YOU("Material You", "Colors from your wallpaper (Android 12+)"),
 }
 
 enum class DarkMode(val label: String) { SYSTEM("System"), LIGHT("Light"), DARK("Dark") }

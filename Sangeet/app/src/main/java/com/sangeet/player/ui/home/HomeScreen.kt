@@ -208,8 +208,8 @@ fun HomeScreen(nav: NavController) {
                 ) {
                     Icon(Icons.Rounded.CloudOff, null, tint = spec.accent)
                     Text(
-                        if (settings.offlineMode) "  Offline mode on hai — sirf downloaded aur phone ke gaane"
-                        else "  Internet nahi hai — downloaded aur phone ke gaane chal rahe hain",
+                        if (settings.offlineMode) "  Offline mode is on — only downloads and songs on this phone"
+                        else "  You're offline — playing downloads and songs on this phone",
                         style = MaterialTheme.typography.bodyMedium,
                         color = spec.onSurface,
                     )
@@ -222,7 +222,7 @@ fun HomeScreen(nav: NavController) {
             val tiles = buildList<Triple<String, String?, () -> Unit>> {
                 add(Triple("Liked Songs", favorites.firstOrNull()?.artworkUrl) { nav.navigate(Routes.list(ListKind.LIKED)) })
                 add(Triple("Downloads", downloaded.firstOrNull()?.artworkUrl) { nav.navigate(Routes.list(ListKind.DOWNLOADS)) })
-                add(Triple("Phone ke gaane", localSongs.firstOrNull()?.artworkUrl) { nav.navigate(Routes.list(ListKind.LOCAL)) })
+                add(Triple("On this phone", localSongs.firstOrNull()?.artworkUrl) { nav.navigate(Routes.list(ListKind.LOCAL)) })
                 add(Triple("Recently played", recent.firstOrNull()?.artworkUrl) { nav.navigate(Routes.list(ListKind.RECENT)) })
                 recent.take(2).forEach { t -> add(Triple(t.title, t.artworkUrl) { c.player.play(listOf(t)) }) }
             }
@@ -252,7 +252,7 @@ fun HomeScreen(nav: NavController) {
                 Icon(Icons.Rounded.Explore, null, tint = spec.accent)
                 Column(Modifier.padding(start = 12.dp)) {
                     Text("Discover feed", style = MaterialTheme.typography.titleSmall, color = spec.onSurface)
-                    Text("Scroll karo, gaane apne aap bajenge — aapke taste ke hisaab se", style = MaterialTheme.typography.bodySmall, color = spec.muted)
+                    Text("Scroll to play songs picked for your taste", style = MaterialTheme.typography.bodySmall, color = spec.muted)
                 }
             }
         }
@@ -268,7 +268,7 @@ fun HomeScreen(nav: NavController) {
         }
         val suggested = ui.suggestions.map { it.track }.filter { !offline || !it.source.isOnline }
         if (suggested.isNotEmpty()) {
-            item { SectionHeader("Aapke liye suggest") }
+            item { SectionHeader("Recommended for you") }
             item { TrackShelf(suggested, onPlay = { c.player.play(suggested, it) }, onMore = { menuFor = it }) }
         }
         if (!offline) {
@@ -292,7 +292,7 @@ fun HomeScreen(nav: NavController) {
             }
         }
         if (!offline && ui.charts.isNotEmpty()) {
-            item { SectionHeader("📊 Top Charts", action = "Sab dekho") { nav.navigate(Routes.ONLINE_LIBRARY) } }
+            item { SectionHeader("📊 Top Charts", action = "See all") { nav.navigate(Routes.ONLINE_LIBRARY) } }
             item {
                 LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     items(ui.charts, key = { "chart" + it.id }) { p ->
@@ -304,7 +304,7 @@ fun HomeScreen(nav: NavController) {
         if (!offline) {
             ui.categories.forEach { (cat, tracks) ->
                 item(key = "cat_h_${cat.name}") {
-                    SectionHeader("${cat.emoji} ${cat.name}", action = "Sab dekho") {
+                    SectionHeader("${cat.emoji} ${cat.name}", action = "See all") {
                         nav.navigate(Routes.list(ListKind.GENRE, cat.name))
                     }
                 }
@@ -318,7 +318,7 @@ fun HomeScreen(nav: NavController) {
             item { TrackShelf(recent, onPlay = { c.player.play(recent, it) }, onMore = { menuFor = it }) }
         }
         if (filter != 1 && mostPlayed.size >= 3) {
-            item { SectionHeader("Aapke favourite (sabse zyada suna)") }
+            item { SectionHeader("Your top songs") }
             item { TrackShelf(mostPlayed, onPlay = { c.player.play(mostPlayed, it) }, onMore = { menuFor = it }) }
         }
         if (filter != 2 && !offline) {
@@ -342,11 +342,11 @@ fun HomeScreen(nav: NavController) {
             }
         }
         if (filter != 1 && downloaded.isNotEmpty()) {
-            item { SectionHeader("Aapke downloads", action = "Sab dekho") { nav.navigate(Routes.list(ListKind.DOWNLOADS)) } }
+            item { SectionHeader("Your downloads", action = "See all") { nav.navigate(Routes.list(ListKind.DOWNLOADS)) } }
             item { TrackShelf(downloaded, onPlay = { c.player.play(downloaded, it) }, onMore = { menuFor = it }) }
         }
         if (filter != 1 && localSongs.isNotEmpty()) {
-            item { SectionHeader("Phone se", action = "Sab dekho") { nav.navigate(Routes.list(ListKind.LOCAL)) } }
+            item { SectionHeader("From your phone", action = "See all") { nav.navigate(Routes.list(ListKind.LOCAL)) } }
             item { TrackShelf(picks, onPlay = { c.player.play(picks, it) }, onMore = { menuFor = it }) }
         }
         item { Spacer(Modifier.height(24.dp)) }

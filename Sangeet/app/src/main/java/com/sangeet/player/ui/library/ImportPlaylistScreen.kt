@@ -67,10 +67,10 @@ class ImportViewModel(private val c: AppContainer) : ViewModel() {
         _ui.value = Ui(working = true)
         _ui.value = try {
             val (name, entries) = c.importer.read(uri)
-            if (entries.isEmpty()) Ui(error = "Is file mein koi gaana nahi mila.")
+            if (entries.isEmpty()) Ui(error = "No songs found in this file.")
             else Ui(name = name, entries = entries)
         } catch (e: Exception) {
-            Ui(error = e.message ?: "File padh nahi paye")
+            Ui(error = e.message ?: "Couldn't read the file")
         }
     }
 
@@ -106,7 +106,7 @@ fun ImportPlaylistScreen(nav: NavController) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(4.dp)) {
                 IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back", tint = spec.onSurface) }
-                Text("Playlist import", style = MaterialTheme.typography.titleLarge, color = spec.onSurface)
+                Text("Import playlist", style = MaterialTheme.typography.titleLarge, color = spec.onSurface)
             }
         }
         item {
@@ -118,18 +118,18 @@ fun ImportPlaylistScreen(nav: NavController) {
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Text("Kaunsi files chalti hain?", style = MaterialTheme.typography.titleMedium, color = spec.onSurface)
+                Text("Supported files", style = MaterialTheme.typography.titleMedium, color = spec.onSurface)
                 Text(
-                    "• M3U / M3U8 / PLS (doosre music apps / VLC se)\n" +
-                        "• CSV — Spotify playlist ko exportify.net se CSV banao\n" +
-                        "• TXT — har line mein \"Artist - Title\"\n\n" +
-                        "Har gaana pehle phone mein dhoondha jata hai, na mile to online (Audius/Jamendo/aapka server).",
+                    "• M3U / M3U8 / PLS (from other music apps or VLC)\n" +
+                        "• CSV — export a Spotify playlist to CSV with exportify.net\n" +
+                        "• TXT — one \"Artist - Title\" per line\n\n" +
+                        "Each song is matched on your phone first, then online (Audius, Jamendo or your server).",
                     style = MaterialTheme.typography.bodyMedium,
                     color = spec.muted,
                 )
                 Button(onClick = { picker.launch(arrayOf("*/*")) }, enabled = !ui.working) {
                     Icon(Icons.Rounded.FileOpen, null)
-                    Text("  File chuno")
+                    Text("  Choose file")
                 }
             }
         }
@@ -144,21 +144,21 @@ fun ImportPlaylistScreen(nav: NavController) {
                     OutlinedTextField(
                         value = ui.name,
                         onValueChange = vm::setName,
-                        label = { Text("Playlist ka naam") },
+                        label = { Text("Playlist name") },
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(checked = ui.searchOnline, onCheckedChange = vm::setSearchOnline)
-                        Text("Phone mein na mile to online dhoondo", color = spec.onSurface)
+                        Text("Search online if not on phone", color = spec.onSurface)
                     }
-                    Text("${ui.entries.size} gaane mile file mein", color = spec.muted)
+                    Text("${if (ui.entries.size == 1) "1 song" else "${ui.entries.size} songs"} found in file", color = spec.muted)
                     if (ui.working) {
                         LinearProgressIndicator(progress = { ui.progress }, modifier = Modifier.fillMaxWidth(), color = spec.accent)
-                        Text("Gaane mila rahe hain… ${(ui.progress * 100).toInt()}%", color = spec.muted)
+                        Text("Matching songs… ${(ui.progress * 100).toInt()}%", color = spec.muted)
                     } else {
-                        Button(onClick = { vm.runImport() }, modifier = Modifier.fillMaxWidth()) { Text("Import karo") }
+                        Button(onClick = { vm.runImport() }, modifier = Modifier.fillMaxWidth()) { Text("Import") }
                     }
                 }
             }
@@ -178,7 +178,7 @@ fun ImportPlaylistScreen(nav: NavController) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Rounded.CheckCircle, null, tint = spec.accent)
                         Text(
-                            "  ${ui.matched} gaane import hue, ${ui.missing.size} nahi mile",
+                            "  ${if (ui.matched == 1) "1 song" else "${ui.matched} songs"} imported, ${ui.missing.size} not found",
                             style = MaterialTheme.typography.titleMedium,
                             color = spec.onSurface,
                         )
@@ -186,9 +186,9 @@ fun ImportPlaylistScreen(nav: NavController) {
                     Button(onClick = {
                         nav.popBackStack()
                         nav.navigate(Routes.playlist(id))
-                    }) { Text("Playlist kholo") }
-                    OutlinedButton(onClick = { picker.launch(arrayOf("*/*")) }) { Text("Aur import karo") }
-                    if (ui.missing.isNotEmpty()) Text("Ye nahi mile:", color = spec.muted)
+                    }) { Text("Open playlist") }
+                    OutlinedButton(onClick = { picker.launch(arrayOf("*/*")) }) { Text("Import another") }
+                    if (ui.missing.isNotEmpty()) Text("Not found:", color = spec.muted)
                 }
             }
             items(ui.missing) { e ->

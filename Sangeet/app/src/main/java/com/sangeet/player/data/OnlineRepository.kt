@@ -112,7 +112,7 @@ class OnlineRepository(
         SourceType.LOCAL -> "Phone file"
         SourceType.URL -> "Original"
         SourceType.SUBSONIC -> quality.label
-        SourceType.JIOSAAVN -> if (quality == AudioQuality.LOW) "96 kbps" else if (quality == AudioQuality.MEDIUM) "160 kbps" else "320 kbps (jahan mile)"
+        SourceType.JIOSAAVN -> if (quality == AudioQuality.LOW) "96 kbps" else if (quality == AudioQuality.MEDIUM) "160 kbps" else "320 kbps (when available)"
         SourceType.YOUTUBE -> "YouTube audio"
         SourceType.JAMENDO -> if (quality == AudioQuality.LOW) "96 kbps" else "High (VBR)"
         SourceType.AUDIUS -> "Source quality"

@@ -67,26 +67,26 @@ fun SettingsScreen(nav: NavController) {
         }
 
         SettingsGroup("Audio quality") {
-            ChoiceRow("Wi-Fi par streaming", "Wi-Fi pe data ki chinta nahi", qualities, s.wifiQuality, { it.label }) {
+            ChoiceRow("Wi-Fi streaming", "Quality on Wi-Fi", qualities, s.wifiQuality, { it.label }) {
                 scope.launch { c.settings.setWifiQuality(it) }
             }
-            ChoiceRow("Mobile data par streaming", "Kam quality = kam data", qualities, s.mobileQuality, { it.label }) {
+            ChoiceRow("Mobile data streaming", "Lower quality uses less data", qualities, s.mobileQuality, { it.label }) {
                 scope.launch { c.settings.setMobileQuality(it) }
             }
-            ChoiceRow("Download quality", "Offline gaane is quality mein save honge", qualities, s.downloadQuality, { it.label }) {
+            ChoiceRow("Download quality", "Quality for downloaded songs", qualities, s.downloadQuality, { it.label }) {
                 scope.launch { c.settings.setDownloadQuality(it) }
             }
             SettingsItem(
                 Icons.Rounded.Info,
-                "Quality kaise lagti hai?",
-                "Apne Navidrome/Subsonic server pe exact 128/256/320 kbps. " +
-                    "Jamendo: 128 = 96 kbps, baaki = high VBR. Audius: jo source deta hai. Phone ke gaane original quality mein.",
+                "How quality works",
+                "Your Navidrome/Subsonic server: exactly 128/256/320 kbps. " +
+                    "Jamendo: 128 = 96 kbps, others = high VBR. Audius: whatever the source provides. Songs on your phone play in original quality.",
             )
         }
 
         SettingsGroup("Playback") {
-            SettingsItem(Icons.Rounded.Equalizer, "Equalizer & Bass boost", "Awaaz apne hisaab se", onClick = { nav.navigate(Routes.EQUALIZER) })
-            SettingsSwitch(Icons.Rounded.FastForward, "Silence skip karo", "Gaanon ke beech ki khamoshi hatao", s.skipSilence) {
+            SettingsItem(Icons.Rounded.Equalizer, "Equalizer & Bass boost", "Fine-tune your sound", onClick = { nav.navigate(Routes.EQUALIZER) })
+            SettingsSwitch(Icons.Rounded.FastForward, "Skip silence", "Remove silent gaps between songs", s.skipSilence) {
                 scope.launch { c.settings.setSkipSilence(it) }
             }
             ChoiceRow("Crossfade", "Smooth fade between songs", listOf(0, 3, 5, 8), s.crossfadeSec, { if (it == 0) "Off" else "${it}s" }) {
@@ -101,37 +101,37 @@ fun SettingsScreen(nav: NavController) {
             SettingsSwitch(Icons.Rounded.CloudDownload, "Smart downloads", "Download liked songs and your Daily Mix on Wi-Fi while charging", s.smartDownloads) {
                 scope.launch { c.settings.setSmartDownloads(it) }
             }
-            SettingsSwitch(Icons.Rounded.AllInclusive, "Autoplay", "Queue khatam ho to aapke track record se milte-julte gaane chalte rahenge", s.autoplay) {
+            SettingsSwitch(Icons.Rounded.AllInclusive, "Autoplay", "When your queue ends, keep playing similar songs", s.autoplay) {
                 scope.launch { c.settings.setAutoplay(it) }
             }
-            SettingsSwitch(Icons.Rounded.AutoAwesome, "Auto playlists", "Daily Mix, Artist Mix, On Repeat... Library mein apne aap bante aur roz update hote hain", s.autoPlaylists) {
+            SettingsSwitch(Icons.Rounded.AutoAwesome, "Auto playlists", "Daily Mix, Artist Mix, On Repeat and more, added to your library and updated daily", s.autoPlaylists) {
                 scope.launch {
                     c.settings.setAutoPlaylists(it)
                     if (it) runCatching { c.recommendations.syncAutoPlaylists(force = true) }
                 }
             }
-            SettingsSwitch(Icons.Rounded.Subtitles, "Lyrics apne aap lao", "Online LRCLIB se lyrics, phir offline save", s.autoLyrics) {
+            SettingsSwitch(Icons.Rounded.Subtitles, "Fetch lyrics automatically", "Get lyrics from LRCLIB and save them for offline", s.autoLyrics) {
                 scope.launch { c.settings.setAutoLyrics(it) }
             }
         }
 
         SettingsGroup("Online / Offline") {
-            SettingsSwitch(Icons.Rounded.CloudOff, "Offline mode", "Sirf downloaded aur phone ke gaane, data bilkul nahi", s.offlineMode) {
+            SettingsSwitch(Icons.Rounded.CloudOff, "Offline mode", "Only play downloads and songs on this phone. Uses no data.", s.offlineMode) {
                 scope.launch { c.settings.setOfflineMode(it) }
             }
-            SettingsSwitch(Icons.Rounded.Wifi, "Sirf Wi-Fi pe download", "Mobile data pe download ruke rahenge", s.downloadOnWifiOnly) {
+            SettingsSwitch(Icons.Rounded.Wifi, "Download on Wi-Fi only", "Downloads pause on mobile data", s.downloadOnWifiOnly) {
                 scope.launch { c.settings.setDownloadOnWifiOnly(it) }
             }
-            SettingsItem(Icons.Rounded.Public, "Music sources", "JioSaavn, YouTube, Audius, Jamendo, apna server • Bhasha", onClick = {
+            SettingsItem(Icons.Rounded.Public, "Music sources", "JioSaavn, YouTube, Audius, Jamendo, your server • Languages", onClick = {
                 nav.navigate(Routes.SOURCES)
             })
         }
 
         SettingsGroup("Storage") {
-            SettingsItem(Icons.Rounded.DeleteSweep, "History saaf karo", "Recently played khaali ho jayega", onClick = {
+            SettingsItem(Icons.Rounded.DeleteSweep, "Clear history", "Clears your recently played list", onClick = {
                 scope.launch {
                     c.library.clearHistory()
-                    Toast.makeText(context, "History saaf", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "History cleared", Toast.LENGTH_SHORT).show()
                 }
             })
         }
@@ -139,15 +139,15 @@ fun SettingsScreen(nav: NavController) {
         SettingsGroup("App update") {
             SettingsItem(
                 Icons.Rounded.SystemUpdate,
-                "Update check karo",
-                "Abhi: version ${com.sangeet.player.BuildConfig.VERSION_NAME} (build ${c.updater.currentBuild})",
+                "Check for updates",
+                "Current: version ${com.sangeet.player.BuildConfig.VERSION_NAME} (build ${c.updater.currentBuild})",
                 onClick = { scope.launch { c.updater.check() } },
             )
             var token by remember(s.githubToken) { mutableStateOf(s.githubToken) }
             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                 Text(
-                    "Repo public hai to token ki zaroorat nahi. Sirf agar repo private karo, tab yahan " +
-                        "read-only GitHub token daalo (Contents = Read-only).",
+                    "No token is needed while the repo is public. If you make the repo private, enter a " +
+                        "read-only GitHub token here (Contents = Read-only).",
                     style = MaterialTheme.typography.bodySmall,
                     color = Sangeet.spec.muted,
                 )
@@ -166,7 +166,7 @@ fun SettingsScreen(nav: NavController) {
                         c.settings.setGithubToken(token)
                         c.updater.check()
                     }
-                }) { Text("Save & update check karo") }
+                }) { Text("Save & check for updates") }
             }
         }
 

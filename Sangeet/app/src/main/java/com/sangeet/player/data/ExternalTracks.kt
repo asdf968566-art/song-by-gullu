@@ -37,7 +37,7 @@ object ExternalTracks {
         id = Track.makeId(SourceType.YOUTUBE, id),
         source = SourceType.YOUTUBE,
         sourceId = id,
-        title = "YouTube gaana",
+        title = "YouTube song",
         artist = "YouTube",
         artworkUrl = "https://i.ytimg.com/vi/$id/hqdefault.jpg",
     )

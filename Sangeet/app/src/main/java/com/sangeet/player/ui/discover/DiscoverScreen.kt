@@ -234,7 +234,7 @@ fun DiscoverScreen(nav: NavController) {
             ) {
                 CircularProgressIndicator(color = Sangeet.spec.accent)
                 Spacer(Modifier.height(12.dp))
-                Text("Aapke liye gaane chun rahe hain…", color = Color.White.copy(alpha = 0.8f))
+                Text("Finding songs for you…", color = Color.White.copy(alpha = 0.8f))
             }
 
             ui.items.isEmpty() -> Column(
@@ -246,13 +246,13 @@ fun DiscoverScreen(nav: NavController) {
                 Icon(Icons.Rounded.Explore, null, tint = Color.White, modifier = Modifier.size(56.dp))
                 Spacer(Modifier.height(12.dp))
                 Text(
-                    "Abhi suggest karne ke liye kuch nahi mila. Internet on karo ya phone ke gaane allow karo, " +
-                        "aur kuch gaane suno — feed aapke hisaab se banega.",
+                    "Nothing to recommend yet. Go online or allow access to songs on your phone, " +
+                        "then listen to a few songs — your feed will adapt to your taste.",
                     color = Color.White.copy(alpha = 0.8f),
                     textAlign = TextAlign.Center,
                 )
                 Spacer(Modifier.height(16.dp))
-                Button(onClick = vm::refresh) { Text("Dobara try karo") }
+                Button(onClick = vm::refresh) { Text("Try again") }
             }
 
             else -> VerticalPager(
@@ -283,11 +283,11 @@ fun DiscoverScreen(nav: NavController) {
                     onPrev = { scope.launch { if (page > 0) pager.animateScrollToPage(page - 1) } },
                     onSwipeLike = {
                         if (s.track.id !in favorites) scope.launch { c.library.toggleFavorite(s.track) }
-                        Toast.makeText(context, "♥ Liked Songs mein", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "♥ Added to Liked Songs", Toast.LENGTH_SHORT).show()
                     },
                     onSwipeDislike = {
                         vm.dislike(s.track)
-                        Toast.makeText(context, "Theek hai, aise gaane kam dikhayenge", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Got it. You'll see fewer songs like this.", Toast.LENGTH_SHORT).show()
                         scope.launch { if (page + 1 < items.size) pager.animateScrollToPage(page + 1) }
                     },
                 )
@@ -308,7 +308,7 @@ fun DiscoverScreen(nav: NavController) {
                     color = Color.White,
                     modifier = Modifier.weight(1f),
                 )
-                IconButton(onClick = vm::refresh) { Icon(Icons.Rounded.Refresh, "Naya feed", tint = Color.White) }
+                IconButton(onClick = vm::refresh) { Icon(Icons.Rounded.Refresh, "New feed", tint = Color.White) }
             }
             Row(
                 Modifier
@@ -517,7 +517,7 @@ private fun FeedPage(
             if (showHint) {
                 Spacer(Modifier.height(20.dp))
                 Icon(Icons.Rounded.KeyboardArrowUp, null, tint = Color.White.copy(alpha = 0.6f))
-                Text("Upar scroll = agla gaana • → Like • ← Aisa nahi", color = Color.White.copy(alpha = 0.6f), style = MaterialTheme.typography.labelMedium)
+                Text("Swipe up for next • → Like • ← Not for me", color = Color.White.copy(alpha = 0.6f), style = MaterialTheme.typography.labelMedium)
             }
         }
     }

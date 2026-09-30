@@ -199,7 +199,7 @@ fun SearchScreen(nav: NavController) {
             TextField(
                 value = ui.query,
                 onValueChange = vm::onQuery,
-                placeholder = { Text("Kya sunna hai? Gaana, artist…", color = Color(0xFF535353)) },
+                placeholder = { Text("What do you want to listen to?", color = Color(0xFF535353)) },
                 leadingIcon = { Icon(Icons.Rounded.Search, null, tint = Color(0xFF121212)) },
                 trailingIcon = {
                     if (ui.query.isNotEmpty()) {
@@ -244,7 +244,7 @@ fun SearchScreen(nav: NavController) {
         }
 
         if (ui.query.isBlank() && ui.recent.isNotEmpty()) {
-            item { SectionHeader("Recent searches", action = "Saaf karo") { vm.clearRecent() } }
+            item { SectionHeader("Recent searches", action = "Clear") { vm.clearRecent() } }
             item {
                 Row(
                     Modifier
@@ -266,7 +266,7 @@ fun SearchScreen(nav: NavController) {
 
         if (ui.query.isBlank()) {
             val festivals = Festivals.all
-            item { SectionHeader("🎉 Tyohaar & mausam") }
+            item { SectionHeader("🎉 Festivals & seasons") }
             item {
                 Row(
                     Modifier
@@ -312,7 +312,7 @@ fun SearchScreen(nav: NavController) {
             }
         } else {
             if (ui.local.isNotEmpty()) {
-                item { SectionHeader("Phone par") }
+                item { SectionHeader("On this phone") }
                 items(ui.local, key = { "l_" + it.id }) { t ->
                     TrackRow(t, onClick = { vm.rememberQuery(); c.player.play(ui.local, ui.local.indexOf(t)) }, onMore = { menuFor = t })
                 }
@@ -330,8 +330,8 @@ fun SearchScreen(nav: NavController) {
                 item {
                     EmptyState(
                         Icons.Rounded.SearchOff,
-                        "Kuch nahi mila",
-                        if (c.online.canGoOnline) "Doosre shabd try karo." else "Internet nahi hai — sirf phone ke gaane search hue.",
+                        "No results",
+                        if (c.online.canGoOnline) "Try different keywords." else "You're offline — only songs on this phone were searched.",
                     )
                 }
             }

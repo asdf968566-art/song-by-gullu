@@ -76,7 +76,7 @@ fun CollectionHeader(
             modifier = Modifier.padding(horizontal = 16.dp),
         )
         Text(
-            "$subtitle • ${tracks.size} gaane${if (totalMs > 0) " • " + formatDuration(totalMs) else ""}",
+            "$subtitle • ${if (tracks.size == 1) "1 song" else "${tracks.size} songs"}${if (totalMs > 0) " • " + formatDuration(totalMs) else ""}",
             style = MaterialTheme.typography.bodyMedium,
             color = spec.muted,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
@@ -91,9 +91,9 @@ fun CollectionHeader(
                 IconButton(onClick = {
                     scope.launch {
                         c.downloads.downloadAll(onlineTracks)
-                        Toast.makeText(context, "${onlineTracks.size} gaane download ho rahe hain", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Downloading ${if (onlineTracks.size == 1) "1 song" else "${onlineTracks.size} songs"}", Toast.LENGTH_SHORT).show()
                     }
-                }) { Icon(Icons.Rounded.DownloadForOffline, "Sab download karo", tint = spec.muted, modifier = Modifier.size(28.dp)) }
+                }) { Icon(Icons.Rounded.DownloadForOffline, "Download all", tint = spec.muted, modifier = Modifier.size(28.dp)) }
             }
             actions()
             Spacer(Modifier.weight(1f))

@@ -96,10 +96,10 @@ fun ArtistScreen(nav: NavController, name: String) {
         val d = data
         when {
             d == null -> item { LoadingBox() }
-            d.top.isEmpty() -> item { EmptyState(Icons.Rounded.Person, "Gaane nahi mile", "Internet check karo ya naam badal ke search karo.") }
+            d.top.isEmpty() -> item { EmptyState(Icons.Rounded.Person, "No songs found", "Check your connection or try a different name.") }
             else -> {
                 if (d.similar.isNotEmpty()) {
-                    item { SectionHeader("Milte-julte artists") }
+                    item { SectionHeader("Fans also like") }
                     item {
                         Row(
                             Modifier
@@ -123,12 +123,12 @@ fun ArtistScreen(nav: NavController, name: String) {
                     item {
                         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                             items(d.albums, key = { "al_" + it.first }) { (album, tracks) ->
-                                ShelfCard(album, "${tracks.size} gaane", tracks.firstNotNullOfOrNull { it.artworkUrl }, onClick = { c.player.play(tracks) })
+                                ShelfCard(album, "${if (tracks.size == 1) "1 song" else "${tracks.size} songs"}", tracks.firstNotNullOfOrNull { it.artworkUrl }, onClick = { c.player.play(tracks) })
                             }
                         }
                     }
                 }
-                item { SectionHeader("Top gaane") }
+                item { SectionHeader("Top songs") }
                 itemsIndexed(d.top, key = { _, t -> t.id }) { i, t ->
                     TrackRow(t, onClick = { c.player.play(d.top, i) }, index = i, onMore = { menuFor = t })
                 }

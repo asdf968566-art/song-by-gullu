@@ -185,7 +185,7 @@ fun StatsScreen(nav: NavController) {
                             Text("${i + 1}", color = spec.muted, modifier = Modifier.width(28.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(t.title, color = spec.onSurface, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text("${t.artist} • ${t.plays} plays", color = spec.muted, style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                                Text("${t.artist} • ${if (t.plays == 1) "1 play" else "${t.plays} plays"}", color = spec.muted, style = MaterialTheme.typography.bodySmall, maxLines = 1)
                             }
                             Text(formatListen(t.ms), color = spec.muted, style = MaterialTheme.typography.bodySmall)
                         }

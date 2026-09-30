@@ -57,7 +57,7 @@ fun ThemePickerScreen(nav: NavController) {
     val spec = Sangeet.spec
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        SettingsTopBar(nav, "Theme chuno")
+        SettingsTopBar(nav, "Choose theme")
 
         ThemeStyle.entries.chunked(2).forEach { row ->
             Row(
@@ -77,12 +77,12 @@ fun ThemePickerScreen(nav: NavController) {
         }
 
         SettingsGroup("Light / Dark") {
-            ChoiceRow("Mode", "AMOLED hamesha dark rehta hai", DarkMode.entries, s.darkMode, { it.label }) {
+            ChoiceRow("Mode", "AMOLED is always dark", DarkMode.entries, s.darkMode, { it.label }) {
                 scope.launch { c.settings.setDarkMode(it) }
             }
         }
 
-        SettingsGroup("Accent rang") {
+        SettingsGroup("Accent color") {
             Row(
                 Modifier
                     .horizontalScroll(rememberScrollState())
@@ -105,7 +105,7 @@ fun ThemePickerScreen(nav: NavController) {
             }
             if (s.theme == ThemeStyle.MATERIAL_YOU) {
                 Text(
-                    "Material You mein rang aapke wallpaper se aata hai (Android 12+).",
+                    "Material You takes its colors from your wallpaper (Android 12+).",
                     style = MaterialTheme.typography.bodySmall,
                     color = spec.muted,
                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp),

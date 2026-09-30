@@ -61,7 +61,7 @@ fun QueueSheet(onDismiss: () -> Unit) {
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
         Text(
-            "Queue • ${state.queue.size} gaane",
+            "Queue • ${if (state.queue.size == 1) "1 song" else "${state.queue.size} songs"}",
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
         )
@@ -88,9 +88,9 @@ fun QueueSheet(onDismiss: () -> Unit) {
                         )
                         Text(t.artist, color = spec.muted, style = MaterialTheme.typography.bodySmall, maxLines = 1)
                     }
-                    if (i > 0) IconButton(onClick = { c.player.move(i, i - 1) }) { Icon(Icons.Rounded.KeyboardArrowUp, "Upar") }
-                    if (i < state.queue.lastIndex) IconButton(onClick = { c.player.move(i, i + 1) }) { Icon(Icons.Rounded.KeyboardArrowDown, "Neeche") }
-                    if (!current) IconButton(onClick = { c.player.removeAt(i) }) { Icon(Icons.Rounded.Close, "Hatao") }
+                    if (i > 0) IconButton(onClick = { c.player.move(i, i - 1) }) { Icon(Icons.Rounded.KeyboardArrowUp, "Move up") }
+                    if (i < state.queue.lastIndex) IconButton(onClick = { c.player.move(i, i + 1) }) { Icon(Icons.Rounded.KeyboardArrowDown, "Move down") }
+                    if (!current) IconButton(onClick = { c.player.removeAt(i) }) { Icon(Icons.Rounded.Close, "Remove") }
                 }
             }
         }
@@ -109,7 +109,7 @@ fun SleepTimerDialog(onDismiss: () -> Unit) {
             Column {
                 if (sleep.mode == SleepTimerMode.MINUTES) {
                     val left = ((sleep.endsAt - System.currentTimeMillis()) / 60_000).coerceAtLeast(0)
-                    Text("Chal raha hai — lagbhag $left min baaki", color = Sangeet.spec.accent)
+                    Text("Running — about $left min left", color = Sangeet.spec.accent)
                 }
                 options.forEach { m ->
                     Row(
@@ -117,19 +117,19 @@ fun SleepTimerDialog(onDismiss: () -> Unit) {
                             .fillMaxWidth()
                             .clickable { c.player.startSleepTimer(m); onDismiss() }
                             .padding(vertical = 10.dp),
-                    ) { Text("$m minute") }
+                    ) { Text("$m minutes") }
                 }
                 Row(
                     Modifier
                         .fillMaxWidth()
                         .clickable { c.player.sleepAtEndOfTrack(); onDismiss() }
                         .padding(vertical = 10.dp),
-                ) { Text("Gaana khatam hone par") }
+                ) { Text("End of song") }
             }
         },
         confirmButton = {
             if (sleep.mode != SleepTimerMode.OFF) {
-                TextButton(onClick = { c.player.cancelSleepTimer(); onDismiss() }) { Text("Timer band karo") }
+                TextButton(onClick = { c.player.cancelSleepTimer(); onDismiss() }) { Text("Turn off timer") }
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Close") } },
@@ -160,7 +160,7 @@ fun SpeedDialog(onDismiss: () -> Unit) {
             TextButton(onClick = {
                 scope.launch { c.settings.setPlaybackSpeed(speed) }
                 onDismiss()
-            }) { Text("Lagao") }
+            }) { Text("Apply") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )

@@ -41,14 +41,14 @@ fun EqualizerScreen(nav: NavController) {
 
         if (!eq.available) {
             Text(
-                "Pehle koi gaana bajao — equalizer player ke saath judta hai. (Kuch phones mein ye supported nahi hota.)",
+                "Play a song first — the equalizer attaches to the player. (Not supported on some phones.)",
                 color = spec.muted,
                 modifier = Modifier.padding(20.dp),
             )
         }
 
         SettingsGroup("Equalizer") {
-            SettingsSwitch(Icons.Rounded.Equalizer, "Equalizer on", "Bands aur bass boost lagao", eq.enabled) {
+            SettingsSwitch(Icons.Rounded.Equalizer, "Equalizer on", "Apply bands and bass boost", eq.enabled) {
                 c.equalizer.setEnabled(it)
             }
         }

@@ -18,7 +18,7 @@ object Categories {
         Category("Punjabi Romantic", "💕", "punjabi romantic songs", "punjabi", 0xFFB06239),
         Category("Haryanvi", "🌾", "haryanvi songs", "haryanvi", 0xFF608108),
         Category("Bhojpuri", "🎺", "bhojpuri songs", "bhojpuri", 0xFF27856A),
-        Category("Bhakti", "🙏", "bhakti songs hindi", "hindi", 0xFFF59B23),
+        Category("Devotional", "🙏", "bhakti songs hindi", "hindi", 0xFFF59B23),
         Category("Workout", "💪", "gym workout hindi songs", "hindi", 0xFF148A08),
         Category("Indie India", "🎸", "indian indie songs", "hindi", 0xFF503750),
         Category("English Pop", "🌍", "english pop hits", "english", 0xFF0D73EC),
@@ -55,7 +55,7 @@ object Moods {
         Mood("😌", "Chill", "chill lofi"),
         Mood("😴", "Sleep", "soft sleep calm"),
         Mood("💪", "Workout", "workout gym"),
-        Mood("🙏", "Bhakti", "bhakti bhajan"),
+        Mood("🙏", "Devotional", "bhakti bhajan"),
         Mood("🚗", "Road Trip", "road trip travel"),
     )
 
@@ -81,7 +81,7 @@ object Festivals {
         Festival("Valentine Week", "💝", "romantic love songs hindi", 2 to 6, 2 to 15),
         Festival("Holi", "🎨", "holi songs", 2 to 25, 3 to 25),
         Festival("Baisakhi", "🌾", "baisakhi punjabi bhangra", 4 to 5, 4 to 16),
-        Festival("Barsaat / Monsoon", "🌧️", "barish monsoon songs hindi", 6 to 25, 9 to 10),
+        Festival("Monsoon", "🌧️", "barish monsoon songs hindi", 6 to 25, 9 to 10),
         Festival("Independence Day", "🇮🇳", "desh bhakti songs", 8 to 8, 8 to 16),
         Festival("Raksha Bandhan", "🎀", "raksha bandhan songs", 8 to 1, 8 to 31),
         Festival("Janmashtami", "🦚", "krishna bhajan", 8 to 10, 9 to 10),
@@ -90,7 +90,7 @@ object Festivals {
         Festival("Durga Puja", "🔱", "durga puja songs", 9 to 20, 10 to 20),
         Festival("Diwali", "🪔", "diwali songs", 10 to 12, 11 to 15),
         Festival("Chhath Puja", "🌅", "chhath puja geet", 10 to 25, 11 to 20),
-        Festival("Shaadi Season", "💍", "wedding songs bollywood", 11 to 10, 2 to 28),
+        Festival("Wedding Season", "💍", "wedding songs bollywood", 11 to 10, 2 to 28),
         Festival("Christmas", "🎄", "christmas songs", 12 to 15, 12 to 26),
         Festival("New Year Party", "🎉", "new year party songs", 12 to 26, 1 to 3),
     )
