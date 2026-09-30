@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.LibraryMusic
+import androidx.compose.material.icons.rounded.Explore
+import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.outlined.Home
@@ -44,6 +46,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.sangeet.player.ui.components.MiniPlayer
+import com.sangeet.player.ui.discover.DiscoverScreen
+import com.sangeet.player.ui.library.MixScreen
 import com.sangeet.player.ui.home.HomeScreen
 import com.sangeet.player.ui.library.ImportPlaylistScreen
 import com.sangeet.player.ui.library.LibraryScreen
@@ -61,6 +65,8 @@ import com.sangeet.player.ui.theme.ThemedBackground
 
 object Routes {
     const val HOME = "home"
+    const val DISCOVER = "discover"
+    const val MIX = "mix/{id}"
     const val SEARCH = "search"
     const val LIBRARY = "library"
     const val SETTINGS = "settings"
@@ -72,6 +78,7 @@ object Routes {
     const val LIST = "list/{kind}?arg={arg}"
 
     fun playlist(id: Long) = "playlist/$id"
+    fun mix(id: String) = "mix/$id"
     fun list(kind: ListKind, arg: String = "") = "list/${kind.name}?arg=${android.net.Uri.encode(arg)}"
 }
 
@@ -86,6 +93,8 @@ fun SangeetRoot() {
     val nav = rememberNavController()
     var expanded by rememberSaveable { mutableStateOf(false) }
     val state by container.player.state.collectAsStateWithLifecycle()
+    val backStack by nav.currentBackStackEntryAsState()
+    val onDiscover = backStack?.destination?.route == Routes.DISCOVER
 
     // Permission pehle se mili ho to phone ke gaane scan karo.
     LaunchedEffect(Unit) {
@@ -101,13 +110,18 @@ fun SangeetRoot() {
             containerColor = Color.Transparent,
             bottomBar = {
                 Column {
-                    if (state.current != null) MiniPlayer(onExpand = { expanded = true })
+                    // Discover feed ka apna bada player hai, wahan mini player nahi.
+                    if (state.current != null && !onDiscover) MiniPlayer(onExpand = { expanded = true })
                     BottomNav(nav)
                 }
             },
         ) { padding ->
             NavHost(nav, startDestination = Routes.HOME, modifier = Modifier.padding(padding)) {
                 composable(Routes.HOME) { HomeScreen(nav) }
+                composable(Routes.DISCOVER) { DiscoverScreen(nav) }
+                composable(Routes.MIX, arguments = listOf(navArgument("id") { type = NavType.StringType })) { entry ->
+                    MixScreen(nav, entry.arguments?.getString("id") ?: "")
+                }
                 composable(Routes.SEARCH) { SearchScreen(nav) }
                 composable(Routes.LIBRARY) { LibraryScreen(nav) }
                 composable(Routes.SETTINGS) { SettingsScreen(nav) }
@@ -152,6 +166,7 @@ private fun BottomNav(nav: NavHostController) {
     val spec = Sangeet.spec
     val tabs = listOf(
         Tab(Routes.HOME, "Home", Icons.Outlined.Home, Icons.Rounded.Home),
+        Tab(Routes.DISCOVER, "Discover", Icons.Outlined.Explore, Icons.Rounded.Explore),
         Tab(Routes.SEARCH, "Search", Icons.Outlined.Search, Icons.Rounded.Search),
         Tab(Routes.LIBRARY, "Your Library", Icons.Outlined.LibraryMusic, Icons.Rounded.LibraryMusic),
     )

@@ -11,6 +11,10 @@ phone ke gaane + online free music, offline download aur synced lyrics.
 - **Lyrics**: LRCLIB se synced lyrics, ya apni `.lrc` file import karo
 - **Playlists**: banao, rename karo, M3U8 export karo; M3U / PLS / CSV (Exportify) / TXT import
 - **Player**: queue, shuffle, repeat, sleep timer, speed, skip silence, equalizer + bass boost
+- **Discover feed**: reels jaisa — upar scroll karo, agla gaana apne aap bajta hai (aapke taste se)
+- **Auto playlists**: Daily Mix, Artist Mix, On Repeat, Naye gaane, Bhoole-bisre — track record se apne aap bante aur update hote hain
+- **Suggestions + Autoplay**: Home pe "Aapke liye", aur queue khatam hone pe milte-julte gaane chalte rehte hain
+- **Open with Sangeet**: file manager / browser se koi bhi audio file ya link seedha isme bajao
 - **Themes**: Classic Dark, Aurora, Glassmorphism, Neumorphism, AMOLED, Material You
 - **Quality**: Wi-Fi / mobile data / download ke liye alag quality (128 / 256 / 320 kbps)
 
@@ -41,3 +45,9 @@ cd Sangeet
 ## Requirements
 - Android 8.0 (API 26) ya upar
 - Build ke liye JDK 17 aur Android SDK 35
+
+## Testing (GitHub Actions)
+Har push pe:
+- **build**: APK banta hai
+- **api-check**: Audius (gaane + stream) aur LRCLIB (lyrics) sach mein chal rahe hain ya nahi
+- **emulator-test**: Android emulator pe APK install hota hai, asli gaana bajaya jaata hai aur check hota hai ki wo PLAYING state mein hai. Screenshots `emulator-screenshots-and-logs` artifact mein milte hain.

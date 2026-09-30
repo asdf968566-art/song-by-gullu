@@ -34,7 +34,8 @@ class StreamResolver(
         }
 
         val track = library.findBlocking(id) ?: throw IOException("Gaana nahi mila: $id")
-        if (track.source == SourceType.LOCAL) {
+        val isDeviceFile = track.streamUrl?.let { it.startsWith("content:") || it.startsWith("file:") } == true
+        if (track.source == SourceType.LOCAL || isDeviceFile) {
             val uri = track.streamUrl ?: throw IOException("File missing")
             return dataSpec.withUri(Uri.parse(uri))
         }

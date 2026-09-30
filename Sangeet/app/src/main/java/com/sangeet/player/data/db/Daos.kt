@@ -1,6 +1,7 @@
 package com.sangeet.player.data.db
 
 import androidx.room.Dao
+import androidx.room.Embedded
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
@@ -13,6 +14,13 @@ data class PlaylistRow(
     val name: String,
     val trackCount: Int,
     val coverUrl: String?,
+)
+
+/** History ka gaana + kitni baar aur kab suna. */
+data class PlayedTrackRow(
+    @Embedded val track: TrackEntity,
+    val playCount: Int,
+    val playedAt: Long,
 )
 
 @Dao
@@ -77,6 +85,9 @@ abstract class PlaylistDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     abstract suspend fun insertRefs(refs: List<PlaylistTrackEntity>)
 
+    @Query("SELECT COUNT(*) FROM playlists WHERE id = :id")
+    abstract suspend fun count(id: Long): Int
+
     @Query("DELETE FROM playlist_tracks WHERE playlistId = :playlistId AND trackId = :trackId")
     abstract suspend fun removeTrack(playlistId: Long, trackId: String)
 
@@ -84,6 +95,12 @@ abstract class PlaylistDao {
     open suspend fun delete(id: Long) {
         clearTracks(id)
         deletePlaylistRow(id)
+    }
+
+    @Transaction
+    open suspend fun replaceTracks(id: Long, trackIds: List<String>) {
+        clearTracks(id)
+        addTracks(id, trackIds)
     }
 
     @Transaction
@@ -97,6 +114,9 @@ abstract class PlaylistDao {
 interface FavoriteDao {
     @Query("SELECT t.* FROM tracks t JOIN favorites f ON f.trackId = t.id ORDER BY f.addedAt DESC")
     fun observeTracks(): Flow<List<TrackEntity>>
+
+    @Query("SELECT t.* FROM tracks t JOIN favorites f ON f.trackId = t.id ORDER BY f.addedAt DESC")
+    suspend fun tracksOnce(): List<TrackEntity>
 
     @Query("SELECT trackId FROM favorites")
     fun observeIds(): Flow<List<String>>
@@ -125,6 +145,15 @@ abstract class HistoryDao {
         """
     )
     abstract fun observeMostPlayed(limit: Int): Flow<List<TrackEntity>>
+
+    @Query(
+        """
+        SELECT t.*, h.playCount AS playCount, h.playedAt AS playedAt
+        FROM tracks t JOIN history h ON h.trackId = t.id
+        ORDER BY h.playedAt DESC LIMIT :limit
+        """
+    )
+    abstract suspend fun played(limit: Int): List<PlayedTrackRow>
 
     @Query("SELECT playCount FROM history WHERE trackId = :id")
     abstract suspend fun playCount(id: String): Int?

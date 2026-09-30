@@ -6,6 +6,7 @@ import com.sangeet.player.data.db.SangeetDatabase
 import com.sangeet.player.data.db.TrackEntity
 import com.sangeet.player.data.model.Playlist
 import com.sangeet.player.data.model.Track
+import com.sangeet.player.data.recommend.PlayedTrack
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
@@ -61,6 +62,12 @@ class LibraryRepository(private val db: SangeetDatabase, scope: CoroutineScope) 
 
     suspend fun clearHistory() = db.historyDao().clear()
 
+    /** Suni hui history, sabse naye pehle (recommendations ke liye). */
+    suspend fun playedHistory(limit: Int = 500): List<PlayedTrack> =
+        db.historyDao().played(limit).map { PlayedTrack(it.track.toTrack(), it.playCount, it.playedAt) }
+
+    suspend fun favoritesOnce(): List<Track> = db.favoriteDao().tracksOnce().map(TrackEntity::toTrack)
+
     fun playlist(id: Long): Flow<PlaylistEntity?> = db.playlistDao().observePlaylist(id)
     fun playlistTracks(id: Long): Flow<List<Track>> = db.playlistDao().observeTracks(id).map { it.map(TrackEntity::toTrack) }
     suspend fun playlistTracksOnce(id: Long): List<Track> = db.playlistDao().getTracks(id).map(TrackEntity::toTrack)
@@ -75,6 +82,13 @@ class LibraryRepository(private val db: SangeetDatabase, scope: CoroutineScope) 
         remember(tracks)
         db.playlistDao().addTracks(playlistId, tracks.map { it.id })
     }
+
+    suspend fun replacePlaylistTracks(playlistId: Long, tracks: List<Track>) {
+        remember(tracks)
+        db.playlistDao().replaceTracks(playlistId, tracks.map { it.id })
+    }
+
+    suspend fun playlistExists(id: Long): Boolean = db.playlistDao().count(id) > 0
 
     suspend fun removeFromPlaylist(playlistId: Long, trackId: String) = db.playlistDao().removeTrack(playlistId, trackId)
     suspend fun renamePlaylist(id: Long, name: String) = db.playlistDao().rename(id, name)
