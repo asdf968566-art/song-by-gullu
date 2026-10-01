@@ -1,0 +1,53 @@
+name: Web App
+
+# The iPhone-friendly web app (SangeetWeb/) on GitHub Pages.
+# The song catalog is rebuilt from JioSaavn every day.
+on:
+  push:
+    branches: ["main", "claude/**"]
+    paths: ["SangeetWeb/**", ".github/workflows/web.yml", ".github/scripts/build-web-catalog.py", ".github/scripts/web-api-check.sh"]
+  schedule:
+    - cron: "17 21 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build song catalog
+        run: |
+          pip install -q pycryptodome
+          python .github/scripts/build-web-catalog.py SangeetWeb/data
+          du -sh SangeetWeb/data/*
+      - name: Stamp version
+        run: sed -i "s/__BUILD__/${{ github.run_number }}/g" SangeetWeb/sw.js SangeetWeb/index.html
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: SangeetWeb
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - id: deployment
+        uses: actions/deploy-pages@v4
