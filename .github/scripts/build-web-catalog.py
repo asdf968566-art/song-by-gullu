@@ -29,8 +29,8 @@ IMG = "https://c.saavncdn.com/"
 AAC = "https://aac.saavncdn.com/"
 
 LANGS = {  # language: how many playlists to read
-    "hindi": 450, "punjabi": 350, "english": 150, "haryanvi": 120, "bhojpuri": 120,
-    "tamil": 120, "telugu": 120, "marathi": 100, "bengali": 100, "gujarati": 80,
+    "hindi": 1500, "punjabi": 1000, "english": 300, "haryanvi": 400, "bhojpuri": 400,
+    "tamil": 500, "telugu": 500, "marathi": 350, "bengali": 350, "gujarati": 300,
 }
 MOODS = ["hits", "romantic", "sad", "party", "90s", "latest", "lofi", "workout", "devotional",
          "wedding", "old", "love", "chill", "dance", "top 50", "new", "retro", "drive", "rap", "unplugged"]
@@ -126,8 +126,8 @@ def build_language(lang, budget):
         p["chart"] = 1
         found.setdefault(p["id"], p)
 
-    jobs = [("content.getFeaturedPlaylists", {"fetch_from_serialized_files": "true", "p": str(p), "n": "50"}) for p in range(1, 9)]
-    jobs += [("search.getPlaylistResults", {"q": f"{lang} {m}", "p": str(p), "n": "40"}) for m in MOODS for p in (1, 2)]
+    jobs = [("content.getFeaturedPlaylists", {"fetch_from_serialized_files": "true", "p": str(p), "n": "50"}) for p in range(1, 25)]
+    jobs += [("search.getPlaylistResults", {"q": f"{lang} {m}", "p": str(p), "n": "40"}) for m in MOODS for p in (1, 2, 3, 4)]
     with cf.ThreadPoolExecutor(10) as ex:
         for res in ex.map(lambda j: call(j[0], j[1], lang), jobs):
             for p in playlists_of(res):
@@ -170,6 +170,21 @@ def build_language(lang, budget):
                 img = p["image"].replace("500x500", "150x150")
                 img = img[len(IMG):] if img.startswith(IMG) else img
                 out_pl.append([p["id"], p["title"], p["subtitle"], img, idx, p.get("chart", 0)])
+
+    # Then every popular singer's songs (search pages), for depth beyond playlists.
+    artist_count = {}
+    for row in songs:
+        for a in row[2].split(", "):
+            if len(a) > 2:
+                artist_count[a] = artist_count.get(a, 0) + 1
+    top = sorted(artist_count, key=artist_count.get, reverse=True)[: max(30, budget // 8)]
+    searches = [(a, p) for a in top for p in (1, 2, 3)]
+    with cf.ThreadPoolExecutor(12) as ex:
+        for res in ex.map(lambda j: call("search.getResults", {"q": j[0], "p": str(j[1]), "n": "50"}), searches):
+            for o in items(res, ["results"]):
+                s = song(o)
+                if s and s["lang"] == lang:
+                    add(s)
 
     os.makedirs(OUT, exist_ok=True)
     with open(os.path.join(OUT, f"{lang}.json"), "w", encoding="utf-8") as f:
