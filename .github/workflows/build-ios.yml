@@ -1,0 +1,61 @@
+name: Build iOS
+
+on:
+  push:
+    branches: ["main", "claude/**"]
+    paths: ["SangeetiOS/**", ".github/workflows/build-ios.yml"]
+  pull_request:
+    paths: ["SangeetiOS/**", ".github/workflows/build-ios.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: SangeetiOS
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate Xcode project
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Build (unsigned)
+        run: |
+          xcodebuild -project Sangeet.xcodeproj -scheme Sangeet \
+            -sdk iphoneos -configuration Release \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            CURRENT_PROJECT_VERSION=${{ github.run_number }} \
+            build > build.log 2>&1 || status=$?
+          grep -E "error:" build.log | head -60 || true
+          tail -3 build.log
+          exit ${status:-0}
+
+      - name: Package .ipa
+        run: |
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/Sangeet.app Payload/
+          zip -qr ../Sangeet-iOS.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Sangeet-iOS
+          path: Sangeet-iOS.ipa
+          if-no-files-found: error
+
+      - name: Publish to "ios-latest" release
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        working-directory: .
+        run: |
+          gh release delete ios-latest --yes --cleanup-tag || true
+          gh release create ios-latest Sangeet-iOS.ipa --prerelease \
+            --title "Sangeet for iPhone (build ${{ github.run_number }})" \
+            --notes "Unsigned iPhone app. Install with Sideloadly or AltStore using your Apple ID. Commit ${GITHUB_SHA::7}."
+        env:
+          GH_TOKEN: ${{ github.token }}
