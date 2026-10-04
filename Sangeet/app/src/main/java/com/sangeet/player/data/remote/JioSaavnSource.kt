@@ -63,6 +63,23 @@ class JioSaavnSource : OnlineSource {
     suspend fun playlistTracks(id: String): List<Track> =
         songsFrom(call("playlist.getDetails", "listid" to id, "n" to "300", "p" to "1"))
 
+    /** A shared JioSaavn playlist / album / song link -> (name, songs). */
+    suspend fun fromLink(link: String): Pair<String, List<Track>>? {
+        val url = runCatching { link.trim().toHttpUrl() }.getOrNull() ?: return null
+        if (!url.host.endsWith("jiosaavn.com") && !url.host.endsWith("saavn.com")) return null
+        val segs = url.pathSegments.filter { it.isNotBlank() }
+        val token = segs.lastOrNull() ?: return null
+        val type = when {
+            "album" in segs -> "album"
+            "song" in segs -> "song"
+            else -> "playlist"
+        }
+        val root = call("webapi.get", "token" to token, "type" to type, "n" to "500", "p" to "1") as? JsonObject ?: return null
+        val tracks = if (type == "song") songsFrom(root["songs"]) else songsFrom(root)
+        val name = unescape((root["title"] as? JsonPrimitive)?.contentOrNull ?: tracks.firstOrNull()?.title ?: "JioSaavn playlist")
+        return name to tracks
+    }
+
     private fun playlistsFrom(root: JsonElement?): List<OnlinePlaylist> {
         val items: List<JsonElement> = when (root) {
             is JsonArray -> root

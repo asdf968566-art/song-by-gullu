@@ -29,6 +29,9 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -74,6 +77,22 @@ class ImportViewModel(private val c: AppContainer) : ViewModel() {
         }
     }
 
+    /** Spotify / YouTube Music / YouTube / JioSaavn link. */
+    fun loadLink(link: String) = viewModelScope.launch {
+        if (link.isBlank()) return@launch
+        _ui.value = Ui(working = true)
+        _ui.value = try {
+            val r = c.importer.readLink(link)
+            when {
+                r.tracks.isNotEmpty() -> Ui(name = r.name, matched = r.tracks.size, createdId = c.library.createPlaylist(r.name, r.tracks))
+                r.entries.isNotEmpty() -> Ui(name = r.name, entries = r.entries)
+                else -> Ui(error = "No songs found in that playlist.")
+            }
+        } catch (e: Exception) {
+            Ui(error = e.message ?: "Couldn't open that link")
+        }
+    }
+
     fun setName(n: String) { _ui.value = _ui.value.copy(name = n) }
     fun setSearchOnline(v: Boolean) { _ui.value = _ui.value.copy(searchOnline = v) }
 
@@ -98,6 +117,7 @@ fun ImportPlaylistScreen(nav: NavController) {
     val vm = appViewModel { ImportViewModel(it) }
     val ui by vm.ui.collectAsStateWithLifecycle()
     val spec = Sangeet.spec
+    var link by remember { mutableStateOf("") }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) vm.load(uri)
     }
@@ -118,16 +138,25 @@ fun ImportPlaylistScreen(nav: NavController) {
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Text("Supported files", style = MaterialTheme.typography.titleMedium, color = spec.onSurface)
+                Text("Paste a playlist link", style = MaterialTheme.typography.titleMedium, color = spec.onSurface)
+                OutlinedTextField(
+                    value = link,
+                    onValueChange = { link = it },
+                    placeholder = { Text("Spotify, YouTube Music, YouTube or JioSaavn") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Button(onClick = { vm.loadLink(link) }, enabled = !ui.working && link.isNotBlank()) { Text("Import link") }
+                if (ui.working && ui.entries.isEmpty()) LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = spec.accent)
+                Spacer(Modifier.height(8.dp))
+                Text("Or choose a file", style = MaterialTheme.typography.titleMedium, color = spec.onSurface)
                 Text(
-                    "• M3U / M3U8 / PLS (from other music apps or VLC)\n" +
-                        "• CSV — export a Spotify playlist to CSV with exportify.net\n" +
-                        "• TXT — one \"Artist - Title\" per line\n\n" +
-                        "Each song is matched on your phone first, then online (Audius, Jamendo or your server).",
+                    "M3U / M3U8 / PLS, CSV (Exportify, TuneMyMusic) or TXT with one \"Artist - Title\" per line.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = spec.muted,
                 )
-                Button(onClick = { picker.launch(arrayOf("*/*")) }, enabled = !ui.working) {
+                OutlinedButton(onClick = { picker.launch(arrayOf("*/*")) }, enabled = !ui.working) {
                     Icon(Icons.Rounded.FileOpen, null)
                     Text("  Choose file")
                 }

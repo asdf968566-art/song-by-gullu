@@ -18,13 +18,24 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.origin !== location.origin) return;
 
-  // Song catalog: answer from cache at once, refresh it in the background.
+  // Which catalog build is current: always ask the network first.
+  if (url.pathname.endsWith('/data/index.json')) {
+    e.respondWith(fetch(e.request).then((r) => {
+      const copy = r.clone();
+      caches.open('sangeet-data').then((c) => c.put(e.request, copy));
+      return r;
+    }).catch(() => caches.match(e.request)));
+    return;
+  }
+
+  // Song catalog files (their URLs carry the build): cache first.
   if (url.pathname.includes('/data/')) {
     e.respondWith(caches.open('sangeet-data').then(async (c) => {
       const cached = await c.match(e.request);
-      const fresh = fetch(e.request).then((r) => { if (r.ok) c.put(e.request, r.clone()); return r; });
-      if (cached) { e.waitUntil(fresh.catch(() => {})); return cached; }
-      return fresh;
+      if (cached) return cached;
+      const r = await fetch(e.request);
+      if (r.ok) c.put(e.request, r.clone());
+      return r;
     }));
     return;
   }

@@ -42,6 +42,7 @@ class RecommendationRepository(
     private val local: LocalMusicRepository,
     private val online: OnlineRepository,
     private val settings: SettingsRepository,
+    private val catalog: CatalogPool,
 ) {
     private val prefs = context.getSharedPreferences("auto_playlists", Context.MODE_PRIVATE)
     private val mixLock = Mutex()
@@ -254,6 +255,13 @@ class RecommendationRepository(
         val byArtistDeep = if (saavnOn) artists.take(3).map { a ->
             async { a to runCatching { online.saavn.searchPage(a, Random.nextInt(2, 5)) }.getOrDefault(emptyList()).filter { artistMatch(it.artist, a) } }
         } else emptyList()
+        // Lakhs of songs from the nightly catalog: fresh picks in your languages, favourite singers first.
+        val byCatalog: Deferred<List<Track>>? = if (canOnline) async {
+            val favs = artists.map(::norm)
+            runCatching {
+                catalog.sample(p.languages.take(3), 60, seenIds()) { a -> favs.any { f -> norm(a).contains(f) } }
+            }.getOrDefault(emptyList())
+        } else null
         val trending = if (canOnline && artists.size < 3) {
             async { runCatching { online.trending() }.getOrDefault(emptyList()).flatMap { it.tracks } }
         } else null
@@ -272,6 +280,7 @@ class RecommendationRepository(
         byArtistDeep.awaitAll().forEach { (a, list) -> list.forEach { out += Suggestion(it, reasonFor(a, seed)) } }
         byPlaylists?.await()?.forEach { (name, t) -> out += Suggestion(t, "From $name") }
         trending?.await()?.forEach { out += Suggestion(it, "Trending now") }
+        byCatalog?.await()?.forEach { out += Suggestion(it, "New for you") }
         // Thoda naya-pan: phone ke kuch random gaane
         songs.shuffled().take(20).forEach { out += Suggestion(it, "From your phone") }
         // Pehle se liked gaane bhi (radio / mix mein kaam aate hain)

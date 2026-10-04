@@ -137,13 +137,14 @@ function streamUrl(t) {
 const Catalog = {
   data: {}, tracks: [], byId: new Map(), playlists: [], trackPl: new Map(), total: 0,
   async load() {
+    await Deep.init();
     await Promise.all(S.langs.map((l) => this.loadLang(l)));
     this.rebuild();
   },
   async loadLang(l) {
     if (this.data[l]) return this.data[l];
     try {
-      const r = await fetch(`data/${l}.json`);
+      const r = await fetch(`data/${l}.json${Deep.v()}`);
       if (!r.ok) return null;
       const d = await r.json();
       const tracks = d.songs.map((x) => fromRow(x, l));
@@ -200,6 +201,82 @@ const Catalog = {
   },
 };
 
+/* ------------------------------------------------------------------ full catalog (lakhs of songs)
+ * Only small files are downloaded: a search index file per 3 letters, and the 250-song files that hold the results. */
+const Deep = {
+  info: null, files: new Map(),
+  async init() {
+    try { const r = await fetch('data/index.json', { cache: 'no-cache' }); if (r.ok) this.info = await r.json(); } catch {}
+    this.cleanCache();
+    return this.info;
+  },
+  v() { return this.info ? `?b=${this.info.build}` : ''; },
+  get(url) {
+    if (!this.files.has(url)) this.files.set(url, fetch(url).then((r) => (r.ok ? r.json() : null)).catch(() => null));
+    return this.files.get(url);
+  },
+  key(tok) {
+    const k = Array.from(tok).slice(0, 3).join('');
+    return /^[a-z0-9]+$/.test(k) ? k : 'x' + (Array.from(k).reduce((n, c) => n + c.codePointAt(0), 0) % 256).toString(16).padStart(2, '0');
+  },
+  async search(q, limit = 60) {
+    if (!this.info) return [];
+    const all = norm(q).split(' ').filter((w) => Array.from(w).length >= 2);
+    const last = all[all.length - 1];
+    const words = [...new Set(all)].sort((a, b) => b.length - a.length).slice(0, 3);
+    if (!words.length) return [];
+    const sets = await Promise.all(words.map(async (w) => {
+      const idx = await this.get(`data/i/${this.key(w)}.json${this.v()}`);
+      const nums = new Set();
+      if (!idx) return nums;
+      const prefix = w === last && Array.from(w).length >= 3;
+      for (const tok in idx) {
+        if (prefix ? tok.startsWith(w) : tok === w) { let x = 0; for (const d of idx[tok]) { x += d; nums.add(x); } }
+      }
+      return nums;
+    }));
+    sets.sort((a, b) => a.size - b.size);
+    let hits = [...sets[0]].filter((n) => sets.every((st) => st.has(n)));
+    hits = hits.sort((a, b) => a - b).slice(0, limit * 2);
+    const per = this.info.rows || 250;
+    const shards = [...new Set(hits.map((n) => Math.floor(n / per)))];
+    const files = await Promise.all(shards.map((k) => this.get(`data/r/${k}.json${this.v()}`)));
+    const byShard = new Map(shards.map((k, i) => [k, files[i]]));
+    const want = norm(q);
+    const out = [];
+    for (const n of hits) {
+      const row = byShard.get(Math.floor(n / per))?.[n % per];
+      if (!row) continue;
+      const t = Catalog.byId.get('js:' + row[0]) || fromRow(row, row[9]);
+      out.push([t, norm(t.title) === want ? 2 : norm(t.title).startsWith(want) ? 1 : 0, n]);
+    }
+    return out.sort((a, b) => b[1] - a[1] || a[2] - b[2]).slice(0, limit).map((x) => x[0]);
+  },
+  /** Finds one song by title + singer (YouTube songs, imported playlists). */
+  async findSong(title, artist) {
+    const want = norm(title);
+    if (!want) return null;
+    const singer = splitArtists(artist)[0] || '';
+    for (const q of [`${title} ${singer}`, title]) {
+      const list = await this.search(q, 30);
+      const same = list.filter((t) => norm(t.title) === want);
+      const pick = same.find((t) => singer && norm(t.artist).includes(norm(singer))) || same[0];
+      if (pick) return pick;
+    }
+    return null;
+  },
+  async cleanCache() {
+    if (!this.info || !('caches' in window)) return;
+    try {
+      const c = await caches.open('sangeet-data');
+      for (const req of await c.keys()) {
+        const b = new URL(req.url).searchParams.get('b');
+        if (b && b !== String(this.info.build)) c.delete(req);
+      }
+    } catch {}
+  },
+};
+
 /* ------------------------------------------------------------------ recommendations: fresh songs, never repeats */
 function suggestions(count = 25, exclude = new Set()) {
   const artists = new Map();
@@ -253,6 +330,28 @@ const Tube = {
     const [artist, title] = splitTitle(raw, ch);
     const th = sn.thumbnails || {};
     return { id: 'yt:' + vid, src: 'yt', sid: vid, title, artist, album: 'YouTube', dur: 0, img: (th.high || th.medium || th.default || {}).url || '', lang: '' };
+  },
+  /** A public YouTube / YouTube Music playlist: {title, tracks}. */
+  async playlist(id) {
+    if (!S.ytKey) return null;
+    try {
+      const meta = await (await fetch(`https://www.googleapis.com/youtube/v3/playlists?part=snippet&id=${encodeURIComponent(id)}&key=${S.ytKey}`)).json();
+      const tracks = [];
+      let token = '';
+      for (let page = 0; page < 10; page++) {
+        const u = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${encodeURIComponent(id)}&key=${S.ytKey}${token ? '&pageToken=' + token : ''}`;
+        const d = await (await fetch(u)).json();
+        if (d.error) return tracks.length ? { title: meta.items?.[0]?.snippet?.title, tracks } : null;
+        for (const it of d.items || []) {
+          const sn = it.snippet || {};
+          const t = this.track(sn.resourceId?.videoId, { ...sn, channelTitle: sn.videoOwnerChannelTitle || '' });
+          if (t && !/^(Deleted|Private) video$/.test(sn.title)) tracks.push(t);
+        }
+        token = d.nextPageToken;
+        if (!token) break;
+      }
+      return { title: meta.items?.[0]?.snippet?.title || 'YouTube playlist', tracks };
+    } catch { return null; }
   },
   player: null,
   ready: null,
@@ -315,9 +414,18 @@ const Player = {
     let t = this.current;
     this.error = '';
     this.loading = true;
-    if (t.src === 'yt') {
-      const m = Catalog.match(t);
-      if (m) { t = this.queue[i] = m; }
+    if (t.src === 'yt' || t.src === 'q') {
+      // Same song in the catalog plays in the background, so prefer it.
+      UI.trackChanged();
+      const m = Catalog.match(t) || (await Deep.findSong(t.title, t.artist));
+      if (this.current !== t) return;
+      if (m) t = this.queue[i] = m;
+      else if (t.src === 'q') {
+        const y = (await Tube.search(`${t.title} ${t.artist}`))[0];
+        if (this.current !== t) return;
+        if (!y) return this.failed();
+        t = this.queue[i] = y;
+      }
     }
     if (t.src === 'yt') {
       this.mode = 'yt';
@@ -613,17 +721,27 @@ function searchPage() {
     const my = ++seq;
     clearTimeout(ytTimer);
     if (q.length < 2) { results.replaceChildren(); return; }
-    const local = Catalog.search(q);
-    const ytBox = h('div');
-    results.replaceChildren(local.length ? trackList(local) : h('div', { class: 'empty' }, 'Searching YouTube…'), ytBox);
-    // YouTube has a daily limit, so ask it only after you stop typing.
+    const local = Catalog.search(q, 40);
+    const deepBox = h('div'), ytBox = h('div');
+    results.replaceChildren(local.length ? trackList(local) : h('div', { class: 'spinner' }), deepBox, ytBox);
+    const youtube = async () => {
+      ytBox.replaceChildren(h('div', { class: 'spinner' }));
+      const yt = (await Tube.search(q)).filter((t) => !shown.has(norm(t.title)));
+      if (my !== seq) return;
+      ytBox.replaceChildren(yt.length ? [h('div', { class: 'section' }, 'From YouTube'), trackList(yt)] : shown.size ? [] : h('div', { class: 'empty' }, 'No songs found'));
+    };
+    const shown = new Set(local.map((t) => norm(t.title)));
+    // Then the full catalog (lakhs of songs); YouTube only for what isn't there.
     ytTimer = setTimeout(async () => {
-      const yt = (await Tube.search(q)).filter((t) => !local.some((l) => norm(l.title) === norm(t.title)));
+      const ids = new Set(local.map((t) => t.id));
+      const deep = (await Deep.search(q)).filter((t) => !ids.has(t.id));
       if (my !== seq) return;
       if (!local.length) results.firstChild.remove();
-      if (yt.length) ytBox.replaceChildren(h('div', { class: 'section' }, 'From YouTube'), trackList(yt));
-      else if (!local.length) ytBox.replaceChildren(h('div', { class: 'empty' }, 'No songs found'));
-    }, local.length ? 900 : 500);
+      deep.forEach((t) => shown.add(norm(t.title)));
+      if (deep.length) deepBox.replaceChildren(local.length ? h('div', { class: 'section' }, 'More songs') : null, trackList(deep));
+      if (shown.size < 8) youtube();
+      else ytBox.replaceChildren(h('button', { class: 'chip', style: 'margin:12px 16px', onclick: youtube }, 'Search YouTube too'));
+    }, 350);
   };
   input.addEventListener('input', () => { clearTimeout(run.t); run.t = setTimeout(run, 150); });
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter') input.blur(); });
@@ -639,6 +757,7 @@ function libraryPage() {
     link('heartFill', 'Liked Songs', S.liked.length, () => pushPage(() => songsPage('Liked Songs', S.liked))),
     link('clock', 'Recently Played', null, () => pushPage(() => songsPage('Recently Played', recent().slice(0, 300)))),
     link('globe', 'Online Library', Catalog.playlists.length || null, () => pushPage(onlineLibraryPage)),
+    link('plus', 'Import playlist', null, () => pushPage(importPage)),
     h('div', { class: 'section' }, 'Your playlists'),
     S.playlists.map((p) => link('list', p.name, p.tracks.length, () => pushPage(() => songsPage(p.name, p.tracks, p)))),
     link('plus', 'New playlist', null, () => {
@@ -683,6 +802,93 @@ function onlineLibraryPage() {
   });
   more();
   return h('div', null, header('Online Library', true), h('div', { class: 'search-box' }, input), grid, sentinel);
+}
+
+/* ------------------------------------------------------------------ import a playlist (YouTube link, CSV file or a list) */
+function parseCsv(text) {
+  const rows = [];
+  let row = [], cell = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"' && text[i + 1] === '"') { cell += '"'; i++; } else if (c === '"') q = false; else cell += c;
+    } else if (c === '"') q = true;
+    else if (c === ',') { row.push(cell); cell = ''; }
+    else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(cell); rows.push(row); row = []; cell = ''; }
+    else cell += c;
+  }
+  if (cell || row.length) { row.push(cell); rows.push(row); }
+  return rows.filter((r) => r.some((x) => x.trim()));
+}
+/** [{title, artist}] from a CSV export (Exportify, TuneMyMusic, ...) or lines like "Song - Singer". */
+function parseSongList(text) {
+  const rows = parseCsv(text);
+  const head = rows[0] ? rows[0].map((x) => x.toLowerCase()) : [];
+  const ti = head.findIndex((x) => /track name|^title$|song|^name$|track title/.test(x));
+  const ai = head.findIndex((x) => /artist/.test(x));
+  if (ti >= 0 && rows.length > 1 && rows[0].length > 1) {
+    return rows.slice(1).map((r) => ({ title: (r[ti] || '').trim(), artist: ai >= 0 ? (r[ai] || '').split(/[,;]/)[0].trim() : '' })).filter((x) => x.title);
+  }
+  return text.split(/\r?\n/).map((l) => l.replace(/^\s*\d+[.)]\s*/, '').trim()).filter(Boolean).map((l) => {
+    const by = l.match(/^(.*?)\s+by\s+(.*)$/i);
+    if (by) return { title: by[1], artist: by[2] };
+    const [title, ...rest] = l.split(/\s+[-–—|]\s+/);
+    return { title: title.trim(), artist: rest.join(' ').trim() };
+  });
+}
+function importPage() {
+  const status = h('div', { class: 'note' });
+  const box = h('textarea', { rows: 6, placeholder: 'Paste a YouTube or YouTube Music playlist link, or a list of songs (one per line: Song - Singer)', style: 'width:100%;font:inherit;color:inherit;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px' });
+  const file = h('input', { type: 'file', accept: '.csv,.txt,text/csv,text/plain', style: 'display:none' });
+  const go = async (text, fallbackName) => {
+    text = text.trim();
+    if (!text) return;
+    if (/spotify\.com|spotify:/.test(text)) {
+      status.textContent = "A browser can't open Spotify links. On exportify.net export the playlist as CSV, then choose the file here.";
+      return;
+    }
+    let name = fallbackName, items, tracks = [];
+    const list = text.match(/[?&]list=([\w-]+)/);
+    status.replaceChildren(h('div', { class: 'spinner' }));
+    if (list) {
+      const r = await Tube.playlist(list[1]);
+      if (!r) { status.textContent = "Couldn't open that playlist. Is it public?"; return; }
+      name = r.title;
+      tracks = r.tracks;
+    } else {
+      items = parseSongList(text).slice(0, 500);
+      let done = 0;
+      const out = new Array(items.length);
+      const work = async (k) => {
+        const it = items[k];
+        out[k] = (await Deep.findSong(it.title, it.artist)) ||
+          { id: 'q:' + norm(it.title + ' ' + it.artist), src: 'q', sid: '', title: it.title, artist: it.artist || 'Unknown', album: '', dur: 0, img: '', lang: '' };
+        status.textContent = `Matching songs… ${++done}/${items.length}`;
+      };
+      let next = 0;
+      await Promise.all(Array.from({ length: 6 }, async () => { while (next < items.length) await work(next++); }));
+      tracks = out;
+    }
+    if (!tracks.length) { status.textContent = 'No songs found in that.'; return; }
+    name = prompt('Playlist name', name || 'Imported playlist') || name || 'Imported playlist';
+    S.playlists.unshift({ id: String(Date.now()), name, tracks: tracks.map(slim) });
+    save();
+    const found = tracks.filter((t) => t.src !== 'q').length;
+    toast(`Imported ${tracks.length} songs`);
+    status.textContent = items ? `${found} of ${tracks.length} found in the library, the rest will play from YouTube.` : '';
+    pushPage(() => songsPage(name, S.playlists[0].tracks, S.playlists[0]));
+  };
+  file.addEventListener('change', async () => {
+    const f = file.files[0];
+    if (f) go(await f.text(), f.name.replace(/\.\w+$/, ''));
+  });
+  return h('div', null, header('Import playlist', true),
+    h('div', { style: 'padding:8px 16px' }, box),
+    h('div', { class: 'actions' },
+      h('button', { class: 'pill primary', onclick: () => go(box.value) }, 'Import'),
+      h('button', { class: 'pill', onclick: () => file.click() }, 'Choose CSV file')),
+    file, status,
+    h('div', { class: 'note' }, 'Spotify: export the playlist as CSV on exportify.net, then choose the file. YouTube and YouTube Music: paste the playlist link.'));
 }
 
 /* ------------------------------------------------------------------ AI DJ: "sad punjabi songs for a night drive" */
