@@ -10,7 +10,10 @@ import com.sangeet.player.data.model.inLanguages
 import com.sangeet.player.data.settings.SettingsRepository
 import kotlin.math.ln
 import kotlin.random.Random
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -19,6 +22,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 
 data class PlayedTrack(val track: Track, val playCount: Int, val playedAt: Long)
 
@@ -207,6 +211,8 @@ class RecommendationRepository(
 
     private suspend fun candidates(p: Profile, seed: Track?): List<Suggestion> = coroutineScope {
         val out = ArrayList<Suggestion>()
+        // Sources run outside this scope, so one that hangs (blocking network call) can't hold the feed.
+        val bg = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val songs = local.songs.value
         val artists = buildList {
             seed?.artist?.takeIf { it.isNotBlank() && !it.equals("Unknown artist", true) }?.let(::add)
@@ -215,17 +221,17 @@ class RecommendationRepository(
 
         val canOnline = online.canGoOnline
         val byArtist = if (canOnline) artists.take(4).map { a ->
-            async {
+            bg.async {
                 a to runCatching { online.search(a) }.getOrDefault(emptyList())
                     .flatMap { it.tracks }
                     .filter { artistMatch(it.artist, a) }
             }
         } else emptyList()
         val byGenre = if (canOnline) p.genres.take(2).map { g ->
-            async { g to runCatching { online.trending(g) }.getOrDefault(emptyList()).flatMap { it.tracks } }
+            bg.async { g to runCatching { online.trending(g) }.getOrDefault(emptyList()).flatMap { it.tracks } }
         } else emptyList()
         val byLanguage = if (canOnline) p.languages.take(2).map { lang ->
-            async { lang to runCatching { online.byLanguage(lang) }.getOrDefault(emptyList()) }
+            bg.async { lang to runCatching { online.byLanguage(lang) }.getOrDefault(emptyList()) }
         } else emptyList()
         // Lakhon gaano se variety: JioSaavn ki "similar" (users ke data se), random playlists, search ke aage ke pages
         val saavnOn = canOnline && settings.current.jiosaavnEnabled
@@ -234,7 +240,7 @@ class RecommendationRepository(
             addAll((p.liked + p.played.map { it.track }).filter { it.source == SourceType.JIOSAAVN }.shuffled().take(2))
         }.distinctBy { it.id }.take(2)
         val byReco = if (saavnOn) recoSeeds.map { s ->
-            async { s to runCatching { online.saavn.similar(s.sourceId) }.getOrDefault(emptyList()) }
+            bg.async { s to runCatching { online.saavn.similar(s.sourceId) }.getOrDefault(emptyList()) }
         } else emptyList()
         // YouTube Music radio (main source): YouTube ke listeners aage kya sunte hain
         val ytOn = canOnline && settings.current.youtubeEnabled
@@ -243,7 +249,7 @@ class RecommendationRepository(
             addAll((p.liked + p.played.map { it.track }).shuffled().take(5))
         }.distinctBy { it.id }.take(5)
         val byYtMix = if (ytOn) ytSeeds.map { s ->
-            async {
+            bg.async {
                 s to runCatching {
                     val vid = if (s.source == SourceType.YOUTUBE) s.sourceId else online.youtube.find(s.title, s.artist)?.sourceId
                     if (vid == null) emptyList() else online.youtube.similar(vid)
@@ -251,36 +257,40 @@ class RecommendationRepository(
             }
         } else emptyList()
         val byPlaylists: Deferred<List<Pair<String, Track>>>? =
-            if (saavnOn) async { runCatching { randomPlaylistTracks() }.getOrDefault(emptyList()) } else null
+            if (saavnOn) bg.async { runCatching { randomPlaylistTracks() }.getOrDefault(emptyList()) } else null
         val byArtistDeep = if (saavnOn) artists.take(3).map { a ->
-            async { a to runCatching { online.saavn.searchPage(a, Random.nextInt(2, 5)) }.getOrDefault(emptyList()).filter { artistMatch(it.artist, a) } }
+            bg.async { a to runCatching { online.saavn.searchPage(a, Random.nextInt(2, 5)) }.getOrDefault(emptyList()).filter { artistMatch(it.artist, a) } }
         } else emptyList()
-        // Lakhs of songs from the nightly catalog: fresh picks in your languages, favourite singers first.
-        val byCatalog: Deferred<List<Track>>? = if (canOnline) async {
-            val favs = artists.map(::norm)
-            runCatching {
-                catalog.sample(p.languages.take(3), 60, seenIds()) { a -> favs.any { f -> norm(a).contains(f) } }
-            }.getOrDefault(emptyList())
-        } else null
+        // Songs from the nightly catalog that are already on the phone (never waits for a download).
+        val favs = artists.map(::norm)
+        val fromCatalog = runCatching {
+            catalog.sample(p.languages.take(3), 60, seenIds()) { a -> favs.any { f -> norm(a).contains(f) } }
+        }.getOrDefault(emptyList())
         val trending = if (canOnline && artists.size < 3) {
-            async { runCatching { online.trending() }.getOrDefault(emptyList()).flatMap { it.tracks } }
+            bg.async { runCatching { online.trending() }.getOrDefault(emptyList()).flatMap { it.tracks } }
         } else null
+
+        // A slow source (e.g. YouTube on a weak network) must not keep the feed loading: 10 s for all of them.
+        val deadline = System.currentTimeMillis() + 10_000
+        suspend fun <T> Deferred<T>.orSkip(): T? =
+            withTimeoutOrNull((deadline - System.currentTimeMillis()).coerceAtLeast(1)) { await() } ?: run { cancel(); null }
+        suspend fun <T> List<Deferred<T>>.ready(): List<T> = mapNotNull { it.orSkip() }
 
         // Phone ke gaane: pasandida artists ke
         artists.forEach { a ->
             songs.filter { artistMatch(it.artist, a) }.forEach { out += Suggestion(it, reasonFor(a, seed)) }
         }
-        byArtist.awaitAll().forEach { (a, list) -> list.forEach { out += Suggestion(it, reasonFor(a, seed)) } }
-        byGenre.awaitAll().forEach { (g, list) -> list.take(25).forEach { out += Suggestion(it, "Because you like $g") } }
-        byLanguage.awaitAll().forEach { (lang, list) ->
+        byArtist.ready().forEach { (a, list) -> list.forEach { out += Suggestion(it, reasonFor(a, seed)) } }
+        byGenre.ready().forEach { (g, list) -> list.take(25).forEach { out += Suggestion(it, "Because you like $g") } }
+        byLanguage.ready().forEach { (lang, list) ->
             list.take(40).forEach { out += Suggestion(it, "New in ${lang.replaceFirstChar(Char::uppercase)}") }
         }
-        byYtMix.awaitAll().forEach { (s, list) -> list.forEach { out += Suggestion(it, "Similar to \"${s.title}\"") } }
-        byReco.awaitAll().forEach { (s, list) -> list.forEach { out += Suggestion(it, "Similar to \"${s.title}\"") } }
-        byArtistDeep.awaitAll().forEach { (a, list) -> list.forEach { out += Suggestion(it, reasonFor(a, seed)) } }
-        byPlaylists?.await()?.forEach { (name, t) -> out += Suggestion(t, "From $name") }
-        trending?.await()?.forEach { out += Suggestion(it, "Trending now") }
-        byCatalog?.await()?.forEach { out += Suggestion(it, "New for you") }
+        byYtMix.ready().forEach { (s, list) -> list.forEach { out += Suggestion(it, "Similar to \"${s.title}\"") } }
+        byReco.ready().forEach { (s, list) -> list.forEach { out += Suggestion(it, "Similar to \"${s.title}\"") } }
+        byArtistDeep.ready().forEach { (a, list) -> list.forEach { out += Suggestion(it, reasonFor(a, seed)) } }
+        byPlaylists?.orSkip()?.forEach { (name, t) -> out += Suggestion(t, "From $name") }
+        trending?.orSkip()?.forEach { out += Suggestion(it, "Trending now") }
+        fromCatalog.forEach { out += Suggestion(it, "New for you") }
         // Thoda naya-pan: phone ke kuch random gaane
         songs.shuffled().take(20).forEach { out += Suggestion(it, "From your phone") }
         // Pehle se liked gaane bhi (radio / mix mein kaam aate hain)
