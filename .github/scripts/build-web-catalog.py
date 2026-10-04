@@ -135,12 +135,13 @@ class Catalog:
                        "albums_done": sorted(self.albums_done), "album_queue": self.album_queue},
                       f, ensure_ascii=False, separators=(",", ":"))
 
-    def add(self, o, pop=0):
-        """Adds a JioSaavn song object. Returns (id, lang, is_new) or None."""
+    def add(self, o, pop=0, small=True):
+        """Adds a JioSaavn song object. Returns (id, lang, is_new) or None.
+        small=False: skip the "few songs only" languages (used by the deep crawl)."""
         if not isinstance(o, dict) or o.get("type", "song") != "song" or not o.get("id"):
             return None
         lang = (o.get("language") or "").lower()
-        if lang not in DEEP and lang not in SMALL:
+        if lang not in DEEP and (lang not in SMALL or not small):
             return None
         sid = o["id"]
         info = o.get("more_info") or {}
@@ -267,7 +268,7 @@ def artist_page(aid):
     songs = items(res, ["topSongs"])
     new = 0
     for o in songs:
-        t = C.add(o, pop=2 if page == 0 else 1 if page == 1 else 0)
+        t = C.add(o, pop=2 if page == 0 else 1 if page == 1 else 0, small=False)
         if t and t[2]:
             new += 1
     with C.lock:
@@ -280,7 +281,7 @@ def artist_page(aid):
 
 def album(alb):
     res = call("content.getAlbumDetails", {"albumid": alb})
-    new = sum(1 for o in items(res, ["list", "songs"]) if (t := C.add(o)) and t[2])
+    new = sum(1 for o in items(res, ["list", "songs"]) if (t := C.add(o, small=False)) and t[2])
     with C.lock:
         C.albums_done.add(alb)
         C.album_queue.pop(alb, None)
