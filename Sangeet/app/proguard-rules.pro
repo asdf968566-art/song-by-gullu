@@ -38,3 +38,8 @@
 -dontwarn org.jetbrains.annotations.**
 -dontwarn javax.annotation.**
 -dontwarn com.google.errorprone.annotations.**
+# JSON schema generator used by the Anthropic SDK (structured output); reflection types exist on the phone.
+-keep class com.github.victools.** { *; }
+-dontwarn com.github.victools.**
+-dontwarn java.lang.reflect.AnnotatedType
+-dontwarn java.lang.reflect.AnnotatedParameterizedType
