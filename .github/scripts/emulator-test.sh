@@ -79,6 +79,18 @@ play_source() {
 play_source jiosaavn kesariya 1
 play_source youtube kesariya 0
 
+echo "== Download: YouTube ka gaana download hona chahiye (pehle JioSaavn se, warna YouTube se)"
+adb logcat -c
+adb shell "am start -W -a android.intent.action.VIEW -d 'sangeet://play?q=tum%20hi%20ho&source=youtube&download=1' -n $PKG/.MainActivity" >/dev/null
+DL=""
+for i in $(seq 1 60); do
+  DL=$(adb logcat -d | grep -o "download done: .*" | head -1)
+  [[ -n "$DL" ]] && break
+  sleep 2
+done
+[[ -n "$DL" ]] || { adb logcat -d | grep -E "Sangeet|WM-|Download" | tail -30; fail "Download 2 minute mein poora nahi hua"; }
+echo "$DL ✅"
+
 echo "== For You feed: kuch apne aap nahi bajna chahiye, Play dabane par bajna chahiye"
 adb shell input keyevent KEYCODE_MEDIA_PAUSE || true
 adb shell am force-stop $PKG

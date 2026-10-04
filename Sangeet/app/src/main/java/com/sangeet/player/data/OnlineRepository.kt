@@ -85,6 +85,14 @@ class OnlineRepository(
         else -> source(track.source)?.streamUrl(track, quality, settings.current)
     }
 
+    /**
+     * Link for downloading. A YouTube song is taken from JioSaavn when the same song is there:
+     * its CDN is fast and steady, while YouTube slows down full-file downloads.
+     */
+    fun downloadUrl(track: Track, quality: AudioQuality): String? =
+        if (track.source == SourceType.YOUTUBE) jioSaavnFallback(track, quality) ?: streamUrl(track, quality)
+        else streamUrl(track, quality)
+
     private fun saavnOrYouTube(track: Track, quality: AudioQuality): String =
         source(SourceType.YOUTUBE)!!.streamUrl(track, quality, settings.current)
 

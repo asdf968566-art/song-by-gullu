@@ -44,6 +44,7 @@ class SangeetApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        com.sangeet.player.data.CrashReporter.install(this)
         container = AppContainer(this)
     }
 }

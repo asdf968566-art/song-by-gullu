@@ -1,5 +1,8 @@
 package com.sangeet.player.ui.home
 
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.delay
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -64,7 +67,6 @@ import java.util.Calendar
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -87,14 +89,14 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
     val ui: StateFlow<Ui> = _ui.asStateFlow()
 
     init {
-        // Network ya source settings badle to trending dobara lao.
+        // One refresh at start, then again only when the network or the music sources change.
         viewModelScope.launch {
-            c.network.status.distinctUntilChangedBy { it.online }.collect { refresh() }
-        }
-        viewModelScope.launch {
-            c.settings.settings.distinctUntilChangedBy {
-                listOf(it.offlineMode, it.audiusEnabled, it.jamendoClientId, it.subsonicUrl, it.subsonicToken)
-            }.collect { refresh() }
+            combine(
+                c.network.status.map { it.online },
+                c.settings.settings.map { listOf(it.offlineMode, it.audiusEnabled, it.jamendoClientId, it.subsonicUrl, it.subsonicToken) },
+            ) { online, sources -> online to sources }
+                .distinctUntilChanged()
+                .collect { refresh() }
         }
     }
 
@@ -117,17 +119,21 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
                 val pls = runCatching { c.online.saavn.featuredPlaylists(c.settings.current, 1) }.getOrDefault(emptyList())
                 _ui.value = _ui.value.copy(playlists = pls.take(20))
             }
+            // Lower shelves come a moment later, from JioSaavn only (one quick call each instead of every source),
+            // so the top of Home appears at once and scrolling stays smooth.
             launch {
+                delay(800)
                 val fest = Festivals.active().take(2).map { f ->
-                    async { f to runCatching { c.online.searchAll(f.query).filter { it.inLanguages(c.settings.current.languages) }.take(20) }.getOrDefault(emptyList()) }
+                    async { f to runCatching { c.online.saavn.searchPage(f.query, 1).filter { it.inLanguages(c.settings.current.languages) }.take(20) }.getOrDefault(emptyList()) }
                 }.awaitAll().filter { it.second.isNotEmpty() }
                 _ui.value = _ui.value.copy(festivals = fest)
             }
             launch {
+                delay(800)
                 val langs = c.settings.current.languages
-                val cats = Categories.ordered(langs).filter { it.language in langs }.take(6)
+                val cats = Categories.ordered(langs).filter { it.language in langs }.take(4)
                 val rows = cats.map { cat ->
-                    async { cat to runCatching { c.online.searchAll(cat.query).filter { it.inLanguages(langs) }.take(20) }.getOrDefault(emptyList()) }
+                    async { cat to runCatching { c.online.saavn.searchPage(cat.query, 1).filter { it.inLanguages(langs) }.take(20) }.getOrDefault(emptyList()) }
                 }.awaitAll().filter { it.second.isNotEmpty() }
                 _ui.value = _ui.value.copy(categories = rows)
             }

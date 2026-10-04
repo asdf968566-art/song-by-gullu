@@ -1,5 +1,12 @@
 package com.sangeet.player.data.download
 
+import androidx.work.OutOfQuotaPolicy
+import androidx.work.ForegroundInfo
+import androidx.core.app.NotificationCompat
+import android.os.Build
+import android.content.pm.ServiceInfo
+import android.app.NotificationManager
+import android.app.NotificationChannel
 import android.content.Context
 import android.net.Uri
 import androidx.work.Constraints
@@ -82,6 +89,8 @@ class DownloadRepository(
                     .build()
             )
             .addTag(TAG)
+            // Runs right away even when the phone limits background work (Realme, Oppo, Xiaomi...).
+            .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
             .build()
         WorkManager.getInstance(context).enqueueUniqueWork(workName(track.id), ExistingWorkPolicy.REPLACE, request)
     }
@@ -114,12 +123,14 @@ class DownloadWorker(appContext: Context, params: WorkerParameters) : CoroutineW
         val entry = dao.get(trackId) ?: return Result.failure()
         val track = container.library.find(trackId) ?: return fail(dao, trackId)
         val quality = runCatching { AudioQuality.valueOf(entry.quality) }.getOrDefault(AudioQuality.HIGH)
-        val url = container.online.streamUrl(track, quality) ?: return fail(dao, trackId)
+        val url = withContext(Dispatchers.IO) { runCatching { container.online.downloadUrl(track, quality) }.getOrNull() }
+            ?: return fail(dao, trackId)
 
         return try {
             dao.updateState(trackId, DownloadState.DOWNLOADING.name, 0)
             val file = fetch(url, trackId) { p -> dao.updateState(trackId, DownloadState.DOWNLOADING.name, p) }
             dao.upsert(entry.copy(state = DownloadState.DONE.name, progress = 100, filePath = file.absolutePath))
+            android.util.Log.i("Sangeet", "download done: ${track.title} (${file.length() / 1024} KB from ${Uri.parse(url).host})")
 
             // Offline ke liye cover art aur lyrics bhi save kar lo.
             saveArtwork(track)?.let { art -> container.library.remember(listOf(track.copy(artworkUrl = art))) }
@@ -135,50 +146,83 @@ class DownloadWorker(appContext: Context, params: WorkerParameters) : CoroutineW
         }
     }
 
+    /** Shown while downloading on older Android versions (where an expedited job needs a notification). */
+    override suspend fun getForegroundInfo(): ForegroundInfo {
+        val nm = applicationContext.getSystemService(NotificationManager::class.java)
+        if (nm.getNotificationChannel(CHANNEL) == null) {
+            nm.createNotificationChannel(NotificationChannel(CHANNEL, "Downloads", NotificationManager.IMPORTANCE_LOW))
+        }
+        val n = NotificationCompat.Builder(applicationContext, CHANNEL)
+            .setSmallIcon(android.R.drawable.stat_sys_download)
+            .setContentTitle("Downloading song")
+            .setOngoing(true)
+            .setSilent(true)
+            .build()
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ForegroundInfo(NOTIFICATION_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        else ForegroundInfo(NOTIFICATION_ID, n)
+    }
+
     private suspend fun fail(dao: DownloadDao, trackId: String): Result {
         dao.updateState(trackId, DownloadState.FAILED.name, 0)
         return Result.failure()
     }
 
+    /**
+     * Downloads in 1 MB pieces (HTTP Range). YouTube throttles one big request to a crawl; pieces stay fast.
+     * Servers that ignore Range just send the whole file in the first answer, which works too.
+     */
     private suspend fun fetch(url: String, trackId: String, onProgress: suspend (Int) -> Unit): File =
         withContext(Dispatchers.IO) {
             val dir = DownloadRepository.dir(applicationContext)
-            Http.client.newCall(Request.Builder().url(url).build()).execute().use { res ->
-                if (!res.isSuccessful) throw IOException("HTTP ${res.code}")
-                val body = res.body ?: throw IOException("Empty body")
-                val ext = when {
-                    body.contentType()?.subtype?.contains("ogg") == true -> "ogg"
-                    body.contentType()?.subtype?.contains("flac") == true -> "flac"
-                    body.contentType()?.subtype?.contains("mp4") == true -> "m4a"
-                    else -> "mp3"
-                }
-                val out = File(dir, "${DownloadRepository.safe(trackId)}.$ext")
-                val tmp = File(dir, out.name + ".part")
-                val total = body.contentLength()
-                var done = 0L
-                var lastPct = -1
-                body.byteStream().use { input ->
-                    tmp.outputStream().use { output ->
-                        val buf = ByteArray(64 * 1024)
-                        while (true) {
-                            if (isStopped) throw IOException("Cancelled")
-                            val n = input.read(buf)
-                            if (n < 0) break
-                            output.write(buf, 0, n)
-                            done += n
-                            if (total > 0) {
-                                val pct = (done * 100 / total).toInt()
-                                if (pct >= lastPct + 5) {
-                                    lastPct = pct
-                                    onProgress(pct)
+            var ext = "mp3"
+            val tmp = File(dir, "${DownloadRepository.safe(trackId)}.part")
+            var done = 0L
+            var total = -1L
+            var lastPct = -1
+            tmp.outputStream().use { output ->
+                val buf = ByteArray(64 * 1024)
+                while (total < 0 || done < total) {
+                    if (isStopped) throw IOException("Cancelled")
+                    val req = Request.Builder().url(url).header("Range", "bytes=$done-${done + CHUNK - 1}").build()
+                    val (whole, got) = Http.client.newCall(req).execute().use { res ->
+                        if (!res.isSuccessful) throw IOException("HTTP ${res.code}")
+                        val body = res.body ?: throw IOException("Empty body")
+                        body.contentType()?.subtype?.let { sub ->
+                            ext = when {
+                                "ogg" in sub -> "ogg"
+                                "flac" in sub -> "flac"
+                                "mp4" in sub || "m4a" in sub || "aac" in sub -> "m4a"
+                                "webm" in sub -> "webm"
+                                else -> ext
+                            }
+                        }
+                        val partial = res.code == 206
+                        total = if (partial) res.header("Content-Range")?.substringAfter('/')?.toLongOrNull() ?: -1L
+                        else body.contentLength()
+                        var got = 0L
+                        body.byteStream().use { input ->
+                            while (true) {
+                                if (isStopped) throw IOException("Cancelled")
+                                val n = input.read(buf)
+                                if (n < 0) break
+                                output.write(buf, 0, n)
+                                got += n
+                                done += n
+                                if (total > 0) {
+                                    val pct = (done * 100 / total).toInt()
+                                    if (pct >= lastPct + 5) { lastPct = pct; onProgress(pct) }
                                 }
                             }
                         }
+                        if (got == 0L) throw IOException("No data")
+                        !partial to got // !partial: the whole file came in one go
                     }
+                    if (whole || (total < 0 && got < CHUNK)) break
                 }
-                if (!tmp.renameTo(out)) throw IOException("Could not save file")
-                out
             }
+            val out = File(dir, "${DownloadRepository.safe(trackId)}.$ext")
+            if (!tmp.renameTo(out)) throw IOException("Could not save file")
+            out
         }
 
     private suspend fun saveArtwork(track: Track): String? = withContext(Dispatchers.IO) {
@@ -195,5 +239,8 @@ class DownloadWorker(appContext: Context, params: WorkerParameters) : CoroutineW
 
     companion object {
         const val KEY_TRACK_ID = "track_id"
+        private const val CHUNK = 1L shl 20
+        private const val CHANNEL = "downloads"
+        private const val NOTIFICATION_ID = 4711
     }
 }

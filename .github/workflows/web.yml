@@ -69,6 +69,21 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
+      # Also publish the site to the gh-pages branch (GitHub Pages can serve it from there).
+      - name: Publish site to gh-pages branch
+        if: github.ref == 'refs/heads/main'
+        run: |
+          cd SangeetWeb
+          touch .nojekyll
+          git init -q -b gh-pages
+          git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -qm "Web app build ${{ github.run_number }}"
+          git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" gh-pages
+          rm -rf .git
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - name: Summary
         if: always()
         run: cat summary.txt || true
@@ -76,6 +91,7 @@ jobs:
   deploy:
     if: github.ref == 'refs/heads/main'
     needs: build
+    continue-on-error: true
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -83,3 +99,19 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  # Is the iPhone site actually reachable?
+  check-site:
+    if: github.ref == 'refs/heads/main'
+    needs: [build, deploy]
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
+          for i in $(seq 1 30); do
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
+            echo "try $i: $CODE"
+            [ "$CODE" = "200" ] && { echo "SITE LIVE: $URL"; exit 0; }
+            sleep 30
+          done
+          echo "SITE NOT LIVE: turn on Settings → Pages (source: GitHub Actions, or branch gh-pages)"

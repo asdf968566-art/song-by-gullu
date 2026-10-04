@@ -5,9 +5,13 @@ on:
     branches: ["main", "claude/**"]
   pull_request:
   workflow_dispatch:
+  # Daily health check: JioSaavn / YouTube change often; find out the same morning if something broke.
+  schedule:
+    - cron: "41 2 * * *"
 
 permissions:
   contents: write
+  issues: write
 
 jobs:
   build:
@@ -42,7 +46,7 @@ jobs:
           if-no-files-found: error
 
       - name: Publish APK to "latest" release
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         working-directory: .
         run: |
           cp Sangeet/app/build/outputs/apk/release/app-release.apk Sangeet.apk
@@ -99,3 +103,19 @@ jobs:
           name: emulator-screenshots-and-logs
           path: out/
           if-no-files-found: ignore
+
+  # The daily check failed: open (or update) an issue so it shows up in GitHub notifications.
+  health-report:
+    if: failure() && github.event_name == 'schedule'
+    needs: [build, api-check, emulator-test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Open an issue
+        run: |
+          TITLE="Daily check failed: songs may not be playing"
+          BODY="The daily app check failed on $(date -u +%F). Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          N=$(gh issue list -R ${{ github.repository }} --state open --search "$TITLE in:title" --json number -q '.[0].number')
+          if [ -n "$N" ]; then gh issue comment "$N" -R ${{ github.repository }} --body "$BODY"
+          else gh issue create -R ${{ github.repository }} --title "$TITLE" --body "$BODY"; fi
+        env:
+          GH_TOKEN: ${{ github.token }}

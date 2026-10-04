@@ -1,5 +1,7 @@
 package com.sangeet.player.playback
 
+import android.os.Build
+import android.media.audiofx.DynamicsProcessing
 import android.content.Context
 import android.media.audiofx.BassBoost
 import android.media.audiofx.Equalizer
@@ -18,6 +20,8 @@ data class EqState(
     val presets: List<String> = emptyList(),
     val preset: Int = -1,
     val bassBoost: Int = 0,
+    /** Same loudness for every song (quiet old songs louder, loud new ones softer). */
+    val normalize: Boolean = false,
 )
 
 /** Android ka built-in equalizer + bass boost, player ke audio session pe. */
@@ -25,7 +29,8 @@ class EqualizerManager(context: Context) {
     private val prefs = context.getSharedPreferences("equalizer", Context.MODE_PRIVATE)
     private var eq: Equalizer? = null
     private var bass: BassBoost? = null
-    private val _state = MutableStateFlow(EqState(enabled = prefs.getBoolean("enabled", false)))
+    private var dynamics: DynamicsProcessing? = null
+    private val _state = MutableStateFlow(EqState(enabled = prefs.getBoolean("enabled", false), normalize = prefs.getBoolean("normalize", false)))
     val state: StateFlow<EqState> = _state.asStateFlow()
 
     fun attach(sessionId: Int) {
@@ -53,6 +58,8 @@ class EqualizerManager(context: Context) {
                 it.setEnabled(_state.value.enabled)
             }
             bass = bb
+
+            dynamics = runCatching { makeNormalizer(sessionId) }.getOrNull()
 
             _state.value = _state.value.copy(
                 available = true,
@@ -88,6 +95,32 @@ class EqualizerManager(context: Context) {
         _state.value = _state.value.copy(bands = readBands(e), preset = index)
     }
 
+    fun setNormalize(on: Boolean) {
+        prefs.edit().putBoolean("normalize", on).apply()
+        runCatching { dynamics?.enabled = on }
+        _state.value = _state.value.copy(normalize = on)
+    }
+
+    /**
+     * Volume leveller: a gentle compressor lifts quiet songs and a limiter stops loud ones from clipping.
+     * Uses Android's DynamicsProcessing (Android 9+), so no extra library and almost no battery.
+     */
+    private fun makeNormalizer(sessionId: Int): DynamicsProcessing? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return null
+        val cfg = DynamicsProcessing.Config.Builder(
+            DynamicsProcessing.VARIANT_FAVOR_FREQUENCY_RESOLUTION, 2,
+            false, 0, // pre-EQ
+            true, 1, // one-band compressor
+            false, 0, // post-EQ
+            true, // limiter
+        ).build()
+        val dp = DynamicsProcessing(0, sessionId, cfg)
+        dp.setMbcBandAllChannelsTo(0, DynamicsProcessing.MbcBand(true, 20_000f, 5f, 150f, 3f, -28f, 8f, -90f, 1f, 0f, 9f))
+        dp.setLimiterAllChannelsTo(DynamicsProcessing.Limiter(true, true, 0, 1f, 60f, 10f, -1.5f, 0f))
+        dp.enabled = _state.value.normalize
+        return dp
+    }
+
     fun setBassBoost(strength: Int) {
         runCatching { bass?.setStrength(strength.toShort()) }
         prefs.edit().putInt("bass", strength).apply()
@@ -101,7 +134,9 @@ class EqualizerManager(context: Context) {
     private fun release() {
         runCatching { eq?.release() }
         runCatching { bass?.release() }
+        runCatching { dynamics?.release() }
         eq = null
         bass = null
+        dynamics = null
     }
 }
