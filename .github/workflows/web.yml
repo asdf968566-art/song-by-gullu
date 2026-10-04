@@ -5,7 +5,7 @@ name: Web App
 on:
   push:
     branches: ["main", "claude/**"]
-    paths: ["SangeetWeb/**", ".github/workflows/web.yml", ".github/scripts/build-web-catalog.py", ".github/scripts/web-api-check.sh"]
+    paths: [".github/scripts/saavn-probe.py", "SangeetWeb/**", ".github/workflows/web.yml", ".github/scripts/build-web-catalog.py", ".github/scripts/web-api-check.sh"]
   schedule:
     - cron: "17 21 * * *"
   workflow_dispatch:
@@ -27,7 +27,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Probe JioSaavn
+        run: pip install -q pycryptodome && python .github/scripts/saavn-probe.py
       - name: Build song catalog
+        if: false
         run: |
           pip install -q pycryptodome
           python .github/scripts/build-web-catalog.py SangeetWeb/data
