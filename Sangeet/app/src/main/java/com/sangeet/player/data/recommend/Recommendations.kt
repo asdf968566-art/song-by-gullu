@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 data class PlayedTrack(val track: Track, val playCount: Int, val playedAt: Long)
@@ -123,26 +124,27 @@ class RecommendationRepository(
 
     // ------------------------------------------------------------ public
 
-    suspend fun suggestions(limit: Int = 30, exclude: Set<String> = emptySet()): List<Suggestion> {
+    // All the heavy work (thousands of songs scored) runs off the main thread, so the UI never stutters.
+    suspend fun suggestions(limit: Int = 30, exclude: Set<String> = emptySet()): List<Suggestion> = withContext(Dispatchers.Default) {
         val p = profile()
         val pool = candidates(p, null)
         val fresh = rank(p, pool, null, exclude + p.recentIds + seenIds(), preferNew = true)
         // Sab dekh liya ho (bahut kam hota hai) tabhi purane mein se
-        return (fresh.ifEmpty { rank(p, pool, null, exclude + p.recentIds, preferNew = true) }).take(limit)
+        (fresh.ifEmpty { rank(p, pool, null, exclude + p.recentIds, preferNew = true) }).take(limit)
     }
 
     /** Autoplay / radio: haal hi mein (12 ghante) suna gaana apne aap dobara nahi aata. */
-    suspend fun radio(seed: Track, exclude: Set<String>, limit: Int = 15): List<Track> {
+    suspend fun radio(seed: Track, exclude: Set<String>, limit: Int = 15): List<Track> = withContext(Dispatchers.Default) {
         val p = profile()
         val pool = candidates(p, seed)
         val fresh = rank(p, pool, seed, exclude + p.recentIds + seenIds(), preferNew = false)
-        return fresh.ifEmpty { rank(p, pool, seed, exclude + p.recentIds, preferNew = false) }.take(limit).map { it.track }
+        fresh.ifEmpty { rank(p, pool, seed, exclude + p.recentIds, preferNew = false) }.take(limit).map { it.track }
     }
 
     suspend fun refreshMixes(force: Boolean = false): List<Mix> = mixLock.withLock {
         val fresh = System.currentTimeMillis() - mixesAt < 30 * 60_000L
         if (!force && fresh && _mixes.value.isNotEmpty()) return@withLock _mixes.value
-        val built = buildMixes()
+        val built = withContext(Dispatchers.Default) { buildMixes() }
         _mixes.value = built
         mixesAt = System.currentTimeMillis()
         built

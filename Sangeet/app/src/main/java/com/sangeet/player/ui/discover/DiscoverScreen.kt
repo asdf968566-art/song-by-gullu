@@ -1,6 +1,5 @@
 package com.sangeet.player.ui.discover
 
-import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -48,7 +47,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
@@ -240,14 +238,24 @@ fun DiscoverScreen(nav: NavController) {
             ) {
                 Icon(Icons.Rounded.Explore, null, tint = Color.White, modifier = Modifier.size(56.dp))
                 Spacer(Modifier.height(12.dp))
-                Text(
-                    "Nothing to recommend yet. Go online or allow access to songs on your phone, " +
-                        "then listen to a few songs — your feed will adapt to your taste.",
-                    color = Color.White.copy(alpha = 0.8f),
-                    textAlign = TextAlign.Center,
-                )
-                Spacer(Modifier.height(16.dp))
-                Button(onClick = vm::refresh) { Text("Try again") }
+                if (settings.offlineMode) {
+                    Text(
+                        "Offline mode is on, so only downloaded songs can play.",
+                        color = Color.White.copy(alpha = 0.8f),
+                        textAlign = TextAlign.Center,
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Button(onClick = { scope.launch { c.settings.setOfflineMode(false); vm.refresh() } }) { Text("Go online") }
+                } else {
+                    Text(
+                        "Nothing to recommend yet. Go online or allow access to songs on your phone, " +
+                            "then listen to a few songs — your feed will adapt to your taste.",
+                        color = Color.White.copy(alpha = 0.8f),
+                        textAlign = TextAlign.Center,
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Button(onClick = vm::refresh) { Text("Try again") }
+                }
             }
 
             else -> VerticalPager(
@@ -383,12 +391,11 @@ private fun FeedPage(
             }
             .graphicsLayer { translationX = dragX * 0.35f },
     ) {
-        // Peeche dhundhla cover (Android 12+ pe blur, purane phones pe halka)
+        // Soft background: a tiny copy of the cover stretched full screen looks blurred for free
+        // (a real blur on every feed page was too heavy for many phones while scrolling).
         Artwork(
-            t.artworkUrl,
-            modifier = Modifier
-                .fillMaxSize()
-                .then(if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) Modifier.blur(48.dp) else Modifier),
+            t.artworkUrl?.replace("500x500", "50x50"),
+            modifier = Modifier.fillMaxSize(),
             shape = RoundedCornerShape(0.dp),
             seed = t.title,
         )
