@@ -810,9 +810,114 @@ function libraryPage() {
       save();
       showPage();
     }),
+    madeForYou(),
     charts.length ? h('div', { class: 'section' }, 'Top charts') : null,
     charts.length ? h('div', { class: 'grid' }, charts.slice(0, 12).map(playlistCard)) : null);
 }
+
+/* ------------------------------------------------------------------ "Made for you" mixes, rebuilt once a day */
+let mixCache = null;
+function madeForYou() {
+  const day = new Date().toDateString();
+  if (!mixCache || mixCache.day !== day || mixCache.total !== Catalog.total) {
+    const mixes = [];
+    const favs = new Map();
+    const add = (t, w) => splitArtists(t.artist).forEach((a) => favs.set(a, (favs.get(a) || 0) + w));
+    Object.values(S.history).forEach((r) => add(r.t, r.c));
+    S.liked.forEach((t) => add(t, 3));
+    const top = [...favs.entries()].sort((a, b) => b[1] - a[1]).map((x) => x[0]).slice(0, 3);
+    const daily = suggestions(30);
+    if (daily.length >= 10) mixes.push({ title: 'Daily Mix', tracks: daily });
+    for (const a of top) {
+      const n = norm(a);
+      const songs = shuffle(Catalog.tracks.filter((t) => norm(t.artist).includes(n))).slice(0, 30);
+      if (songs.length >= 8) mixes.push({ title: `${a} Mix`, tracks: songs });
+    }
+    for (const l of S.langs.slice(0, 3)) {
+      const pool = Catalog.data[l]?.tracks || [];
+      const songs = shuffle(pool.slice(0, 3000)).slice(0, 30);
+      if (songs.length >= 10) mixes.push({ title: `${l[0].toUpperCase() + l.slice(1)} Mix`, tracks: songs });
+    }
+    // A different cover on every mix.
+    const used = new Set();
+    for (const m of mixes) {
+      const i = m.tracks.findIndex((t) => t.img && !used.has(t.img));
+      if (i > 0) m.tracks.unshift(m.tracks.splice(i, 1)[0]);
+      if (m.tracks[0]?.img) used.add(m.tracks[0].img);
+    }
+    mixCache = { day, total: Catalog.total, mixes };
+  }
+  const mixes = mixCache.mixes;
+  if (!mixes.length) return null;
+  return [h('div', { class: 'section' }, 'Made for you'),
+    h('div', { class: 'grid' }, mixes.map((m) => h('div', { class: 'card', onclick: () => pushPage(() => songsPage(m.title, m.tracks, null, m)) },
+      h('img', { class: 'cover', src: art(m.tracks[0], true), loading: 'lazy', alt: '' }),
+      h('div', { class: 't' }, m.title))))];
+}
+
+/* ------------------------------------------------------------------ move the library between phones (same link format as Android) */
+const Sync = {
+  async pack(text) {
+    const stream = new Blob([text]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+    const bytes = new Uint8Array(await new Response(stream).arrayBuffer());
+    let bin = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  },
+  async unpack(data) {
+    const b64 = data.replace(/-/g, '+').replace(/_/g, '/');
+    const bin = atob(b64 + '='.repeat((4 - (b64.length % 4)) % 4));
+    const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+    return new Response(stream).text();
+  },
+  encode(t) {
+    if (t.src === 'js') {
+      const m = t.media && (t.media.startsWith('http') ? t.media : `${AAC}${t.media}_96.mp4`);
+      return { s: 'js', i: t.sid, t: t.title, a: t.artist, al: t.album || '', d: t.dur || 0, img: art(t, true), m, h: t.hq ? 1 : 0 };
+    }
+    if (t.src === 'yt') return { s: 'yt', i: t.sid, t: t.title, a: t.artist, d: t.dur || 0, img: t.img };
+    return null;
+  },
+  decode(o) {
+    if (!o || !o.i || !o.t) return null;
+    if (o.s === 'js') return { id: 'js:' + o.i, src: 'js', sid: o.i, title: o.t, artist: o.a || '', album: o.al || '', dur: o.d || 0, img: (o.img || '').replace('500x500', '150x150'), media: o.m || '', hq: o.h === 1, lang: '' };
+    if (o.s === 'yt') return { id: 'yt:' + o.i, src: 'yt', sid: o.i, title: o.t, artist: o.a || '', album: 'YouTube', dur: o.d || 0, img: o.img || '', lang: '' };
+    return null;
+  },
+  async link() {
+    const data = {
+      v: 1,
+      l: S.liked.map((t) => this.encode(t)).filter(Boolean),
+      p: S.playlists.map((p) => ({ n: p.name, t: p.tracks.map((t) => this.encode(t)).filter(Boolean) })),
+    };
+    return location.origin + location.pathname + '#sync=' + (await this.pack(JSON.stringify(data)));
+  },
+  async share() {
+    const url = await this.link();
+    if (navigator.share) navigator.share({ title: 'My Sangeet library', url }).catch(() => {});
+    else navigator.clipboard?.writeText(url).then(() => toast('Link copied'));
+  },
+  /** Opened a library link from another phone: ask, then add its liked songs and playlists. */
+  async importFromHash() {
+    const m = location.hash.match(/sync=([\w-]+)/);
+    if (!m) return;
+    history.replaceState(null, '', location.pathname);
+    try {
+      const d = JSON.parse(await this.unpack(m[1]));
+      const liked = (d.l || []).map((o) => this.decode(o)).filter(Boolean);
+      const lists = (d.p || []).map((p) => ({ name: p.n || 'Imported playlist', tracks: (p.t || []).map((o) => this.decode(o)).filter(Boolean) })).filter((p) => p.tracks.length);
+      if (!confirm(`Add ${liked.length} liked songs and ${lists.length} playlists from your other phone?`)) return;
+      const have = new Set(S.liked.map((t) => t.id));
+      liked.forEach((t) => { if (!have.has(t.id)) S.liked.push(t); });
+      lists.forEach((p) => S.playlists.push({ id: String(Date.now() + Math.random()), name: p.name, tracks: p.tracks }));
+      save();
+      toast('Library added');
+    } catch {
+      toast("That library link didn't work");
+    }
+  },
+};
 function playlistCard(p) {
   return h('div', { class: 'card', onclick: () => pushPage(() => songsPage(p.title, p.tracks, null, p)) },
     h('img', { class: 'cover', src: (p.img || '').replace('150x150', '500x500'), loading: 'lazy', alt: '' }),
@@ -1033,6 +1138,9 @@ function settingsPage() {
     h('div', { class: 'section' }, 'YouTube Data API key'),
     h('div', { class: 'setting' }, key),
     h('div', { class: 'note' }, 'Used for search results. Leave empty to turn off.'),
+    h('div', { class: 'section' }, 'Move library'),
+    h('button', { class: 'danger', style: 'color:var(--text)', onclick: () => Sync.share() }, 'Send liked songs and playlists to another phone'),
+    h('div', { class: 'note' }, 'Open the link on the other phone. On Android, paste it in Library → Import playlist.'),
     h('div', { class: 'section' }, 'Suggestions'),
     h('button', { class: 'danger', onclick: () => { S.seen = []; seenSet.clear(); save(); Feed.reset(); toast('Done'); } }, 'Reset suggestions'),
     h('div', { class: 'note' }, "Songs you've heard are never suggested twice."),
@@ -1233,5 +1341,7 @@ document.querySelectorAll('#tabs button').forEach((b) => {
   await Catalog.load();
   Feed.reset();
   UI.update();
+  Sync.importFromHash();
+  window.addEventListener('hashchange', () => Sync.importFromHash());
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
