@@ -185,7 +185,7 @@ fun AiDjScreen(nav: NavController) {
                     }
                 }
             }
-            itemsIndexed(r.tracks, key = { _, t -> t.id }) { i, t ->
+            itemsIndexed(r.tracks, key = { i, t -> "${i}_${t.id}" }) { i, t ->
                 TrackRow(t, onClick = { c.player.play(r.tracks, i) }, index = i, onMore = { menuFor = t })
             }
         }

@@ -32,6 +32,8 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon assembleRelease
+          # The baseline profile must be inside the APK.
+          unzip -l app/build/outputs/apk/release/app-release.apk | grep -E "baseline.prof" || { echo "baseline profile missing"; exit 1; }
 
       - uses: actions/upload-artifact@v4
         with:

@@ -59,7 +59,7 @@ fun MixScreen(nav: NavController, mixId: String) {
         if (tracks.isEmpty()) {
             item { EmptyState(Icons.Rounded.AutoAwesome, "This mix isn't ready yet", "Refresh on Home or listen to a few songs.") }
         }
-        itemsIndexed(tracks, key = { _, t -> t.id }) { i, t ->
+        itemsIndexed(tracks, key = { i, t -> "${i}_${t.id}" }) { i, t ->
             TrackRow(t, onClick = { c.player.play(tracks, i) }, index = i, onMore = { menuFor = t })
         }
         item { Spacer(Modifier.height(24.dp)) }

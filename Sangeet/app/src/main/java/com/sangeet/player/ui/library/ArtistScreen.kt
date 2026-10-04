@@ -129,7 +129,7 @@ fun ArtistScreen(nav: NavController, name: String) {
                     }
                 }
                 item { SectionHeader("Top songs") }
-                itemsIndexed(d.top, key = { _, t -> t.id }) { i, t ->
+                itemsIndexed(d.top, key = { i, t -> "${i}_${t.id}" }) { i, t ->
                     TrackRow(t, onClick = { c.player.play(d.top, i) }, index = i, onMore = { menuFor = t })
                 }
             }
