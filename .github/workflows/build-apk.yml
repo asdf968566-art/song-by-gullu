@@ -25,25 +25,25 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Build debug APK
+      - name: Build release APK (R8 optimized)
         env:
           # Repo public hai, isliye key Settings → Secrets → Actions mein YOUTUBE_API_KEY naam se rakho.
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon assembleDebug
+          ./gradlew --no-daemon assembleRelease
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Sangeet-debug-apk
-          path: Sangeet/app/build/outputs/apk/debug/*.apk
+          name: Sangeet-apk
+          path: Sangeet/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
 
       - name: Publish APK to "latest" release
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         working-directory: .
         run: |
-          cp Sangeet/app/build/outputs/apk/debug/app-debug.apk Sangeet.apk
+          cp Sangeet/app/build/outputs/apk/release/app-release.apk Sangeet.apk
           gh release delete latest --yes --cleanup-tag || true
           # App ka updater title se "build N" padhta hai.
           gh release create latest Sangeet.apk \
@@ -69,7 +69,7 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: Sangeet-debug-apk
+          name: Sangeet-apk
           path: apk
 
       - name: Enable KVM

@@ -23,3 +23,18 @@
 -dontwarn javax.script.**
 -dontwarn jdk.dynalink.**
 -dontwarn com.google.re2j.**
+
+# Anthropic SDK (AI DJ) uses Jackson + Kotlin reflection: keep its model classes and ours.
+-keep class com.anthropic.** { *; }
+-keep class com.fasterxml.jackson.** { *; }
+-keep class kotlin.Metadata { *; }
+-keep class kotlin.reflect.** { *; }
+-keep class com.sangeet.player.data.ai.** { *; }
+-keepattributes Signature, EnclosingMethod, RuntimeVisibleAnnotations, RuntimeVisibleParameterAnnotations
+-dontwarn com.anthropic.**
+-dontwarn com.fasterxml.jackson.**
+-dontwarn kotlin.reflect.**
+-dontwarn org.slf4j.**
+-dontwarn org.jetbrains.annotations.**
+-dontwarn javax.annotation.**
+-dontwarn com.google.errorprone.annotations.**
