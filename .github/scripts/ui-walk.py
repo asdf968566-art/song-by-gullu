@@ -23,6 +23,28 @@ def sh(cmd):
     return adb("shell", cmd)
 
 
+_size = None
+
+
+def screen():
+    """(width, height) of the emulator screen, so swipes stay on it."""
+    global _size
+    if not _size:
+        m = re.search(r"(\d+)x(\d+)", adb("shell", "wm", "size"))
+        _size = (int(m.group(1)), int(m.group(2))) if m else (720, 1280)
+    return _size
+
+
+def swipe_up():
+    w, h = screen()
+    sh(f"input swipe {w // 2} {int(h * 0.72)} {w // 2} {int(h * 0.32)} 300")
+
+
+def swipe_down():
+    w, h = screen()
+    sh(f"input swipe {w // 2} {int(h * 0.3)} {w // 2} {int(h * 0.8)} 200")
+
+
 def dump():
     sh("uiautomator dump /sdcard/ui.xml >/dev/null 2>&1")
     return adb("exec-out", "cat", "/sdcard/ui.xml")
@@ -46,7 +68,7 @@ def find(label, contains=False, scroll=0, lowest=False):
         if hits:
             return max(hits, key=lambda n: n["y"]) if lowest else hits[0]
         if i < scroll:
-            sh("input swipe 540 1500 540 700 300")
+            swipe_up()
             time.sleep(1)
     return None
 
@@ -189,7 +211,7 @@ def main():
     step("For You: Like", lambda: tap("Like", wait=2) and tap("Like", wait=2))
     step("For You: Play", lambda: tap("Play/Pause", wait=8), lambda: (playing(), f"playing: {now_title()}"))
     step("For You: Next", lambda: tap("Next", wait=10), lambda: (bool(now_title()), f"now: {now_title()}"))
-    step("For You: swipe up", lambda: sh("input swipe 540 1600 540 400 250") is not None and time.sleep(6) is None)
+    step("For You: swipe up", lambda: swipe_up() is None and time.sleep(6) is None)
 
     # ---------------------------------------------------------------- Home
     fresh()
@@ -198,7 +220,7 @@ def main():
         step(f"Home: {label}", open_and_back(label))
     step("Home: Refresh", lambda: tap("Refresh", wait=4))
     step("Home: AI DJ", open_and_back("AI DJ"))
-    step("Home: scroll to the end", lambda: [sh("input swipe 540 1600 540 400 200") for _ in range(8)] and True)
+    step("Home: scroll to the end", lambda: [swipe_up() for _ in range(8)] and True)
     step("Home: open a chart / mix", lambda: tap("Mix", contains=True, scroll=0, wait=4) and (back() or True))
 
     # ---------------------------------------------------------------- Search
@@ -216,7 +238,16 @@ def main():
         time.sleep(10)
         return True
     step("Search: type 'arijit'", search, lambda: (find("Arijit", contains=True) is not None, "results shown"))
-    step("Search: play a result", lambda: tap("Arijit Singh", contains=True, wait=10), lambda: (playing(), f"playing: {now_title()}"))
+    def play_result():
+        # A song row below the search box (not the box or a suggestion chip).
+        box = find("Search", contains=True)
+        rows = [n for n in nodes(dump()) if "arijit" in (n["text"] + n["desc"]).lower() and box and n["y"] > box["y"] + 150]
+        if not rows:
+            return False
+        sh(f"input tap {rows[0]['x']} {rows[0]['y']}")
+        time.sleep(10)
+        return True
+    step("Search: play a result", play_result, lambda: (playing(), f"playing: {now_title()}"))
     back()
 
     # ---------------------------------------------------------------- Library
@@ -229,7 +260,7 @@ def main():
     step("Library: Import playlist", open_and_back("Import playlist"))
     step("Library: New playlist", lambda: tap("New playlist", wait=2) and (back() or True))
     step("Library: Online Library → playlist", lambda: tap("Online Library", scroll=3, wait=8)
-         and sh("input tap 540 700") is not None and time.sleep(6) is None and (back(2) or True))
+         and sh(f"input tap {screen()[0] // 2} {screen()[1] // 2}") is not None and time.sleep(6) is None and (back(2) or True))
 
     # ---------------------------------------------------------------- Now Playing
     fresh(play=True)
@@ -246,7 +277,7 @@ def main():
     step("Now Playing: speed back to 1x", lambda: tap("Speed", wait=2) and tap("1x", wait=1) and tap("Apply", wait=2),
          lambda: ("speed=1.0" in media(), "player speed is 1.0"))
     step("Now Playing: Sleep timer", lambda: tap("Sleep timer", wait=2) and (back() or True))
-    step("Now Playing: Queue", lambda: tap("Queue", wait=2) and (back() or True))
+    step("Now Playing: Queue", lambda: tap("Queue", scroll=2, wait=2) and (back() or True))
     step("Now Playing: Pause", lambda: tap("Pause", contains=True, wait=2) or tap("Play/Pause", wait=2),
          lambda: (not playing(), "paused"))
     step("Now Playing: Play", lambda: tap("Play", wait=4) or tap("Play/Pause", wait=4), lambda: (playing(), "playing again"))
@@ -293,12 +324,12 @@ def main():
     for label in ["Normalize volume", "Skip silence", "Hook preview in For You", "Resume on headphones", "Smart downloads",
                   "Autoplay", "Auto playlists", "Fetch lyrics automatically", "Offline mode", "Download on Wi-Fi only"]:
         step(f"Settings switch: {label}", toggle_twice(label))
-        sh("input swipe 540 500 540 1600 200")  # back to the top for the next search
-        sh("input swipe 540 500 540 1600 200")
+        swipe_down()  # back to the top for the next search
+        swipe_down()
     for label in ["Theme", "Equalizer & Bass boost", "Music sources", "Open AI DJ"]:
         step(f"Settings: {label}", open_and_back(label, scroll=8, wait=3))
-        sh("input swipe 540 500 540 1600 200")
-        sh("input swipe 540 500 540 1600 200")
+        swipe_down()
+        swipe_down()
     step("Settings: Move library to another phone", open_and_back("Move library to another phone", scroll=10, wait=4))
     step("Settings: Report a problem", lambda: tap("Report a problem", scroll=10, wait=5)
          and sh(f"am start -n {PKG}/.MainActivity") is not None and time.sleep(3) is None)
