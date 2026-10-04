@@ -61,6 +61,7 @@ class ImportViewModel(private val c: AppContainer) : ViewModel() {
         val missing: List<ImportEntry> = emptyList(),
         val createdId: Long? = null,
         val error: String? = null,
+        val message: String? = null,
     )
 
     private val _ui = MutableStateFlow(Ui())
@@ -81,6 +82,16 @@ class ImportViewModel(private val c: AppContainer) : ViewModel() {
     fun loadLink(link: String) = viewModelScope.launch {
         if (link.isBlank()) return@launch
         _ui.value = Ui(working = true)
+        // A "Move library" link from another phone: add its liked songs and playlists.
+        if (com.sangeet.player.data.LibrarySync.isSyncLink(link)) {
+            _ui.value = try {
+                val (liked, lists) = com.sangeet.player.data.LibrarySync.import(c.library, link)
+                Ui(message = "Added $liked liked songs and $lists playlists.")
+            } catch (e: Exception) {
+                Ui(error = "That library link is damaged or incomplete.")
+            }
+            return@launch
+        }
         _ui.value = try {
             val r = c.importer.readLink(link)
             when {
@@ -142,7 +153,7 @@ fun ImportPlaylistScreen(nav: NavController) {
                 OutlinedTextField(
                     value = link,
                     onValueChange = { link = it },
-                    placeholder = { Text("Spotify, YouTube Music, YouTube or JioSaavn") },
+                    placeholder = { Text("Spotify, YouTube Music, JioSaavn or a library link") },
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth(),
@@ -163,6 +174,9 @@ fun ImportPlaylistScreen(nav: NavController) {
             }
         }
 
+        ui.message?.let { msg ->
+            item { Text(msg, color = spec.onSurface, modifier = Modifier.padding(16.dp)) }
+        }
         ui.error?.let { err ->
             item { Text(err, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp)) }
         }

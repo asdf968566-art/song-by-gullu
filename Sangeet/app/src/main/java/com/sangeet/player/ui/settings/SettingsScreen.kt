@@ -1,5 +1,8 @@
 package com.sangeet.player.ui.settings
 
+import androidx.compose.material.icons.rounded.BugReport
+import androidx.compose.material.icons.rounded.SyncAlt
+import androidx.compose.material.icons.rounded.VolumeUp
 import android.widget.Toast
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -53,6 +56,7 @@ import kotlinx.coroutines.launch
 fun SettingsScreen(nav: NavController) {
     val c = LocalAppContainer.current
     val s by c.settings.settings.collectAsStateWithLifecycle()
+    val eq by c.equalizer.state.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val qualities = AudioQuality.entries
@@ -86,6 +90,9 @@ fun SettingsScreen(nav: NavController) {
 
         SettingsGroup("Playback") {
             SettingsItem(Icons.Rounded.Equalizer, "Equalizer & Bass boost", "Fine-tune your sound", onClick = { nav.navigate(Routes.EQUALIZER) })
+            SettingsSwitch(Icons.Rounded.VolumeUp, "Normalize volume", "Every song plays at the same loudness", eq.normalize) {
+                c.equalizer.setNormalize(it)
+            }
             SettingsSwitch(Icons.Rounded.FastForward, "Skip silence", "Remove silent gaps between songs", s.skipSilence) {
                 scope.launch { c.settings.setSkipSilence(it) }
             }
@@ -205,6 +212,25 @@ fun SettingsScreen(nav: NavController) {
                     }
                 }) { Text("Save & check for updates") }
             }
+        }
+
+        SettingsGroup("Help") {
+            SettingsItem(Icons.Rounded.SyncAlt, "Move library to another phone", "Liked songs and playlists, to another Android or your iPhone", onClick = {
+                scope.launch {
+                    val link = com.sangeet.player.data.LibrarySync.exportLink(c.library)
+                    context.startActivity(
+                        android.content.Intent.createChooser(
+                            android.content.Intent(android.content.Intent.ACTION_SEND)
+                                .setType("text/plain")
+                                .putExtra(android.content.Intent.EXTRA_TEXT, link),
+                            "Send your library",
+                        )
+                    )
+                }
+            })
+            SettingsItem(Icons.Rounded.BugReport, "Report a problem", "Opens GitHub with the details so it can be fixed", onClick = {
+                com.sangeet.player.data.CrashReporter.send(context)
+            })
         }
 
         SettingsGroup("About") {

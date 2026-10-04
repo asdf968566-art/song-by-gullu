@@ -388,6 +388,14 @@ class RecommendationRepository(
         val discover = newOnes.take(30)
         if (discover.size >= 5) out += Mix("fresh", "Fresh Finds", "New songs you haven't heard yet", discover)
 
+        // One mix per language you listen to, from the nightly catalog (lakhs of songs).
+        val favs2 = p.topArtists.take(8).map(::norm)
+        for (lang in p.languages.take(3)) {
+            val picks = catalog.sample(listOf(lang), 30, seenIds()) { a -> favs2.any { f -> norm(a).contains(f) } }
+            val name = lang.replaceFirstChar(Char::uppercase)
+            if (picks.size >= 10) out += Mix("lang_$lang", "$name Mix", "Popular $name songs picked for you", picks)
+        }
+
         val onRepeat = p.played.filter { it.playCount >= 2 }.sortedByDescending { it.playCount }.map { it.track }.take(25)
         if (onRepeat.size >= 5) out += Mix("repeat", "On Repeat", "Songs you can't stop playing", onRepeat)
 
@@ -396,7 +404,18 @@ class RecommendationRepository(
             .sortedByDescending { it.playCount }.map { it.track }.take(25)
         if (forgotten.size >= 5) out += Mix("forgotten", "Rediscover", "Songs you used to love", forgotten)
 
-        return out
+        return withDistinctCovers(out)
+    }
+
+    /** Each mix shows a different cover: move a song with an unused cover to the front. */
+    private fun withDistinctCovers(mixes: List<Mix>): List<Mix> {
+        val used = HashSet<String>()
+        return mixes.map { m ->
+            val i = m.tracks.indexOfFirst { it.artworkUrl != null && it.artworkUrl !in used }
+            val tracks = if (i > 0) listOf(m.tracks[i]) + m.tracks.filterIndexed { k, _ -> k != i } else m.tracks
+            tracks.firstOrNull()?.artworkUrl?.let(used::add)
+            m.copy(tracks = tracks)
+        }
     }
 
     private fun interleave(a: List<Track>, b: List<Track>): List<Track> {

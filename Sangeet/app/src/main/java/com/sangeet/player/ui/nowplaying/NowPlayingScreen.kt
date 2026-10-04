@@ -301,15 +301,19 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                     .padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    qualityText,
-                    color = spec.accent,
-                    style = MaterialTheme.typography.labelMedium,
-                    modifier = Modifier
-                        .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(50))
-                        .padding(horizontal = 10.dp, vertical = 4.dp),
-                )
-                Spacer(Modifier.weight(1f))
+                // The label shrinks (…) on small screens so Speed, Sleep and Queue always fit.
+                Box(Modifier.weight(1f)) {
+                    Text(
+                        qualityText,
+                        color = spec.accent,
+                        style = MaterialTheme.typography.labelMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(50))
+                            .padding(horizontal = 10.dp, vertical = 4.dp),
+                    )
+                }
                 IconButton(onClick = { showSpeed = true }) {
                     Icon(Icons.Rounded.Speed, "Speed", tint = if (settings.playbackSpeed != 1f) spec.accent else textColor)
                 }

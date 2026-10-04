@@ -1,5 +1,7 @@
 package com.sangeet.player.ui.nowplaying
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material3.FilterChip
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -23,7 +25,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -148,10 +149,15 @@ fun SpeedDialog(onDismiss: () -> Unit) {
         text = {
             Column {
                 Slider(value = speed, onValueChange = { speed = it }, valueRange = 0.5f..2f, steps = 5)
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                // One tap-able chip per speed, all the same width so nothing gets cut off.
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     listOf(0.75f, 1f, 1.25f, 1.5f).forEach { v ->
-                        RadioButton(selected = speed == v, onClick = { speed = v })
-                        Text("${v}x")
+                        FilterChip(
+                            selected = speed == v,
+                            onClick = { speed = v },
+                            label = { Text(if (v == 1f) "1x" else "${v}x", maxLines = 1) },
+                            modifier = Modifier.weight(1f),
+                        )
                     }
                 }
             }

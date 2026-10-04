@@ -1,5 +1,11 @@
 package com.sangeet.player
 
+import com.sangeet.player.data.CrashReporter
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.Text
+import androidx.compose.material3.AlertDialog
 import com.sangeet.player.data.settings.AppSettings
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -39,6 +45,17 @@ class MainActivity : ComponentActivity() {
             CompositionLocalProvider(LocalAppContainer provides container) {
                 SangeetTheme(settings) {
                     SangeetRoot()
+                    // Crashed last time: offer to send the report (only then, never otherwise).
+                    var crash by remember { mutableStateOf(CrashReporter.pendingCrash(this@MainActivity)) }
+                    if (crash != null) {
+                        AlertDialog(
+                            onDismissRequest = { CrashReporter.clear(this@MainActivity); crash = null },
+                            title = { Text("Sangeet closed unexpectedly") },
+                            text = { Text("Send a report so it can be fixed? It opens GitHub with the error details.") },
+                            confirmButton = { TextButton(onClick = { CrashReporter.send(this@MainActivity); crash = null }) { Text("Send report") } },
+                            dismissButton = { TextButton(onClick = { CrashReporter.clear(this@MainActivity); crash = null }) { Text("Not now") } },
+                        )
+                    }
                 }
             }
         }
@@ -76,6 +93,8 @@ class MainActivity : ComponentActivity() {
                             .getOrDefault(emptyList())
                         android.util.Log.i("Sangeet", "deep link $type '$q': ${results.size} results, first=${results.firstOrNull()?.title}")
                         if (results.isNotEmpty()) container.player.play(results.take(20))
+                        // &download=1: also download the first result (used by the app check on CI).
+                        if (uri.getQueryParameter("download") == "1") results.firstOrNull()?.let { container.downloads.download(it) }
                     }
                 } else {
                     container.player.play(listOf(ExternalTracks.fromUri(this, uri)))
