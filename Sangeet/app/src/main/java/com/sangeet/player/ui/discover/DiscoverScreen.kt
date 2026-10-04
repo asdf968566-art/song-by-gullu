@@ -202,18 +202,13 @@ fun DiscoverScreen(nav: NavController) {
         else c.player.play(list.map { it.track }, page, fromFeed = true, startPositionMs = hook)
     }
 
-    // Page par rukte hi wahi gaana bajao. Pehli baar tab khulne par kuch aur baj raha ho to use mat roko.
+    // Kuch bhi apne aap shuru nahi hota: pehla gaana user khud Play dabakar chalata hai.
+    // Uske baad scroll karte hi agla gaana bajta hai.
+    var armed by remember { mutableStateOf(c.player.feedActive) }
     LaunchedEffect(pager, ui.items.isNotEmpty()) {
         if (vm.ui.value.items.isEmpty()) return@LaunchedEffect
-        var armed = c.player.feedActive || !c.player.state.value.isPlaying
-        var first = true
         snapshotFlow { pager.settledPage }.collect { page ->
-            if (first) {
-                first = false
-                if (!armed) return@collect
-            }
-            armed = true
-            playPage(page)
+            if (armed) playPage(page)
             if (page >= vm.ui.value.items.size - 5) vm.loadMore()
         }
     }
@@ -274,7 +269,7 @@ fun DiscoverScreen(nav: NavController) {
                     positionMs = { pos.value.positionMs },
                     onSeek = c.player::seekTo,
                     showHint = page == 0,
-                    onPlay = { if (isCurrent) c.player.togglePlay() else playPage(page) },
+                    onPlay = { armed = true; if (isCurrent) c.player.togglePlay() else playPage(page) },
                     onLike = { scope.launch { c.library.toggleFavorite(s.track) } },
                     onMore = { menuFor = s.track },
                     onArtist = { nav.navigate(Routes.artist(s.track.artist)) },

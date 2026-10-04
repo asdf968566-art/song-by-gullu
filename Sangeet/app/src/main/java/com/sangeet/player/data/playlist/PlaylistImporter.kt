@@ -7,6 +7,12 @@ import com.sangeet.player.data.LocalMusicRepository
 import com.sangeet.player.data.OnlineRepository
 import com.sangeet.player.data.model.SourceType
 import com.sangeet.player.data.model.Track
+import com.sangeet.player.data.remote.Http
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
 import java.security.MessageDigest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -18,6 +24,9 @@ data class ImportEntry(
     val durationMs: Long = 0,
     val location: String? = null,
 )
+
+/** A playlist link: either ready songs (YouTube, JioSaavn) or names to match (Spotify). */
+data class LinkImport(val name: String, val tracks: List<Track>, val entries: List<ImportEntry>)
 
 data class ImportResult(
     val name: String,
@@ -47,6 +56,43 @@ class PlaylistImporter(
             else -> parseTxt(text)
         }
         name to entries
+    }
+
+    /** Spotify, YouTube / YouTube Music or JioSaavn playlist (or album) link. */
+    suspend fun readLink(link: String): LinkImport {
+        val l = link.trim()
+        return when {
+            "spotify" in l -> spotify(l)
+            "list=" in l && ("youtube" in l || "youtu.be" in l) ->
+                online.youtube.playlist(l)?.let { (n, t) -> LinkImport(n, t, emptyList()) }
+                    ?: throw IllegalArgumentException("Couldn't open that YouTube playlist. Is it public?")
+            "saavn" in l ->
+                online.saavn.fromLink(l)?.let { (n, t) -> LinkImport(n, t, emptyList()) }
+                    ?: throw IllegalArgumentException("Couldn't open that JioSaavn link.")
+            else -> throw IllegalArgumentException("Paste a Spotify, YouTube Music, YouTube or JioSaavn playlist link.")
+        }
+    }
+
+    /** Spotify's public embed page lists the playlist's songs (no account or key needed). */
+    private suspend fun spotify(link: String): LinkImport = withContext(Dispatchers.IO) {
+        val m = Regex("(playlist|album|track)[/:]([A-Za-z0-9]{10,})").find(link)
+            ?: throw IllegalArgumentException("That doesn't look like a Spotify playlist link.")
+        val (kind, id) = m.destructured
+        val html = Http.getText("https://open.spotify.com/embed/$kind/$id")
+            ?: throw IllegalArgumentException("Spotify playlist not found. Is it public?")
+        val raw = Regex("<script id=\"__NEXT_DATA__\" type=\"application/json\">(.*?)</script>", RegexOption.DOT_MATCHES_ALL)
+            .find(html)?.groupValues?.get(1) ?: throw IllegalArgumentException("Couldn't read the Spotify playlist.")
+        val entity = Http.json.parseToJsonElement(raw).jsonObject["props"]?.jsonObject?.get("pageProps")?.jsonObject
+            ?.get("state")?.jsonObject?.get("data")?.jsonObject?.get("entity")?.jsonObject
+            ?: throw IllegalArgumentException("Couldn't read the Spotify playlist.")
+        fun JsonObject.s(k: String) = (this[k] as? JsonPrimitive)?.contentOrNull.orEmpty()
+        val name = entity.s("name").ifBlank { entity.s("title") }.ifBlank { "Spotify playlist" }
+        val list = (entity["trackList"] as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }
+        val entries = if (list.isNotEmpty()) list.map {
+            ImportEntry(title = it.s("title"), artist = it.s("subtitle").replace('\u00a0', ' ').split(',').first().trim(),
+                durationMs = it.s("duration").toLongOrNull() ?: 0)
+        } else listOf(ImportEntry(title = name, artist = entity.s("subtitle")))
+        LinkImport(name, emptyList(), entries.filter { it.title.isNotBlank() })
     }
 
     suspend fun match(
@@ -89,8 +135,10 @@ class PlaylistImporter(
     }
 
     private suspend fun searchOnline(e: ImportEntry): Track? {
-        val results = runCatching { online.search("${e.artist} ${e.title}".trim()) }.getOrNull() ?: return null
-        val all = results.flatMap { it.tracks }
+        // JioSaavn first (plays reliably, 320 kbps), then every source incl. YouTube.
+        val saavn = runCatching { online.saavn.searchPage("${e.title} ${e.artist}".trim(), 1) }.getOrDefault(emptyList())
+        val results = runCatching { online.search("${e.artist} ${e.title}".trim()) }.getOrNull().orEmpty()
+        val all = saavn + results.flatMap { it.tracks }
         val t = norm(e.title)
         val a = norm(e.artist)
         return all.firstOrNull { norm(it.title) == t && (a.isEmpty() || norm(it.artist).contains(a)) }

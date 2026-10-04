@@ -98,6 +98,24 @@ class YouTubeSource : OnlineSource {
         info.relatedItems.filterIsInstance<StreamInfoItem>().mapNotNull { toTrack(it) }.filter { it.sourceId != videoId }
     }
 
+    /** A public YouTube / YouTube Music playlist link -> (name, songs), up to ~2000 songs. */
+    suspend fun playlist(link: String): Pair<String, List<Track>>? = withContext(Dispatchers.IO) {
+        val id = Regex("[?&]list=([\\w-]+)").find(link)?.groupValues?.get(1) ?: return@withContext null
+        ensureInit()
+        val url = "https://www.youtube.com/playlist?list=$id"
+        val info = PlaylistInfo.getInfo(ServiceList.YouTube, url)
+        val out = info.relatedItems.filterIsInstance<StreamInfoItem>().mapNotNull { toTrack(it) }.toMutableList()
+        var page = info.nextPage
+        var n = 0
+        while (page != null && n < 20) {
+            val more = PlaylistInfo.getMoreItems(ServiceList.YouTube, url, page)
+            out += more.items.filterIsInstance<StreamInfoItem>().mapNotNull { toTrack(it) }
+            page = more.nextPage
+            n++
+        }
+        (info.name ?: "YouTube playlist") to out.distinctBy { it.id }
+    }
+
     /** First YouTube Music result for "title artist" (to start a YouTube radio from any song). */
     suspend fun find(title: String, artist: String): Track? =
         runCatching { musicSearch("$title $artist").firstOrNull() }.getOrNull()

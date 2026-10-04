@@ -58,7 +58,7 @@ data class AppSettings(
     /** For You feed mein gaana hook (chorus ke paas) se shuru ho. */
     val hookPreview: Boolean = true,
     /** Headphone / Bluetooth wapas lagate hi gaana resume. */
-    val headphoneResume: Boolean = true,
+    val headphoneResume: Boolean = false,
     /** Wi-Fi + charging pe liked aur Daily Mix apne aap download. */
     val smartDownloads: Boolean = true,
     val autoPlaylists: Boolean = true,
