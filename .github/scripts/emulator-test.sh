@@ -114,6 +114,29 @@ sleep 12
 adb shell dumpsys media_session | grep -Eq "state=PlaybackState \{state=(3|6|PLAYING|BUFFERING)" || fail "Feed mein Next ke baad gaana nahi baja"
 echo "Feed: Next ke baad agla gaana ✅ ($(adb shell dumpsys media_session | grep -o 'description=[^,]*,[^,]*' | head -1))"
 
+echo "== Catalog (background download) ke saath dobara kholo"
+for i in $(seq 1 30); do
+  adb shell run-as $PKG ls files/catalog 2>/dev/null | grep -q "hindi.json.gz" && break
+  sleep 2
+done
+echo "Catalog files: $(adb shell run-as $PKG ls -l files/catalog 2>/dev/null | awk '{print $NF, $(NF-3)}' | tr '\n' ' ')"
+adb shell pidof $PKG >/dev/null || fail "Catalog load karte waqt app crash ho gaya"
+adb shell input keyevent KEYCODE_MEDIA_PAUSE || true
+adb shell am force-stop $PKG
+sleep 2
+T0=$(date +%s)
+adb shell am start -W -n $PKG/.MainActivity >/dev/null
+FEED=0
+for i in $(seq 1 40); do
+  if [[ -n "$(ui | center "Play/Pause")" ]]; then FEED=1; break; fi
+  sleep 2
+done
+adb exec-out screencap -p > out/5-feed-again.png
+[[ $FEED == 1 ]] || fail "Catalog ke saath feed nahi khula"
+sleep 15
+adb shell pidof $PKG >/dev/null || fail "Catalog ke saath app crash ho gaya"
+echo "Feed $(( $(date +%s) - T0 ))s mein khula, app zinda ✅ (memory: $(adb shell dumpsys meminfo $PKG | grep -m1 'TOTAL' | awk '{print $2}') KB)"
+
 adb logcat -d > out/logcat.txt
 if grep -q "FATAL EXCEPTION" out/logcat.txt; then
   grep -A 30 "FATAL EXCEPTION" out/logcat.txt | head -60
