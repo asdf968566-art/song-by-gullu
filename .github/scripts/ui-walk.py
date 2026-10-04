@@ -5,6 +5,7 @@ After each step it checks that the app is still alive (no crash). At the end it 
   ✅ worked   ⚠️ button not found on screen   ❌ crash / wrong result
 Exit code 1 if anything crashed or a check failed.
 """
+import html
 import re
 import subprocess
 import sys
@@ -53,7 +54,7 @@ def dump():
 def nodes(xml):
     for m in re.finditer(r"<node [^>]*>", xml):
         n = m.group(0)
-        attr = lambda k: (re.search(rf'{k}="([^"]*)"', n) or [None, ""])[1]
+        attr = lambda k: html.unescape((re.search(rf'{k}="([^"]*)"', n) or [None, ""])[1])
         b = list(map(int, re.findall(r"\d+", attr("bounds")))) or [0, 0, 0, 0]
         yield {"text": attr("text"), "desc": attr("content-desc"), "x": (b[0] + b[2]) // 2, "y": (b[1] + b[3]) // 2,
                "w": b[2] - b[0], "h": b[3] - b[1]}
@@ -221,7 +222,7 @@ def main():
     step("Home: Refresh", lambda: tap("Refresh", wait=4))
     step("Home: AI DJ", open_and_back("AI DJ"))
     step("Home: scroll to the end", lambda: [swipe_up() for _ in range(8)] and True)
-    step("Home: open a chart / mix", lambda: tap("Mix", contains=True, scroll=0, wait=4) and (back() or True))
+    step("Home: Top charts → See all", lambda: tap("See all", scroll=4, wait=5) and (back() or True))
 
     # ---------------------------------------------------------------- Search
     fresh()
@@ -273,9 +274,15 @@ def main():
         if not tap("1.25x", wait=1):
             return False
         return tap("Apply", wait=2)
-    step("Now Playing: speed 1.25x", speed_125, lambda: ("speed=1.25" in media(), "player speed is 1.25"))
+    def speed_is(v):
+        for _ in range(5):
+            if f"speed={v}" in media():
+                return True
+            time.sleep(1)
+        return False
+    step("Now Playing: speed 1.25x", speed_125, lambda: (speed_is("1.25"), "player speed is 1.25"))
     step("Now Playing: speed back to 1x", lambda: tap("Speed", wait=2) and tap("1x", wait=1) and tap("Apply", wait=2),
-         lambda: ("speed=1.0" in media(), "player speed is 1.0"))
+         lambda: (speed_is("1.0"), "player speed is 1.0"))
     step("Now Playing: Sleep timer", lambda: tap("Sleep timer", wait=2) and (back() or True))
     step("Now Playing: Queue", lambda: tap("Queue", scroll=2, wait=2) and (back() or True))
     step("Now Playing: Pause", lambda: tap("Pause", contains=True, wait=2) or tap("Play/Pause", wait=2),
