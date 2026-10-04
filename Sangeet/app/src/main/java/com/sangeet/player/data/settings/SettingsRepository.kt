@@ -56,7 +56,7 @@ data class AppSettings(
     /** Gaano ke beech fade (seconds). 0 = band. */
     val crossfadeSec: Int = 4,
     /** For You feed mein gaana hook (chorus ke paas) se shuru ho. */
-    val hookPreview: Boolean = true,
+    val hookPreview: Boolean = false,
     /** Headphone / Bluetooth wapas lagate hi gaana resume. */
     val headphoneResume: Boolean = false,
     /** Wi-Fi + charging pe liked aur Daily Mix apne aap download. */
