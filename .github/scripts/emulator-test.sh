@@ -186,6 +186,10 @@ for tab in Home Search "Your Library" Home; do
 done
 adb exec-out screencap -p > out/6-home.png
 
+echo "== Poora UI walk: har tab, button, option"
+python3 .github/scripts/ui-walk.py | tee out/ui-walk.txt
+[[ ${PIPESTATUS[0]} == 0 ]] || fail "UI walk mein crash ya galat result (upar report dekho)"
+
 adb logcat -d > out/logcat.txt
 # Release build (R8): kuch code hat gaya ho to yahan dikhega, chahe app crash na kare.
 R8=$(grep -E "ClassNotFoundException|NoSuchMethodError|NoSuchFieldError|NoClassDefFoundError|InvalidDefinitionException" out/logcat.txt | grep -i -E "sangeet|anthropic|newpipe|jackson|serializ|mozilla" | head -20)
