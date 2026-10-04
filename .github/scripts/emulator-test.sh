@@ -69,11 +69,50 @@ play_source() {
 play_source jiosaavn kesariya 1
 play_source youtube kesariya 0
 
-echo "== For You feed"
-adb shell input keyevent KEYCODE_BACK || true
-adb shell am start -n $PKG/.MainActivity
-sleep 3
-adb exec-out screencap -p > out/3-app.png
+echo "== For You feed: kuch apne aap nahi bajna chahiye, Play dabane par bajna chahiye"
+adb shell input keyevent KEYCODE_MEDIA_PAUSE || true
+adb shell am force-stop $PKG
+sleep 2
+adb shell am start -W -n $PKG/.MainActivity >/dev/null
+# Screen ke texts / buttons (uiautomator) -> python se dhoondo
+ui() { adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1; adb exec-out cat /sdcard/ui.xml; }
+center() { python3 -c '
+import re,sys
+x=sys.stdin.read(); want=sys.argv[1]
+for m in re.finditer(r"<node [^>]*>", x):
+    n=m.group(0)
+    if f"content-desc=\"{want}\"" in n:
+        a=list(map(int,re.findall(r"\d+", re.search(r"bounds=\"([^\"]+)\"", n).group(1))))
+        print((a[0]+a[2])//2, (a[1]+a[3])//2); break
+' "$1"; }
+FEED=0
+for i in $(seq 1 40); do
+  X=$(ui)
+  if [[ -n "$(echo "$X" | center "Play/Pause")" ]]; then FEED=1; break; fi
+  sleep 3
+done
+echo "$X" > out/feed-ui.xml
+adb exec-out screencap -p > out/3-feed.png
+echo "Screen par: $(echo "$X" | grep -o 'text="[^"]\+"' | head -12 | tr '\n' ' ')"
+[[ $FEED == 1 ]] || fail "For You feed mein gaane nahi aaye"
+D=$(adb shell dumpsys media_session)
+if echo "$D" | grep -Eq "state=PlaybackState \{state=(3|PLAYING)"; then fail "Feed ne apne aap gaana chala diya"; fi
+echo "Feed khula, kuch apne aap nahi baja ✅"
+XY=$(echo "$X" | center "Play/Pause")
+adb shell input tap $XY
+PLAYING=0
+for i in $(seq 1 30); do
+  if adb shell dumpsys media_session | grep -Eq "state=PlaybackState \{state=(3|PLAYING)"; then PLAYING=1; break; fi
+  sleep 2
+done
+adb exec-out screencap -p > out/4-feed-playing.png
+[[ $PLAYING == 1 ]] || fail "Feed mein Play dabane par gaana nahi baja"
+echo "Feed: Play dabate hi gaana baja ✅ ($(adb shell dumpsys media_session | grep -o 'description=[^,]*,[^,]*' | head -1))"
+XY=$(ui | center "Next")
+adb shell input tap $XY
+sleep 12
+adb shell dumpsys media_session | grep -Eq "state=PlaybackState \{state=(3|6|PLAYING|BUFFERING)" || fail "Feed mein Next ke baad gaana nahi baja"
+echo "Feed: Next ke baad agla gaana ✅ ($(adb shell dumpsys media_session | grep -o 'description=[^,]*,[^,]*' | head -1))"
 
 adb logcat -d > out/logcat.txt
 if grep -q "FATAL EXCEPTION" out/logcat.txt; then

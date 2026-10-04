@@ -274,8 +274,8 @@ fun DiscoverScreen(nav: NavController) {
                     onMore = { menuFor = s.track },
                     onArtist = { nav.navigate(Routes.artist(s.track.artist)) },
                     durationMs = { pos.value.durationMs },
-                    onNext = { scope.launch { if (page + 1 < items.size) pager.animateScrollToPage(page + 1) } },
-                    onPrev = { scope.launch { if (page > 0) pager.animateScrollToPage(page - 1) } },
+                    onNext = { armed = true; scope.launch { if (page + 1 < items.size) pager.animateScrollToPage(page + 1) else playPage(page) } },
+                    onPrev = { armed = true; scope.launch { if (page > 0) pager.animateScrollToPage(page - 1) else playPage(page) } },
                     onSwipeLike = {
                         if (s.track.id !in favorites) scope.launch { c.library.toggleFavorite(s.track) }
                         Toast.makeText(context, "♥ Added to Liked Songs", Toast.LENGTH_SHORT).show()
