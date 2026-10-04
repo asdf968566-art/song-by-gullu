@@ -1,45 +1,74 @@
 name: Web App
 
 # The iPhone-friendly web app (SangeetWeb/) on GitHub Pages.
-# The song catalog is rebuilt from JioSaavn every day.
+# The song catalog grows every night: the crawl state is cached between runs.
 on:
   push:
     branches: ["main", "claude/**"]
-    paths: [".github/scripts/saavn-probe.py", "SangeetWeb/**", ".github/workflows/web.yml", ".github/scripts/build-web-catalog.py", ".github/scripts/web-api-check.sh"]
+    paths: ["SangeetWeb/**", ".github/workflows/web.yml", ".github/scripts/build-web-catalog.py"]
   schedule:
     - cron: "17 21 * * *"
   workflow_dispatch:
+    inputs:
+      minutes:
+        description: "Minutes to crawl new songs"
+        default: "150"
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
 concurrency:
   group: pages-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 340
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Probe JioSaavn
-        run: pip install -q pycryptodome && python .github/scripts/saavn-probe.py
+      - name: Spotify embed check
+        run: python .github/scripts/spotify-probe.py || true
+      - uses: actions/cache/restore@v4
+        with:
+          path: catalog-state
+          key: catalog-${{ github.run_id }}
+          restore-keys: catalog-
       - name: Build song catalog
-        if: false
         run: |
           pip install -q pycryptodome
-          python .github/scripts/build-web-catalog.py SangeetWeb/data
-          du -sh SangeetWeb/data/*
+          case "${{ github.event_name }}" in
+            workflow_dispatch) MIN="${{ inputs.minutes }}" ;;
+            schedule) MIN=150 ;;
+            *) [ "${{ github.ref }}" = "refs/heads/main" ] && MIN=40 || MIN=8 ;;
+          esac
+          python .github/scripts/build-web-catalog.py SangeetWeb/data catalog-state/state.json.gz "$MIN"
+          du -sh SangeetWeb/data catalog-state
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: catalog-state
+          key: catalog-${{ github.run_id }}
       - name: Stamp version
         run: sed -i "s/__BUILD__/${{ github.run_number }}/g" SangeetWeb/sw.js SangeetWeb/index.html
       - uses: actions/upload-pages-artifact@v3
         with:
           path: SangeetWeb
+      # The Android app reads the popular songs from this release.
+      - name: Publish catalog for Android
+        if: github.ref == 'refs/heads/main'
+        run: |
+          mkdir -p cat && for f in SangeetWeb/data/*.json; do gzip -9c "$f" > "cat/$(basename "$f").gz"; done
+          gh release delete catalog --yes --cleanup-tag || true
+          gh release create catalog cat/*.gz --prerelease --title "Song catalog" \
+            --notes "Popular songs per language for the Android app. Rebuilt every night."
+        env:
+          GH_TOKEN: ${{ github.token }}
 
   deploy:
     if: github.ref == 'refs/heads/main'
@@ -49,8 +78,5 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/configure-pages@v5
-        with:
-          enablement: true
       - id: deployment
         uses: actions/deploy-pages@v4
