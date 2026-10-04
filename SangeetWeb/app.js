@@ -127,7 +127,12 @@ function fromRow(r, lang) {
     img: r[5] ? (r[5].startsWith('http') ? r[5] : IMG + r[5]) : '', media: r[6], hq: !!r[7], year: r[8], lang,
   };
 }
-const art = (t, big) => (t && t.img ? (big ? t.img.replace(/\d+x\d+(?=\.\w+$)/, '500x500') : t.img) : '');
+const PLACEHOLDER = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#40202f"/><stop offset="1" stop-color="#1c1c23"/></linearGradient></defs><rect width="100" height="100" fill="url(#g)"/><path d="M47 30v23a9 9 0 105 8V40h10V30z" fill="#ff5c6b" opacity=".85"/></svg>');
+const art = (t, big) => (t && t.img ? (big ? t.img.replace(/\d+x\d+(?=\.\w+$)/, '500x500') : t.img) : PLACEHOLDER);
+document.addEventListener('error', (e) => {
+  const el = e.target;
+  if (el.tagName === 'IMG' && el.src !== PLACEHOLDER) el.src = PLACEHOLDER;
+}, true);
 function streamUrl(t) {
   const kb = S.quality === 'low' ? '96' : S.quality === 'medium' ? '160' : t.hq ? '320' : '160';
   return t.media.startsWith('http') ? t.media.replace(/_(96|160|320)\.mp4/, `_${kb}.mp4`) : `${AAC}${t.media}_${kb}.mp4`;
@@ -657,7 +662,9 @@ const Feed = {
     const ctr = controls();
     const p = h('div', { class: 'fp', 'data-i': i },
       h('div', { class: 'bg', style: t.img ? `background-image:url("${art(t, true)}")` : '' }),
-      h('img', { class: 'cover', src: art(t, true), alt: '', loading: i < 2 ? 'eager' : 'lazy', onclick: () => this.tap(i) }),
+      h('div', { class: 'cover-wrap' },
+        h('img', { class: 'cover', src: art(t, true), alt: '', loading: i < 2 ? 'eager' : 'lazy', onclick: (e) => this.coverTap(e, t, i) }),
+        h('div', { class: 'pop' }, icon('heartFill'))),
       h('div', { class: 'info' },
         h('div', { class: 'meta', onclick: () => trackMenu(t) }, h('div', { class: 'title' }, t.title), h('div', { class: 'artist' }, t.artist)),
         likeBtn(t)),
@@ -666,6 +673,21 @@ const Feed = {
     p.seek = seek;
     p.ctr = ctr;
     return p;
+  },
+  coverTap(e, t, i) {
+    const now = Date.now();
+    const pop = e.currentTarget.nextSibling;
+    if (now - (this.lastTap || 0) < 280) {
+      clearTimeout(this.tapTimer);
+      this.lastTap = 0;
+      if (!isLiked(t)) toggleLike(t);
+      pop.classList.remove('show');
+      void pop.offsetWidth;
+      pop.classList.add('show');
+      return;
+    }
+    this.lastTap = now;
+    this.tapTimer = setTimeout(() => this.tap(i), 280);
   },
   tap(i) {
     if (Player.queue === this.list && Player.i === i) return Player.toggle();
@@ -720,7 +742,7 @@ function searchPage() {
     const q = input.value.trim();
     const my = ++seq;
     clearTimeout(ytTimer);
-    if (q.length < 2) { results.replaceChildren(); return; }
+    if (q.length < 2) { results.replaceChildren(browse()); return; }
     const local = Catalog.search(q, 40);
     const deepBox = h('div'), ytBox = h('div');
     results.replaceChildren(local.length ? trackList(local) : h('div', { class: 'spinner' }), deepBox, ytBox);
@@ -745,6 +767,27 @@ function searchPage() {
   };
   input.addEventListener('input', () => { clearTimeout(run.t); run.t = setTimeout(run, 150); });
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter') input.blur(); });
+  // Remember what you searched when you play something from it.
+  results.addEventListener('click', (e) => {
+    const q = input.value.trim();
+    if (q.length < 2 || !e.target.closest('.row') || e.target.closest('.more')) return;
+    S.searches = [q, ...(S.searches || []).filter((x) => x.toLowerCase() !== q.toLowerCase())].slice(0, 8);
+    save();
+  });
+  const browse = () => {
+    const recentQ = S.searches || [];
+    const charts = Catalog.playlists.filter((p) => p.chart).slice(0, 6);
+    const moods = ['Romantic', 'Sad', 'Party', 'Chill', 'Workout', '90s', 'Bhakti', 'Wedding', 'Road trip', 'Rain'];
+    return h('div', null,
+      recentQ.length ? [
+        h('div', { class: 'section' }, 'Recent searches'),
+        h('div', { class: 'chips' }, recentQ.map((x) => h('button', { class: 'chip', onclick: () => { input.value = x; run(); } }, x))),
+      ] : null,
+      h('div', { class: 'section' }, 'Moods'),
+      h('div', { class: 'chips' }, moods.map((m) => h('button', { class: 'chip', onclick: () => pushPage(() => djPage(`${m} ${S.langs[0] || 'hindi'} songs`)) }, m))),
+      charts.length ? [h('div', { class: 'section' }, 'Top charts'), h('div', { class: 'grid' }, charts.map(playlistCard))] : null);
+  };
+  results.replaceChildren(browse());
   return h('div', null, header('Search'), h('div', { class: 'search-box' }, input), results);
 }
 
@@ -753,7 +796,7 @@ function libraryPage() {
   const charts = Catalog.playlists.filter((p) => p.chart);
   return h('div', null,
     header('Library'),
-    link('sparkles', 'AI DJ', null, () => pushPage(djPage)),
+    link('sparkles', 'AI DJ', null, () => pushPage(() => djPage())),
     link('heartFill', 'Liked Songs', S.liked.length, () => pushPage(() => songsPage('Liked Songs', S.liked))),
     link('clock', 'Recently Played', null, () => pushPage(() => songsPage('Recently Played', recent().slice(0, 300)))),
     link('globe', 'Online Library', Catalog.playlists.length || null, () => pushPage(onlineLibraryPage)),
@@ -938,7 +981,7 @@ async function aiDj(text) {
   const title = text.trim().replace(/^./, (c) => c.toUpperCase()).slice(0, 40);
   return { title, tracks: scored.slice(0, 60).map((x) => x[0]) };
 }
-function djPage() {
+function djPage(initial) {
   const out = h('div');
   const input = h('input', { type: 'text', placeholder: 'What do you want to hear?', enterkeyhint: 'go' });
   const run = async (text) => {
@@ -957,6 +1000,7 @@ function djPage() {
   };
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter') run(input.value); });
   const examples = ['Sad Punjabi songs for a night drive', '90s Bollywood romantic', 'Arijit Singh latest', 'Gym workout Hindi', 'Rainy day chill'];
+  if (initial) setTimeout(() => run(initial), 0);
   return h('div', null, header('AI DJ', true), h('div', { class: 'search-box' }, input),
     h('div', { class: 'chips' }, examples.map((e) => h('button', { class: 'chip', onclick: () => run(e) }, e))), out);
 }
@@ -1087,6 +1131,30 @@ const UI = {
     this.update();
     this.tick();
   },
+  initSwipe() {
+    const np = $('#np');
+    let y0 = null;
+    np.addEventListener('touchstart', (e) => {
+      const y = e.touches[0].clientY;
+      y0 = y < np.clientHeight * 0.45 && !e.target.closest('.lyrics, .queue, input') ? y : null;
+    }, { passive: true });
+    np.addEventListener('touchmove', (e) => {
+      if (y0 == null) return;
+      const dy = Math.max(0, e.touches[0].clientY - y0);
+      np.style.transform = `translateY(${dy}px)`;
+    }, { passive: true });
+    np.addEventListener('touchend', (e) => {
+      if (y0 == null) return;
+      const dy = e.changedTouches[0].clientY - y0;
+      y0 = null;
+      np.style.transition = 'transform .2s ease-out';
+      np.style.transform = dy > 110 ? 'translateY(100%)' : '';
+      setTimeout(() => {
+        np.style.transition = '';
+        if (dy > 110) { np.style.transform = ''; this.closeNowPlaying(); }
+      }, 200);
+    });
+  },
   closeNowPlaying() {
     $('#np').hidden = true;
     document.body.classList.remove('np-open');
@@ -1160,6 +1228,7 @@ document.querySelectorAll('#tabs button').forEach((b) => {
 });
 
 (async () => {
+  UI.initSwipe();
   Feed.init();
   await Catalog.load();
   Feed.reset();
