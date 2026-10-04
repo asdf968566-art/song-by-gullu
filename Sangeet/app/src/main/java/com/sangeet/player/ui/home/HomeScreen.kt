@@ -244,7 +244,7 @@ fun HomeScreen(nav: NavController) {
             item { SectionHeader("Made for you") }
             item {
                 LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    items(mixes, key = { it.id }) { m ->
+                    items(mixes.distinctBy { it.id }, key = { it.id }) { m ->
                         ShelfCard(m.title, m.subtitle, m.artworkUrl, onClick = { nav.navigate(Routes.mix(m.id)) })
                     }
                 }
@@ -269,7 +269,7 @@ fun HomeScreen(nav: NavController) {
             item { SectionHeader("🎶 Playlists for you", action = "See all") { nav.navigate(Routes.ONLINE_LIBRARY) } }
             item {
                 LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    items(ui.playlists, key = { "pl" + it.id }) { p ->
+                    items(ui.playlists.distinctBy { it.id }, key = { "pl" + it.id }) { p ->
                         ShelfCard(p.title, p.subtitle, p.artworkUrl, onClick = { nav.navigate(Routes.onlinePlaylist(p.id, p.title)) })
                     }
                 }
@@ -279,7 +279,7 @@ fun HomeScreen(nav: NavController) {
             item { SectionHeader("📊 Top Charts", action = "See all") { nav.navigate(Routes.ONLINE_LIBRARY) } }
             item {
                 LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    items(ui.charts, key = { "chart" + it.id }) { p ->
+                    items(ui.charts.distinctBy { it.id }, key = { "chart" + it.id }) { p ->
                         ShelfCard(p.title, p.subtitle, p.artworkUrl, onClick = { nav.navigate(Routes.onlinePlaylist(p.id, p.title)) })
                     }
                 }

@@ -1,0 +1,20 @@
+# Baseline profile: code Android compiles ahead of time at install, so the first launch, the feed
+# and scrolling are fast from day one (instead of after the app has "warmed up").
+# Libraries like Compose and Media3 ship their own profiles; these rules add our code and the
+# libraries we use on startup and while scrolling.
+
+# Sangeet itself (screens, player, recommendations)
+HSPLcom/sangeet/player/**;->**(**)**
+Lcom/sangeet/player/**;
+
+# Network, images, JSON, coroutines
+HSPLokhttp3/**;->**(**)**
+Lokhttp3/**;
+HSPLokio/**;->**(**)**
+Lokio/**;
+HSPLcoil/**;->**(**)**
+Lcoil/**;
+HSPLkotlinx/serialization/json/**;->**(**)**
+Lkotlinx/serialization/json/**;
+HSPLkotlinx/coroutines/**;->**(**)**
+Lkotlinx/coroutines/**;

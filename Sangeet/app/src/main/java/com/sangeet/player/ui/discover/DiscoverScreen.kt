@@ -261,7 +261,7 @@ fun DiscoverScreen(nav: NavController) {
             else -> VerticalPager(
                 state = pager,
                 modifier = Modifier.fillMaxSize(),
-                key = { items.getOrNull(it)?.track?.id ?: "p$it" },
+                key = { "${it}_${items.getOrNull(it)?.track?.id}" },
                 beyondViewportPageCount = 1,
             ) { page ->
                 val s = items.getOrNull(page) ?: return@VerticalPager

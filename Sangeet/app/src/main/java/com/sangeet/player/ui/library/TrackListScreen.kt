@@ -89,7 +89,7 @@ fun TrackListScreen(nav: NavController, kind: ListKind, arg: String) {
                     },
                 )
             }
-            else -> itemsIndexed(tracks, key = { _, t -> t.id }) { i, t ->
+            else -> itemsIndexed(tracks, key = { i, t -> "${i}_${t.id}" }) { i, t ->
                 TrackRow(t, onClick = { c.player.play(tracks, i) }, index = i, onMore = { menuFor = t })
             }
         }

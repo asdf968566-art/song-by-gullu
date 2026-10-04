@@ -14,6 +14,7 @@ okhttp = "4.12.0"
 serialization = "1.7.3"
 coroutines = "1.9.0"
 coil = "2.7.0"
+profileinstaller = "1.4.1"
 work = "2.10.0"
 newpipe = "v0.24.8"
 desugar = "2.1.5"
@@ -55,6 +56,7 @@ newpipe-extractor = { group = "com.github.TeamNewPipe", name = "NewPipeExtractor
 desugar-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs_nio", version.ref = "desugar" }
 anthropic-java = { group = "com.anthropic", name = "anthropic-java", version.ref = "anthropic" }
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
+androidx-profileinstaller = { group = "androidx.profileinstaller", name = "profileinstaller", version.ref = "profileinstaller" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

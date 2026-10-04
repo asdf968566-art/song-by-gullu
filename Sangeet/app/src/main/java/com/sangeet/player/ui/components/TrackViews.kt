@@ -159,7 +159,7 @@ fun TrackShelf(tracks: List<Track>, onPlay: (Int) -> Unit, onMore: (Track) -> Un
         contentPadding = PaddingValues(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        items(tracks.size, key = { tracks[it].id }) { i ->
+        items(tracks.size, key = { "${it}_${tracks[it].id}" }) { i ->
             val t = tracks[i]
             ShelfCard(
                 title = t.title,

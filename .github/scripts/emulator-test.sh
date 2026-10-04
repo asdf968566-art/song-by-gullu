@@ -10,6 +10,16 @@ fail() { echo "❌ $1"; adb logcat -d > out/logcat.txt; adb exec-out screencap -
 adb install -r -g "$APK" || fail "APK install nahi hua"
 adb logcat -c
 
+echo "== Baseline profile: app kitni jaldi khulta hai (bina profile vs profile ke saath)"
+start_ms() { adb shell am force-stop $PKG; sleep 1; adb shell am start -W -n $PKG/.MainActivity | grep -o "TotalTime: [0-9]*" | grep -o "[0-9]*"; }
+adb shell cmd package compile -f -m verify $PKG >/dev/null
+start_ms >/dev/null; A=$(start_ms); B=$(start_ms)
+adb shell cmd package compile -f -m speed-profile $PKG >/dev/null
+start_ms >/dev/null; C=$(start_ms); D=$(start_ms)
+echo "Bina profile: ${A} ms, ${B} ms | Profile ke saath: ${C} ms, ${D} ms"
+adb shell input keyevent KEYCODE_MEDIA_PAUSE || true
+adb shell am force-stop $PKG
+
 echo "== App kholo"
 adb shell am start -W -n $PKG/.MainActivity || fail "App start nahi hua"
 sleep 12
@@ -136,6 +146,33 @@ adb exec-out screencap -p > out/5-feed-again.png
 sleep 15
 adb shell pidof $PKG >/dev/null || fail "Catalog ke saath app crash ho gaya"
 echo "Feed $(( $(date +%s) - T0 ))s mein khula, app zinda ✅ (memory: $(adb shell dumpsys meminfo $PKG | grep -m1 'TOTAL' | awk '{print $2}') KB)"
+
+echo "== Baaki tabs: Home, Search, Library (scroll karke)"
+tap_text() { XY=$(ui | python3 -c '
+import re,sys
+x=sys.stdin.read(); want=sys.argv[1]
+for m in re.finditer(r"<node [^>]*>", x):
+    n=m.group(0)
+    if f"text=\"{want}\"" in n:
+        a=list(map(int,re.findall(r"\d+", re.search(r"bounds=\"([^\"]+)\"", n).group(1))))
+        print((a[0]+a[2])//2, (a[1]+a[3])//2); break
+' "$1"); [[ -n "$XY" ]] && adb shell input tap $XY; }
+crash_check() {
+  if ! adb shell pidof $PKG >/dev/null || adb logcat -d | grep -q "FATAL EXCEPTION"; then
+    adb logcat -d | grep -A 40 "FATAL EXCEPTION" | head -60
+    adb exec-out screencap -p > "out/crash-$1.png"
+    fail "$1 kholte hi crash"
+  fi
+}
+for tab in Home Search "Your Library" Home; do
+  tap_text "$tab"
+  sleep 8
+  for k in 1 2 3; do adb shell input swipe 540 1600 540 500 250; sleep 1; done
+  for k in 1 2 3; do adb shell input swipe 540 500 540 1600 250; sleep 1; done
+  crash_check "$tab"
+  echo "$tab: khula, scroll hua, crash nahi ✅"
+done
+adb exec-out screencap -p > out/6-home.png
 
 adb logcat -d > out/logcat.txt
 # Release build (R8): kuch code hat gaya ho to yahan dikhega, chahe app crash na kare.

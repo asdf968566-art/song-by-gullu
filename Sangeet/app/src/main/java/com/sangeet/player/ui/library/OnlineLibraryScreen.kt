@@ -200,7 +200,7 @@ fun OnlinePlaylistScreen(nav: NavController, id: String, title: String) {
         when {
             list == null -> item { LoadingBox() }
             list.isEmpty() -> item { EmptyState(Icons.Rounded.CloudOff, "No songs found", "Check your connection and try again.") }
-            else -> itemsIndexed(list, key = { _, t -> t.id }) { i, t ->
+            else -> itemsIndexed(list, key = { i, t -> "${i}_${t.id}" }) { i, t ->
                 TrackRow(t, onClick = { c.player.play(list, i) }, index = i, onMore = { menuFor = t })
             }
         }

@@ -320,7 +320,7 @@ fun SearchScreen(nav: NavController) {
             ui.online.forEach { res ->
                 if (res.tracks.isNotEmpty()) {
                     item(key = "h_${res.source}") { SectionHeader(res.source.label) }
-                    items(res.tracks, key = { "o_" + it.id }) { t ->
+                    items(res.tracks.size, key = { "o_${res.source}_${it}_${res.tracks[it].id}" }) { idx -> val t = res.tracks[idx]
                         TrackRow(t, onClick = { vm.rememberQuery(); c.player.play(res.tracks, res.tracks.indexOf(t)) }, onMore = { menuFor = t })
                     }
                 }

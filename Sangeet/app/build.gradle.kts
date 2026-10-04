@@ -104,6 +104,8 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.guava)
     implementation(libs.coil.compose)
+    // Installs the baseline profile (src/main/baseline-prof.txt) even when the APK is sideloaded.
+    implementation(libs.androidx.profileinstaller)
     implementation(libs.newpipe.extractor)
     implementation(libs.anthropic.java)
     coreLibraryDesugaring(libs.desugar.jdk.libs)
