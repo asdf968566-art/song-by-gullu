@@ -1,5 +1,9 @@
 package com.sangeet.player.ui.settings
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -88,10 +92,13 @@ fun SettingsItem(
 
 @Composable
 fun SettingsSwitch(icon: ImageVector, title: String, subtitle: String?, checked: Boolean, onChange: (Boolean) -> Unit) {
-    SettingsItem(icon, title, subtitle, onClick = { onChange(!checked) }) {
+    // Flip at once on tap; the saved value catches up a moment later (no waiting for the disk write).
+    var on by remember(checked) { mutableStateOf(checked) }
+    val flip: (Boolean) -> Unit = { on = it; onChange(it) }
+    SettingsItem(icon, title, subtitle, onClick = { flip(!on) }) {
         Switch(
-            checked = checked,
-            onCheckedChange = onChange,
+            checked = on,
+            onCheckedChange = flip,
             colors = SwitchDefaults.colors(checkedTrackColor = Sangeet.spec.accent),
         )
     }

@@ -138,6 +138,10 @@ adb shell pidof $PKG >/dev/null || fail "Catalog ke saath app crash ho gaya"
 echo "Feed $(( $(date +%s) - T0 ))s mein khula, app zinda ✅ (memory: $(adb shell dumpsys meminfo $PKG | grep -m1 'TOTAL' | awk '{print $2}') KB)"
 
 adb logcat -d > out/logcat.txt
+# Release build (R8): kuch code hat gaya ho to yahan dikhega, chahe app crash na kare.
+R8=$(grep -E "ClassNotFoundException|NoSuchMethodError|NoSuchFieldError|NoClassDefFoundError|InvalidDefinitionException" out/logcat.txt | grep -i -E "sangeet|anthropic|newpipe|jackson|serializ|mozilla" | head -20)
+if [[ -n "$R8" ]]; then echo "R8 se toota code:"; echo "$R8"; fail "Release build mein class/method missing"; fi
+echo "R8: koi missing class nahi ✅"
 if grep -q "FATAL EXCEPTION" out/logcat.txt; then
   grep -A 30 "FATAL EXCEPTION" out/logcat.txt | head -60
   fail "Logcat mein crash mila"

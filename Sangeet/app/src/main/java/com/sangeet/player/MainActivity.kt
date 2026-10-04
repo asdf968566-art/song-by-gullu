@@ -1,5 +1,9 @@
 package com.sangeet.player
 
+import com.sangeet.player.data.settings.AppSettings
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import androidx.compose.runtime.remember
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -24,7 +28,14 @@ class MainActivity : ComponentActivity() {
         container.player.connect()
         if (savedInstanceState == null) handleIntent(intent)
         setContent {
-            val settings by container.settings.settings.collectAsStateWithLifecycle()
+            // Only the theme settings: changing any other setting must not rebuild the whole app.
+            val themeOnly = remember {
+                container.settings.settings
+                    .map { AppSettings(theme = it.theme, darkMode = it.darkMode, accent = it.accent) }
+                    .distinctUntilChanged()
+            }
+            val cur = container.settings.current
+            val settings by themeOnly.collectAsStateWithLifecycle(AppSettings(theme = cur.theme, darkMode = cur.darkMode, accent = cur.accent))
             CompositionLocalProvider(LocalAppContainer provides container) {
                 SangeetTheme(settings) {
                     SangeetRoot()

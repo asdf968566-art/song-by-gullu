@@ -1,5 +1,8 @@
 package com.sangeet.player.ui
 
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -135,7 +138,16 @@ fun SangeetRoot() {
                 }
             },
         ) { padding ->
-            NavHost(nav, startDestination = Routes.DISCOVER, modifier = Modifier.padding(padding)) {
+            NavHost(
+                nav,
+                startDestination = Routes.DISCOVER,
+                modifier = Modifier.padding(padding),
+                // Quick fades: the default 700 ms cross-fade felt slow and left two screens on top of each other.
+                enterTransition = { fadeIn(tween(140)) },
+                exitTransition = { fadeOut(tween(90)) },
+                popEnterTransition = { fadeIn(tween(140)) },
+                popExitTransition = { fadeOut(tween(90)) },
+            ) {
                 composable(Routes.HOME) { HomeScreen(nav) }
                 composable(Routes.DISCOVER) { DiscoverScreen(nav) }
                 composable(Routes.ONLINE_LIBRARY) { OnlineLibraryScreen(nav) }

@@ -54,7 +54,8 @@ fun Artwork(
             }
         } else {
             AsyncImage(
-                model = url,
+                // Small thumbnails (lists, mini player) don't need the 500 px cover: less data, faster scrolling.
+                model = if (size != null && size <= 72.dp) url?.replace("500x500", "150x150") else url,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
