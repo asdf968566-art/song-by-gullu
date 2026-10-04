@@ -37,13 +37,14 @@ def nodes(xml):
                "w": b[2] - b[0], "h": b[3] - b[1]}
 
 
-def find(label, contains=False, scroll=0):
-    """A node whose text or content-desc is `label` (or contains it). Scrolls down up to `scroll` times."""
+def find(label, contains=False, scroll=0, lowest=False):
+    """A node whose text or content-desc is `label` (or contains it). Scrolls down up to `scroll` times.
+    lowest=True picks the match nearest the bottom (e.g. the mini player, not a shelf above it)."""
     for i in range(scroll + 1):
-        for n in nodes(dump()):
-            for v in (n["text"], n["desc"]):
-                if v and (v == label or (contains and label.lower() in v.lower())) and n["w"] > 0 and n["h"] > 0:
-                    return n
+        hits = [n for n in nodes(dump()) for v in (n["text"], n["desc"])
+                if v and (v == label or (contains and label.lower() in v.lower())) and n["w"] > 0 and n["h"] > 0]
+        if hits:
+            return max(hits, key=lambda n: n["y"]) if lowest else hits[0]
         if i < scroll:
             sh("input swipe 540 1500 540 700 300")
             time.sleep(1)
@@ -149,12 +150,27 @@ def open_and_back(label, contains=False, scroll=0, wait=3):
     return act
 
 
+def fresh(play=False):
+    """Start every section from the same place: app restarted, optionally with a song playing."""
+    relaunch()
+    if play:
+        play_song()
+        time.sleep(2)
+    return True
+
+
 def open_now_playing():
+    """Tap the mini player (the lowest place showing the current song's title)."""
     title = now_title()
     if not title:
         return False
     go_tab("Home")
-    return tap(title, wait=3) or tap(title, contains=True, wait=3)
+    n = find(title, lowest=True) or find(title[:12], contains=True, lowest=True)
+    if not n:
+        return False
+    sh(f"input tap {n['x']} {n['y']}")
+    time.sleep(3)
+    return True
 
 
 def main():
@@ -176,6 +192,7 @@ def main():
     step("For You: swipe up", lambda: sh("input swipe 540 1600 540 400 250") is not None and time.sleep(6) is None)
 
     # ---------------------------------------------------------------- Home
+    fresh()
     go_tab("Home")
     for label in ["Liked Songs", "Downloads", "On this phone", "Recently played"]:
         step(f"Home: {label}", open_and_back(label))
@@ -185,6 +202,7 @@ def main():
     step("Home: open a chart / mix", lambda: tap("Mix", contains=True, scroll=0, wait=4) and (back() or True))
 
     # ---------------------------------------------------------------- Search
+    fresh()
     go_tab("Search")
 
     def search():
@@ -202,17 +220,19 @@ def main():
     back()
 
     # ---------------------------------------------------------------- Library
-    go_tab("Your Library")
-    for label in ["Online Library", "Your Stats", "Liked Songs", "Downloads"]:
+    for label in ["Online Library", "Your Stats", "Liked Songs", "Downloads", "On this phone"]:
+        fresh()
+        go_tab("Your Library")
         step(f"Library: {label}", open_and_back(label, scroll=3, wait=5))
+    fresh()
+    go_tab("Your Library")
     step("Library: Import playlist", open_and_back("Import playlist"))
     step("Library: New playlist", lambda: tap("New playlist", wait=2) and (back() or True))
     step("Library: Online Library → playlist", lambda: tap("Online Library", scroll=3, wait=8)
          and sh("input tap 540 700") is not None and time.sleep(6) is None and (back(2) or True))
 
     # ---------------------------------------------------------------- Now Playing
-    if not playing():
-        play_song()
+    fresh(play=True)
     step("Now Playing: open", open_now_playing, lambda: (find("Speed") is not None or find("Queue") is not None, "player screen"))
     step("Now Playing: Shuffle on/off", lambda: tap("Shuffle", wait=1) and tap("Shuffle", wait=1))
 
@@ -234,10 +254,12 @@ def main():
     step("Now Playing: Next", lambda: tap("Next", wait=10), lambda: (now_title() != before, f"{before} → {now_title()}"))
     step("Now Playing: Previous", lambda: tap("Previous", wait=4) and tap("Previous", wait=8), lambda: (bool(now_title()), f"now: {now_title()}"))
 
-    # Song options (3 dots)
+    # Song options (3 dots), from a fresh Now Playing screen
+    fresh(play=True)
+    open_now_playing()
     def menu(item, then_back=True, wait=2):
         def act():
-            if not (tap("More", wait=2) or tap("Options", wait=2)):
+            if not (tap("Options", wait=2) or tap("More", wait=2)):
                 return False
             if not tap(item, scroll=2, wait=wait):
                 back()
@@ -265,6 +287,7 @@ def main():
     back(2)
 
     # ---------------------------------------------------------------- Settings
+    fresh()
     go_tab("Home")
     step("Settings: open", lambda: tap("Settings", wait=3))
     for label in ["Normalize volume", "Skip silence", "Hook preview in For You", "Resume on headphones", "Smart downloads",
