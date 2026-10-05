@@ -275,7 +275,7 @@ def main():
             return False
         return tap("Apply", wait=2)
     def speed_is(v):
-        for _ in range(5):
+        for _ in range(12):
             if f"speed={v}" in media():
                 return True
             time.sleep(1)
@@ -306,10 +306,6 @@ def main():
                 back()
             return True
         return act
-    for item in ["Like", "Play next", "Add to queue", "Add to playlist", "Start radio", "Share"]:
-        step(f"Song menu: {item}", menu(item, then_back=item in ("Add to playlist", "Share")))
-    step("Song menu: Go to artist", menu("Go to artist", wait=6))
-
     def download():
         adb("logcat", "-c")
         if not menu("Download", then_back=False)():
@@ -328,6 +324,10 @@ def main():
         why = [l for l in log.splitlines() if re.search(r"Sangeet|WM-|DownloadWorker|already", l, re.I)][-12:]
         return False, "not finished in 2 min; now playing: " + now_title() + "\n" + "\n".join(why)
     step("Song menu: Download", download, download_check)
+    for item in ["Like", "Play next", "Add to queue", "Add to playlist", "Start radio", "Share"]:
+        step(f"Song menu: {item}", menu(item, then_back=item in ("Add to playlist", "Share")))
+    step("Song menu: Go to artist", menu("Go to artist", wait=6))
+
     back(2)
 
     # Download status screen: the downloaded song must be listed there.

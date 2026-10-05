@@ -89,7 +89,10 @@ class DownloadRepository(
     suspend fun download(track: Track): Boolean {
         if (track.source == SourceType.LOCAL) return false
         if (downloads.value[track.id]?.state == DownloadState.DONE) return false
-        if (sameSongDownloaded(track)) return false
+        if (sameSongDownloaded(track)) {
+            android.util.Log.i("Sangeet", "download skipped, same song already downloaded: ${track.title} (${track.artist})")
+            return false
+        }
         library.remember(listOf(track))
         val quality = settings.current.downloadQuality
         dao.upsert(DownloadEntity(track.id, DownloadState.QUEUED.name, 0, null, quality.name))
@@ -118,6 +121,7 @@ class DownloadRepository(
         return downloads.value.values.filter { it.state == DownloadState.DONE && it.trackId != track.id }.any { info ->
             val other = library.find(info.trackId) ?: return@any false
             if (cleanTitle(other.title) != want) return@any false
+            android.util.Log.i("Sangeet", "same title as download ${other.id}: '${other.title}' by ${other.artist}")
             val sameSinger = singers.any { other.artist.lowercase().contains(it) }
             val sameLength = track.durationMs > 0 && other.durationMs > 0 && kotlin.math.abs(track.durationMs - other.durationMs) <= 5_000
             sameSinger || sameLength
