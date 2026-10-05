@@ -404,8 +404,8 @@ def main():
             try:
                 from PIL import Image
             except ImportError:
-                subprocess.run([sys.executable, "-m", "pip", "install", "-q", "pillow"], capture_output=True)
-                from PIL import Image
+                print(f"(screenshot {name} not logged: Pillow missing)")
+                return True
             img = Image.open(path).convert("RGB")
             img.thumbnail((300, 700))
             buf = io.BytesIO()
@@ -441,7 +441,10 @@ def main():
         step(f"Liquid Glass: {t} page", lambda t=t: go_tab(t) and shot(t.replace(" ", "")))
     step("Liquid Glass: Now Playing", lambda: open_now_playing() and shot("NowPlaying"))
     step("Liquid Glass: song menu sheet", lambda: tap("Options", wait=2) and shot("Sheet"))
-    back(2)
+    back()
+    # Close Now Playing too (its down arrow), so the tabs are reachable again.
+    if find("Close"):
+        tap("Close", wait=2)
     step("Theme: back to Classic Dark", set_theme("Classic Dark"))
 
     # ---------------------------------------------------------------- report

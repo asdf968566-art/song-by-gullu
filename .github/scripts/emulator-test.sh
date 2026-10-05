@@ -187,6 +187,8 @@ done
 adb exec-out screencap -p > out/6-home.png
 
 echo "== Poora UI walk: har tab, button, option"
+# Pillow lets the walk put small screenshots into this log.
+python3 -m pip install -q --user --break-system-packages pillow >/dev/null 2>&1 || true
 python3 .github/scripts/ui-walk.py | tee out/ui-walk.txt
 [[ ${PIPESTATUS[0]} == 0 ]] || fail "UI walk mein crash ya galat result (upar report dekho)"
 
