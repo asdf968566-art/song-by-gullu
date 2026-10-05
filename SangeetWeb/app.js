@@ -178,6 +178,11 @@ const Catalog = {
       if (!a) this.trackPl.set(t.id, (a = []));
       a.push(pi);
     }));
+    this.rank = new Map();
+    for (const l of S.langs) {
+      const list = this.data[l]?.tracks || [];
+      list.forEach((t, i) => this.rank.set(t.id, 1 - i / list.length));
+    }
     this.total = this.tracks.length;
     this.loaded = true;
   },
@@ -381,6 +386,48 @@ function suggestions(count = 25, exclude = new Set()) {
   return out;
 }
 
+/** Songs like this one (Spotify-style radio): same playlists, same singers, same language and era, popular ones first.
+ * Used after a song picked in search, so "Khuda Jaane" is followed by similar songs, not by more songs named "Khuda…". */
+function radio(seed, count = 25, exclude = new Set()) {
+  const singers = new Set(splitArtists(seed.artist).map(norm));
+  const pls = new Set(Catalog.trackPl.get(seed.id) || []);
+  const lang = seed.lang || Catalog.byId.get(seed.id)?.lang || '';
+  const seedTitle = norm(seed.title);
+  const skipTitles = new Set([...exclude].map((id) => Catalog.byId.get(id)).filter(Boolean).map((t) => norm(t.title)));
+  const scored = [];
+  for (const t of Catalog.tracks) {
+    if (t.id === seed.id || exclude.has(t.id)) continue;
+    const title = norm(t.title);
+    if (title === seedTitle || skipTitles.has(title) || JUNK.test(t.title)) continue;
+    let s = 0, chart = 0;
+    for (const pi of Catalog.trackPl.get(t.id) || []) {
+      if (pls.has(pi)) s += 1.5;
+      if (Catalog.playlists[pi].chart) chart = 0.6;
+    }
+    s = Math.min(s, 6) + chart;
+    if (splitArtists(t.artist).some((a) => singers.has(norm(a)))) s += 2.5;
+    if (lang && t.lang === lang) s += 1.5;
+    if (seed.year && t.year) s += Math.max(0, 1 - Math.abs(seed.year - t.year) / 8);
+    s += (Catalog.rank.get(t.id) || 0) * 2;
+    if (seenSet.has(t.id)) s -= 1;
+    scored.push([t, s + Math.random() * 1.5]);
+  }
+  scored.sort((a, b) => b[1] - a[1]);
+  // Mix it up: at most 3 songs per singer, never the same singer twice in a row.
+  const top = scored.slice(0, count * 4).map((x) => x[0]);
+  const per = new Map(), out = [];
+  while (top.length && out.length < count) {
+    const last = out.length ? norm(splitArtists(out[out.length - 1].artist)[0] || '') : '';
+    let i = top.findIndex((t) => { const a = norm(splitArtists(t.artist)[0] || ''); return a !== last && (per.get(a) || 0) < 3; });
+    if (i < 0) i = 0;
+    const t = top.splice(i, 1)[0];
+    const a = norm(splitArtists(t.artist)[0] || '');
+    per.set(a, (per.get(a) || 0) + 1);
+    out.push(t);
+  }
+  return out;
+}
+
 /* ------------------------------------------------------------------ YouTube (search + songs that aren't in the library) */
 const Tube = {
   cache: new Map(),
@@ -472,8 +519,14 @@ const Player = {
   get current() { return this.queue[this.i]; },
   play(list, i = 0, keep = false) {
     if (!list[i]) return;
+    this.radioMode = false;
     this.queue = keep ? list : list.slice();
     this.load(i);
+  },
+  /** This song, then songs like it (and more like them when those run out). */
+  playRadio(t) {
+    this.play([t, ...radio(t, 25, new Set([t.id]))]);
+    this.radioMode = true;
   },
   playNext(t) {
     if (!this.current) return this.play([t]);
@@ -558,7 +611,8 @@ const Player = {
   autoplay(thenPlay) {
     if (this.fetching) return;
     this.fetching = true;
-    const fresh = suggestions(20, new Set(this.queue.map((t) => t.id)));
+    const ids = new Set(this.queue.map((t) => t.id));
+    const fresh = this.radioMode && this.current ? radio(this.current, 20, ids) : suggestions(20, ids);
     this.fetching = false;
     if (!fresh.length) { if (thenPlay) this.pause(); return; }
     markSeen(fresh.map((t) => t.id));
@@ -640,13 +694,14 @@ function trackRow(t, onClick) {
     h('div', { class: 'meta' }, h('div', { class: 't' }, t.title), h('div', { class: 's' }, t.src === 'yt' ? `${t.artist} · YouTube` : t.artist)),
     h('button', { class: 'icon-btn more', 'aria-label': 'More', onclick: (e) => { e.stopPropagation(); trackMenu(t); } }, icon('more')));
 }
-/** Long lists render 60 rows at a time as you scroll. */
-function trackList(tracks) {
+/** Long lists render 60 rows at a time as you scroll. `asRadio`: tapping a song plays it followed by songs like it
+ * (search results), instead of the rest of the list (playlists, albums). */
+function trackList(tracks, asRadio = false) {
   const box = h('div');
   let shown = 0;
   const more = () => {
     const end = Math.min(tracks.length, shown + 60);
-    for (; shown < end; shown++) { const i = shown; box.append(trackRow(tracks[i], () => Player.play(tracks, i))); }
+    for (; shown < end; shown++) { const i = shown; box.append(trackRow(tracks[i], () => (asRadio ? Player.playRadio(tracks[i]) : Player.play(tracks, i)))); }
     if (shown < tracks.length) box.append(sentinel);
   };
   const sentinel = h('div', { style: 'height:1px' });
@@ -665,6 +720,7 @@ function menu(title, items) {
 function trackMenu(t) {
   menu(`${t.title} · ${t.artist}`, [
     ['Play next', () => Player.playNext(t)],
+    ['Start radio', () => Player.playRadio(t)],
     ['Add to queue', () => Player.addToQueue(t)],
     [isLiked(t) ? 'Remove from Liked' : 'Like', () => toggleLike(t)],
     ['Add to playlist', () => playlistPicker(t)],
@@ -854,13 +910,13 @@ function searchPage() {
     if (q.length < 2) { results.replaceChildren(browse()); return; }
     const local = Catalog.search(q, 40);
     const artistBox = h('div'), deepBox = h('div'), fixBox = h('div'), ytBox = h('div');
-    results.replaceChildren(artistBox, fixBox, local.length ? trackList(local) : h('div', { class: 'spinner' }), deepBox, ytBox);
+    results.replaceChildren(artistBox, fixBox, local.length ? trackList(local, true) : h('div', { class: 'spinner' }), deepBox, ytBox);
     const shown = new Set(local.map((t) => norm(t.title)));
     const youtube = async () => {
       ytBox.replaceChildren(h('div', { class: 'spinner' }));
       const yt = (await Tube.search(q)).filter((t) => !shown.has(norm(t.title)));
       if (my !== seq) return;
-      fill(ytBox, yt.length ? [h('div', { class: 'section' }, 'From YouTube'), trackList(yt)] : shown.size ? [] : h('div', { class: 'empty' }, 'No songs found'));
+      fill(ytBox, yt.length ? [h('div', { class: 'section' }, 'From YouTube'), trackList(yt, true)] : shown.size ? [] : h('div', { class: 'empty' }, 'No songs found'));
     };
     // Then the full catalog (lakhs of songs) and singers; YouTube only for what isn't there.
     ytTimer = setTimeout(async () => {
@@ -871,14 +927,14 @@ function searchPage() {
       const more = deep.filter((t) => !ids.has(t.id));
       more.forEach((t) => shown.add(norm(t.title)));
       if (artists.length) fill(artistBox, h('div', { class: 'section' }, 'Artists'), artists.map(artistRow));
-      if (more.length) fill(deepBox, local.length ? h('div', { class: 'section' }, 'More songs') : null, trackList(more));
+      if (more.length) fill(deepBox, local.length ? h('div', { class: 'section' }, 'More songs') : null, trackList(more, true));
       // Misspelt singer ("arjit singh", "sidhu moosewala"): first the songs of the singer it most likely means.
       const fix = artists[0];
       if (fix && fix.how !== 'start' && norm(fix.name) !== norm(q)) {
         const songs = (await Deep.search(fix.name, 40)).filter((t) => !shown.has(norm(t.title)));
         if (my !== seq) return;
         songs.forEach((t) => shown.add(norm(t.title)));
-        if (songs.length) fill(fixBox, h('div', { class: 'section' }, `Songs by ${fix.name}`), trackList(songs));
+        if (songs.length) fill(fixBox, h('div', { class: 'section' }, `Songs by ${fix.name}`), trackList(songs, true));
       }
       if (shown.size < 8) ytAuto = setTimeout(youtube, 600); // only once typing has stopped (YouTube allows few searches a day)
       else ytBox.replaceChildren(h('button', { class: 'chip', style: 'margin:12px 16px', onclick: youtube }, 'Search YouTube too'));
