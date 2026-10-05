@@ -314,14 +314,14 @@ fun SearchScreen(nav: NavController) {
             if (ui.local.isNotEmpty()) {
                 item { SectionHeader("On this phone") }
                 items(ui.local, key = { "l_" + it.id }) { t ->
-                    TrackRow(t, onClick = { vm.rememberQuery(); c.player.play(ui.local, ui.local.indexOf(t)) }, onMore = { menuFor = t })
+                    TrackRow(t, onClick = { vm.rememberQuery(); c.player.startRadio(t) }, onMore = { menuFor = t })
                 }
             }
             ui.online.forEach { res ->
                 if (res.tracks.isNotEmpty()) {
                     item(key = "h_${res.source}") { SectionHeader(res.source.label) }
                     items(res.tracks.size, key = { "o_${res.source}_${it}_${res.tracks[it].id}" }) { idx -> val t = res.tracks[idx]
-                        TrackRow(t, onClick = { vm.rememberQuery(); c.player.play(res.tracks, res.tracks.indexOf(t)) }, onMore = { menuFor = t })
+                        TrackRow(t, onClick = { vm.rememberQuery(); c.player.startRadio(t) }, onMore = { menuFor = t })
                     }
                 }
             }
