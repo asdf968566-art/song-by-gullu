@@ -393,17 +393,31 @@ def main():
 
     # ---------------------------------------------------------------- themes: Liquid Glass on every page
     def shot(name):
-        with open(f"out/theme-{name}.png", "wb") as f:
+        path = f"out/theme-{name}.png"
+        with open(path, "wb") as f:
             subprocess.run(["adb", "exec-out", "screencap", "-p"], stdout=f)
+        # Also into the log as a small JPEG (artifacts can't always be opened), between SHOT markers.
+        jpg = subprocess.run(["convert", path, "-resize", "300x", "-quality", "40", "jpg:-"], capture_output=True).stdout
+        if jpg:
+            import base64
+            data = base64.b64encode(jpg).decode()
+            print(f"SHOT-BEGIN {name}")
+            for i in range(0, len(data), 3000):
+                print("SHOT " + data[i:i + 3000])
+            print(f"SHOT-END {name}")
         return True
+
+    def on_screen():
+        return ", ".join(sorted({n["text"] or n["desc"] for n in nodes(dump()) if n["text"] or n["desc"]})[:40])
 
     def set_theme(name):
         def act():
             go_tab("Home")
-            if not tap("Settings", wait=3) or not tap("Theme", scroll=8, wait=3):
-                return False
-            if not tap(name, scroll=6, wait=3):
-                return False
+            for label, scroll in [("Settings", 0), ("Theme", 8), (name, 6)]:
+                if not tap(label, scroll=scroll, wait=3):
+                    print(f"[theme] '{label}' not found; on screen: {on_screen()}")
+                    shot(f"missing-{label.replace(' ', '')}")
+                    return False
             shot(f"picker-{name.replace(' ', '')}")
             back(2)
             return True
