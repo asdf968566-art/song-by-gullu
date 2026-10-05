@@ -319,9 +319,15 @@ def main():
                 return True
             time.sleep(2)
         return True
-    step("Song menu: Download", download,
-         lambda: ("download done:" in adb("logcat", "-d"),
-                  (re.search(r"download done: .*", adb("logcat", "-d")) or [""])[0] or "not finished in 2 min"))
+    def download_check():
+        log = adb("logcat", "-d")
+        m = re.search(r"download done: .*", log)
+        if m:
+            return True, m.group(0)
+        # Explain why: the worker's log lines and what the menu showed.
+        why = [l for l in log.splitlines() if re.search(r"Sangeet|WM-|DownloadWorker|already", l, re.I)][-12:]
+        return False, "not finished in 2 min; now playing: " + now_title() + "\n" + "\n".join(why)
+    step("Song menu: Download", download, download_check)
     back(2)
 
     # Download status screen: the downloaded song must be listed there.
