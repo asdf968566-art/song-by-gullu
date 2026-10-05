@@ -324,6 +324,14 @@ def main():
                   (re.search(r"download done: .*", adb("logcat", "-d")) or [""])[0] or "not finished in 2 min"))
     back(2)
 
+    # Download status screen: the downloaded song must be listed there.
+    fresh()
+    go_tab("Your Library")
+    step("Downloads screen: open", lambda: tap("Downloads", scroll=3, wait=4),
+         lambda: (find("Saved on this phone", contains=True) is not None, "saved songs listed"))
+    step("Downloads screen: play downloads", lambda: tap("Play downloads", wait=6), lambda: (playing(), f"playing: {now_title()}"))
+    back()
+
     # ---------------------------------------------------------------- Settings
     fresh()
     go_tab("Home")

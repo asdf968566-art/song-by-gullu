@@ -230,7 +230,7 @@ fun HomeScreen(nav: NavController) {
         item {
             val tiles = buildList<Triple<String, String?, () -> Unit>> {
                 add(Triple("Liked Songs", favorites.firstOrNull()?.artworkUrl) { nav.navigate(Routes.list(ListKind.LIKED)) })
-                add(Triple("Downloads", downloaded.firstOrNull()?.artworkUrl) { nav.navigate(Routes.list(ListKind.DOWNLOADS)) })
+                add(Triple("Downloads", downloaded.firstOrNull()?.artworkUrl) { nav.navigate(Routes.DOWNLOADS) })
                 add(Triple("On this phone", localSongs.firstOrNull()?.artworkUrl) { nav.navigate(Routes.list(ListKind.LOCAL)) })
                 add(Triple("Recently played", recent.firstOrNull()?.artworkUrl) { nav.navigate(Routes.list(ListKind.RECENT)) })
                 recent.take(2).forEach { t -> add(Triple(t.title, t.artworkUrl) { c.player.play(listOf(t)) }) }
@@ -333,7 +333,7 @@ fun HomeScreen(nav: NavController) {
             }
         }
         if (filter != 1 && downloaded.isNotEmpty()) {
-            item { SectionHeader("Your downloads", action = "See all") { nav.navigate(Routes.list(ListKind.DOWNLOADS)) } }
+            item { SectionHeader("Your downloads", action = "See all") { nav.navigate(Routes.DOWNLOADS) } }
             item { TrackShelf(downloaded, onPlay = { c.player.play(downloaded, it) }, onMore = { menuFor = it }) }
         }
         if (filter != 1 && localSongs.isNotEmpty()) {

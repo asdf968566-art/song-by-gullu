@@ -89,6 +89,7 @@ object Routes {
     const val SOURCES = "settings/sources"
     const val EQUALIZER = "settings/equalizer"
     const val IMPORT = "import"
+    const val DOWNLOADS = "downloads"
     const val PLAYLIST = "playlist/{id}"
     const val LIST = "list/{kind}?arg={arg}"
 
@@ -122,6 +123,10 @@ fun SangeetRoot() {
 
     // Naya version chupchaap check karo (6 ghante mein ek baar)
     LaunchedEffect(Unit) { runCatching { container.updater.checkIfDue() } }
+    // Opened from a notification (e.g. the download progress): go to that screen.
+    LaunchedEffect(Unit) {
+        container.openRoute.collect { route -> if (route != null) { nav.navigate(route); container.openRoute.value = null } }
+    }
     UpdateDialog()
 
     BackHandler(enabled = expanded) { expanded = false }
@@ -175,6 +180,7 @@ fun SangeetRoot() {
                 composable(Routes.SOURCES) { SourcesScreen(nav) }
                 composable(Routes.EQUALIZER) { EqualizerScreen(nav) }
                 composable(Routes.IMPORT) { ImportPlaylistScreen(nav) }
+                composable(Routes.DOWNLOADS) { com.sangeet.player.ui.library.DownloadsScreen(nav) }
                 composable(
                     Routes.PLAYLIST,
                     arguments = listOf(navArgument("id") { type = NavType.LongType }),

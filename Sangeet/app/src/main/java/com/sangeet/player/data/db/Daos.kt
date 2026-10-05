@@ -183,6 +183,10 @@ interface DownloadDao {
     )
     fun observeDownloadedTracks(): Flow<List<TrackEntity>>
 
+    /** Songs of every download, whatever its state (for the download status screen). */
+    @Query("SELECT t.* FROM tracks t JOIN downloads d ON d.trackId = t.id ORDER BY d.createdAt DESC")
+    fun observeAllDownloadTracks(): Flow<List<TrackEntity>>
+
     @Query("SELECT * FROM downloads WHERE trackId = :trackId")
     suspend fun get(trackId: String): DownloadEntity?
 

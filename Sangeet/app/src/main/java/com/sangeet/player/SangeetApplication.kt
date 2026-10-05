@@ -54,6 +54,8 @@ class SangeetApplication : Application() {
 class AppContainer(private val app: Application) {
     val appContext: android.content.Context get() = app
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    /** A screen to open when the app is launched from a notification. */
+    val openRoute = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
 
     val database = SangeetDatabase.create(app)
     val settings = SettingsRepository(app, scope)

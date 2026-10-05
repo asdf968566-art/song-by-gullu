@@ -71,6 +71,7 @@ fun LibraryScreen(nav: NavController) {
     val playlists by c.library.playlists.collectAsState(initial = emptyList())
     val favorites by c.library.favorites.collectAsState(initial = emptyList())
     val downloaded by c.downloads.downloadedTracks.collectAsState(initial = emptyList())
+    val activeDownloads by c.downloads.activeCount.collectAsState(initial = 0)
     val localSongs by c.local.songs.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableStateOf(0) } // 0 playlists, 1 albums, 2 artists
     var creating by remember { mutableStateOf(false) }
@@ -172,10 +173,11 @@ fun LibraryScreen(nav: NavController) {
                 item {
                     LibraryRow(
                         title = "Downloads",
-                        subtitle = "Offline • ${if (downloaded.size == 1) "1 song" else "${downloaded.size} songs"}",
+                        subtitle = "Offline • ${if (downloaded.size == 1) "1 song" else "${downloaded.size} songs"}" +
+                            if (activeDownloads > 0) " • $activeDownloads downloading" else "",
                         gradient = listOf(Color(0xFF0B6E4F), Color(0xFF1DB954)),
                         icon = Icons.Rounded.DownloadForOffline,
-                    ) { nav.navigate(Routes.list(ListKind.DOWNLOADS)) }
+                    ) { nav.navigate(Routes.DOWNLOADS) }
                 }
                 item {
                     LibraryRow(

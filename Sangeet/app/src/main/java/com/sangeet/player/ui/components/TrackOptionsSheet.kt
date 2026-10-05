@@ -143,7 +143,7 @@ fun TrackOptionsSheet(
                     else -> SheetItem(Icons.Rounded.Download, "Download") {
                         scope.launch {
                             container.downloads.download(track)
-                            Toast.makeText(context, "Downloading: ${track.title}", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Downloading ${track.title}. See progress in Library → Downloads", Toast.LENGTH_LONG).show()
                         }
                         onDismiss()
                     }

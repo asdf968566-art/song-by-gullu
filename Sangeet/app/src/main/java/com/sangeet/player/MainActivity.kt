@@ -27,6 +27,10 @@ import com.sangeet.player.ui.SangeetRoot
 import com.sangeet.player.ui.theme.SangeetTheme
 
 class MainActivity : ComponentActivity() {
+    companion object {
+        const val ACTION_DOWNLOADS = "com.sangeet.player.OPEN_DOWNLOADS"
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -74,6 +78,7 @@ class MainActivity : ComponentActivity() {
     private fun handleIntent(intent: Intent?) {
         val container = (application as SangeetApplication).container
         when (intent?.action) {
+            ACTION_DOWNLOADS -> container.openRoute.value = com.sangeet.player.ui.Routes.DOWNLOADS
             Intent.ACTION_SEND -> {
                 val text = intent.getStringExtra(Intent.EXTRA_TEXT) ?: return
                 ExternalTracks.fromSharedText(text)?.let { container.player.play(listOf(it)) }
