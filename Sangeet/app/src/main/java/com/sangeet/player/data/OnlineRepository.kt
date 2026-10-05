@@ -1,6 +1,7 @@
 package com.sangeet.player.data
 
 import com.sangeet.player.data.model.AudioQuality
+import com.sangeet.player.data.model.inLanguages
 import com.sangeet.player.data.model.SourceType
 import com.sangeet.player.data.model.Track
 import com.sangeet.player.data.remote.AudiusSource
@@ -65,6 +66,26 @@ class OnlineRepository(
 
     /** Ek query ke saare sources ke gaane ek list mein (JioSaavn pehle). */
     suspend fun searchAll(query: String): List<Track> = search(query).flatMap { it.tracks }.distinctBy { it.id }
+
+    /**
+     * A category built from several JioSaavn searches (see [Category.more]): only songs in its language,
+     * and from the singer searches only songs whose title fits [Category.match]. Same song once.
+     */
+    suspend fun categoryTracks(cat: Category): List<Track> = coroutineScope {
+        val match = cat.match
+        val found = (listOf(cat.query) + cat.more).map { q ->
+            async {
+                val trusted = match == null || match.containsMatchIn(q)
+                (1..2).flatMap { page -> runCatching { saavn.searchPage(q, page) }.getOrDefault(emptyList()) }
+                    .filter { it.inLanguages(listOf(cat.language)) && (trusted || match!!.containsMatchIn(it.title)) }
+            }
+        }.awaitAll()
+        // Take turns from each search so the list isn't one singer after another.
+        val mixed = (0 until (found.maxOfOrNull { it.size } ?: 0)).flatMap { i -> found.mapNotNull { it.getOrNull(i) } }
+        val seen = HashSet<String>()
+        mixed.filter { seen.add(it.title.lowercase().substringBefore(" (").trim()) }
+            .ifEmpty { searchAll(cat.query) }
+    }
 
     /** Is waqt ke network ke hisaab se kaunsi quality chahiye. */
     fun streamingQuality(): AudioQuality {

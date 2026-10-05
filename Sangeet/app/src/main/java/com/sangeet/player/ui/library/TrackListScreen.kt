@@ -49,7 +49,9 @@ fun TrackListScreen(nav: NavController, kind: ListKind, arg: String) {
     val genreTracks by produceState<List<Track>?>(initialValue = null, kind, arg) {
         value = if (kind == ListKind.GENRE) {
             val q = Categories.queryFor(arg)
-            if (q != null) c.online.searchAll(q) else c.online.trending(arg).flatMap { it.tracks }.distinctBy { it.id }
+            val cat = Categories.find(arg)
+            if (cat != null && cat.more.isNotEmpty()) c.online.categoryTracks(cat)
+            else if (q != null) c.online.searchAll(q) else c.online.trending(arg).flatMap { it.tracks }.distinctBy { it.id }
         } else emptyList()
     }
 

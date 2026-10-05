@@ -144,3 +144,6 @@ body.np-open #ytbox { bottom: auto; top: calc(env(safe-area-inset-top) + 60px); 
 .card .cover { box-shadow: 0 6px 18px rgba(0, 0, 0, .35); }
 .fp .cover-wrap { width: min(100%, 52vh); margin: 0 auto 22px; }
 .fp .cover-wrap .cover { width: 100%; margin: 0; }
+.cat-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 6px 16px; }
+.cat { height: 64px; border-radius: 10px; padding: 12px; color: #fff; font-weight: 700; font-size: 16px; display: flex; align-items: flex-end; }
+.cat:active { transform: scale(.97); }
