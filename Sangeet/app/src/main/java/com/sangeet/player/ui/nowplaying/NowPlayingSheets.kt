@@ -164,7 +164,7 @@ fun SpeedDialog(onDismiss: () -> Unit) {
         },
         confirmButton = {
             TextButton(onClick = {
-                scope.launch { c.settings.setPlaybackSpeed(speed) }
+                c.scope.launch { c.settings.setPlaybackSpeed(speed) } // app scope: the dialog closes right away
                 onDismiss()
             }) { Text("Apply") }
         },
