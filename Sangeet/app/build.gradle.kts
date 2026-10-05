@@ -26,6 +26,13 @@ android {
             // Key repo mein nahi rakhi: GitHub Secret YOUTUBE_API_KEY se aati hai (ya local.properties / -P se).
             "\"${System.getenv("YOUTUBE_API_KEY") ?: project.findProperty("sangeet.youtubeApiKey") ?: ""}\"",
         )
+        // Lets "Report a problem" create a GitHub issue from inside the app. A fine-grained token with only
+        // "Issues: Read and write" on this repo, stored as the GitHub secret REPORT_TOKEN (never in the repo).
+        buildConfigField(
+            "String",
+            "REPORT_TOKEN",
+            "\"${System.getenv("REPORT_TOKEN")?.takeIf { it.isNotBlank() } ?: project.findProperty("sangeet.reportToken") ?: ""}\"",
+        )
     }
 
     // Har build ek hi key se sign ho, taaki naya APK purane ke upar install ho jaye (data safe rahe).

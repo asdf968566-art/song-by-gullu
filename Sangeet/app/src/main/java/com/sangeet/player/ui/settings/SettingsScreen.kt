@@ -245,8 +245,8 @@ fun SettingsScreen(nav: NavController) {
                     )
                 }
             })
-            SettingsItem(Icons.Rounded.BugReport, "Report a problem", "Opens GitHub with the details so it can be fixed", onClick = {
-                com.sangeet.player.data.CrashReporter.send(context)
+            SettingsItem(Icons.Rounded.BugReport, "Report a problem", "Tell us what went wrong, sent right from here", onClick = {
+                nav.navigate(Routes.REPORT)
             })
         }
 

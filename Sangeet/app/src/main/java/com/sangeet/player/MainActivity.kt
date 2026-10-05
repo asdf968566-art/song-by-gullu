@@ -56,7 +56,10 @@ class MainActivity : ComponentActivity() {
                             onDismissRequest = { CrashReporter.clear(this@MainActivity); crash = null },
                             title = { Text("Sangeet closed unexpectedly") },
                             text = { Text("Send a report so it can be fixed? It opens GitHub with the error details.") },
-                            confirmButton = { TextButton(onClick = { CrashReporter.send(this@MainActivity); crash = null }) { Text("Send report") } },
+                            confirmButton = { TextButton(onClick = {
+                                container.openRoute.value = com.sangeet.player.ui.Routes.REPORT
+                                crash = null
+                            }) { Text("Send report") } },
                             dismissButton = { TextButton(onClick = { CrashReporter.clear(this@MainActivity); crash = null }) { Text("Not now") } },
                         )
                     }

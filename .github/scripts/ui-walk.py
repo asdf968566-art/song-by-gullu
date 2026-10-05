@@ -349,13 +349,40 @@ def main():
     step("Settings: Save downloads to phone storage (off again)", lambda: tap("Save downloads to phone storage", wait=2))
     swipe_down()
     swipe_down()
-    for label in ["Theme", "Equalizer & Bass boost", "Music sources", "Open AI DJ"]:
+    def wrong_password():
+        if not tap("Music sources", scroll=10, wait=3):
+            return False
+        n = find("Password")
+        if not n:
+            return False
+        sh(f"input tap {n['x']} {n['y']}")
+        sh("input text 1111")
+        time.sleep(1)
+        tap("Unlock", wait=4)
+        return True
+    step("Settings: Music sources is locked (wrong password refused)", wrong_password,
+         lambda: (find("Wrong password") is not None, "wrong password refused"))
+    back(2)
+    swipe_down()
+    swipe_down()
+    for label in ["Theme", "Equalizer & Bass boost", "Open AI DJ"]:
         step(f"Settings: {label}", open_and_back(label, scroll=8, wait=3))
         swipe_down()
         swipe_down()
     step("Settings: Move library to another phone", open_and_back("Move library to another phone", scroll=10, wait=4))
-    step("Settings: Report a problem", lambda: tap("Report a problem", scroll=10, wait=5)
-         and sh(f"am start -n {PKG}/.MainActivity") is not None and time.sleep(3) is None)
+    def report_form():
+        if not tap("Report a problem", scroll=10, wait=3):
+            return False
+        n = find("What went wrong?", contains=True)
+        if not n:
+            return False
+        sh(f"input tap {n['x']} {n['y']}")
+        sh("input text test")
+        time.sleep(1)
+        return True
+    step("Settings: Report a problem (in-app form, not sent)", report_form,
+         lambda: (find("WhatsApp", contains=True) is not None, "form with send buttons"))
+    back(2)
     back(2)
 
     # ---------------------------------------------------------------- report

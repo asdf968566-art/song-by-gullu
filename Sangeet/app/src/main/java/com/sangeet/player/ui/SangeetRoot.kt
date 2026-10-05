@@ -68,7 +68,6 @@ import com.sangeet.player.ui.nowplaying.NowPlayingScreen
 import com.sangeet.player.ui.search.SearchScreen
 import com.sangeet.player.ui.settings.EqualizerScreen
 import com.sangeet.player.ui.settings.SettingsScreen
-import com.sangeet.player.ui.settings.SourcesScreen
 import com.sangeet.player.ui.settings.ThemePickerScreen
 import com.sangeet.player.ui.theme.Sangeet
 import com.sangeet.player.ui.theme.ThemedBackground
@@ -90,6 +89,7 @@ object Routes {
     const val EQUALIZER = "settings/equalizer"
     const val IMPORT = "import"
     const val DOWNLOADS = "downloads"
+    const val REPORT = "report"
     const val PLAYLIST = "playlist/{id}"
     const val LIST = "list/{kind}?arg={arg}"
 
@@ -177,7 +177,8 @@ fun SangeetRoot() {
                 composable(Routes.LIBRARY) { LibraryScreen(nav) }
                 composable(Routes.SETTINGS) { SettingsScreen(nav) }
                 composable(Routes.THEMES) { ThemePickerScreen(nav) }
-                composable(Routes.SOURCES) { SourcesScreen(nav) }
+                composable(Routes.SOURCES) { com.sangeet.player.ui.settings.LockedSourcesScreen(nav) }
+                composable(Routes.REPORT) { com.sangeet.player.ui.settings.ReportScreen(nav) }
                 composable(Routes.EQUALIZER) { EqualizerScreen(nav) }
                 composable(Routes.IMPORT) { ImportPlaylistScreen(nav) }
                 composable(Routes.DOWNLOADS) { com.sangeet.player.ui.library.DownloadsScreen(nav) }
