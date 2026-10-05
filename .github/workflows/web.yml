@@ -77,11 +77,14 @@ jobs:
           cd SangeetWeb
           touch .nojekyll
           git init -q -b gh-pages
+          # No background git housekeeping: it kept writing into .git while it was being removed.
+          git config gc.auto 0
+          git config maintenance.auto false
           git add -A
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
             commit -qm "Web app build ${{ github.run_number }}"
           git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" gh-pages
-          rm -rf .git
+          rm -rf .git || { sleep 10; rm -rf .git; }
         env:
           GH_TOKEN: ${{ github.token }}
 
