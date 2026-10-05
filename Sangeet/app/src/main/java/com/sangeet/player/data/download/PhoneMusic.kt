@@ -26,12 +26,7 @@ object PhoneMusic {
         val resolver = context.contentResolver
         val collection = MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
         val relPath = "${Environment.DIRECTORY_MUSIC}/$FOLDER/"
-        // Already saved before? Don't make a second copy.
-        resolver.query(
-            collection, arrayOf(MediaStore.Audio.Media._ID),
-            "${MediaStore.Audio.Media.RELATIVE_PATH}=? AND ${MediaStore.Audio.Media.DISPLAY_NAME}=?",
-            arrayOf(relPath, name), null,
-        )?.use { if (it.moveToFirst()) return null }
+        if (alreadySaved(context, collection, relPath, name, track)) return null
 
         val values = ContentValues().apply {
             put(MediaStore.Audio.Media.DISPLAY_NAME, name)
@@ -53,6 +48,38 @@ object PhoneMusic {
             null
         }
     }
+
+    /**
+     * The same song must not be saved twice, even when it came once from YouTube and once from JioSaavn
+     * with a different artist line: same file name, or same clean title plus same singer / same length.
+     */
+    private fun alreadySaved(context: Context, collection: Uri, relPath: String, name: String, track: Track): Boolean {
+        val want = clean(track.title)
+        val singers = track.artist.lowercase().split(',', '&').map { it.trim() }.filter { it.length > 2 }
+        context.contentResolver.query(
+            collection,
+            arrayOf(MediaStore.Audio.Media.DISPLAY_NAME, MediaStore.Audio.Media.TITLE, MediaStore.Audio.Media.ARTIST, MediaStore.Audio.Media.DURATION),
+            "${MediaStore.Audio.Media.RELATIVE_PATH}=?", arrayOf(relPath), null,
+        )?.use { c ->
+            while (c.moveToNext()) {
+                if (c.getString(0) == name) return true
+                if (clean(c.getString(1).orEmpty()) != want || want.isBlank()) continue
+                val artist = c.getString(2).orEmpty().lowercase()
+                val sameSinger = singers.any { artist.contains(it) }
+                val seconds = c.getLong(3) / 1000
+                val sameLength = track.durationMs > 0 && seconds > 0 && kotlin.math.abs(seconds - track.durationMs / 1000) <= 5
+                if (sameSinger || sameLength) return true
+            }
+        }
+        return false
+    }
+
+    /** "Kesariya (From \"Brahmastra\")" and "Kesariya - Official Video" both become "kesariya". */
+    private fun clean(title: String) = title.lowercase()
+        .replace(Regex("""\(.*?\)|\[.*?]"""), " ")
+        .substringBefore(" - ")
+        .replace(Regex("[^\\p{L}\\p{N}]+"), " ")
+        .trim()
 
     private fun mime(ext: String) = when (ext.lowercase()) {
         "mp3" -> "audio/mpeg"

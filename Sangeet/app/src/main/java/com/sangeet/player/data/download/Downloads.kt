@@ -85,9 +85,11 @@ class DownloadRepository(
         return info.filePath?.takeIf { File(it).exists() }
     }
 
-    suspend fun download(track: Track) {
-        if (track.source == SourceType.LOCAL) return
-        if (downloads.value[track.id]?.state == DownloadState.DONE) return
+    /** Starts a download. Returns false when this song (or the same song from another source) is already downloaded. */
+    suspend fun download(track: Track): Boolean {
+        if (track.source == SourceType.LOCAL) return false
+        if (downloads.value[track.id]?.state == DownloadState.DONE) return false
+        if (sameSongDownloaded(track)) return false
         library.remember(listOf(track))
         val quality = settings.current.downloadQuality
         dao.upsert(DownloadEntity(track.id, DownloadState.QUEUED.name, 0, null, quality.name))
@@ -105,7 +107,28 @@ class DownloadRepository(
             .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
             .build()
         WorkManager.getInstance(context).enqueueUniqueWork(workName(track.id), ExistingWorkPolicy.REPLACE, request)
+        return true
     }
+
+    /** The same song already downloaded from another source (e.g. YouTube vs JioSaavn): same clean title and singer or length. */
+    private suspend fun sameSongDownloaded(track: Track): Boolean {
+        val want = cleanTitle(track.title)
+        if (want.isBlank()) return false
+        val singers = track.artist.lowercase().split(',', '&').map { it.trim() }.filter { it.length > 2 }
+        return downloads.value.values.filter { it.state == DownloadState.DONE && it.trackId != track.id }.any { info ->
+            val other = library.find(info.trackId) ?: return@any false
+            if (cleanTitle(other.title) != want) return@any false
+            val sameSinger = singers.any { other.artist.lowercase().contains(it) }
+            val sameLength = track.durationMs > 0 && other.durationMs > 0 && kotlin.math.abs(track.durationMs - other.durationMs) <= 5_000
+            sameSinger || sameLength
+        }
+    }
+
+    private fun cleanTitle(t: String) = t.lowercase()
+        .replace(Regex("""\(.*?\)|\[.*?]"""), " ")
+        .substringBefore(" - ")
+        .replace(Regex("[^\\p{L}\\p{N}]+"), " ")
+        .trim()
 
     suspend fun downloadAll(tracks: List<Track>) = tracks.forEach { download(it) }
 
