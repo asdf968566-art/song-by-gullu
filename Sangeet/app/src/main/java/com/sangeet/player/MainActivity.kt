@@ -27,6 +27,10 @@ import com.sangeet.player.ui.SangeetRoot
 import com.sangeet.player.ui.theme.SangeetTheme
 
 class MainActivity : ComponentActivity() {
+    companion object {
+        const val ACTION_DOWNLOADS = "com.sangeet.player.OPEN_DOWNLOADS"
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -52,7 +56,10 @@ class MainActivity : ComponentActivity() {
                             onDismissRequest = { CrashReporter.clear(this@MainActivity); crash = null },
                             title = { Text("Sangeet closed unexpectedly") },
                             text = { Text("Send a report so it can be fixed? It opens GitHub with the error details.") },
-                            confirmButton = { TextButton(onClick = { CrashReporter.send(this@MainActivity); crash = null }) { Text("Send report") } },
+                            confirmButton = { TextButton(onClick = {
+                                container.openRoute.value = com.sangeet.player.ui.Routes.REPORT
+                                crash = null
+                            }) { Text("Send report") } },
                             dismissButton = { TextButton(onClick = { CrashReporter.clear(this@MainActivity); crash = null }) { Text("Not now") } },
                         )
                     }
@@ -74,6 +81,7 @@ class MainActivity : ComponentActivity() {
     private fun handleIntent(intent: Intent?) {
         val container = (application as SangeetApplication).container
         when (intent?.action) {
+            ACTION_DOWNLOADS -> container.openRoute.value = com.sangeet.player.ui.Routes.DOWNLOADS
             Intent.ACTION_SEND -> {
                 val text = intent.getStringExtra(Intent.EXTRA_TEXT) ?: return
                 ExternalTracks.fromSharedText(text)?.let { container.player.play(listOf(it)) }

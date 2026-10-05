@@ -33,7 +33,9 @@ jobs:
         env:
           # Repo public hai, isliye key Settings → Secrets → Actions mein YOUTUBE_API_KEY naam se rakho.
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          REPORT_TOKEN: ${{ secrets.REPORT_TOKEN }}
         run: |
+          if [ -n "$REPORT_TOKEN" ]; then echo "REPORT_TOKEN: set (in-app reports on)"; else echo "::warning::REPORT_TOKEN missing: in-app reports fall back to sharing"; fi
           chmod +x gradlew
           ./gradlew --no-daemon assembleRelease
           # The baseline profile must be inside the APK.

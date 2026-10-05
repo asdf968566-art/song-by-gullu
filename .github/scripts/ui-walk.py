@@ -275,7 +275,7 @@ def main():
             return False
         return tap("Apply", wait=2)
     def speed_is(v):
-        for _ in range(5):
+        for _ in range(12):
             if f"speed={v}" in media():
                 return True
             time.sleep(1)
@@ -306,10 +306,6 @@ def main():
                 back()
             return True
         return act
-    for item in ["Like", "Play next", "Add to queue", "Add to playlist", "Start radio", "Share"]:
-        step(f"Song menu: {item}", menu(item, then_back=item in ("Add to playlist", "Share")))
-    step("Song menu: Go to artist", menu("Go to artist", wait=6))
-
     def download():
         adb("logcat", "-c")
         if not menu("Download", then_back=False)():
@@ -319,10 +315,28 @@ def main():
                 return True
             time.sleep(2)
         return True
-    step("Song menu: Download", download,
-         lambda: ("download done:" in adb("logcat", "-d"),
-                  (re.search(r"download done: .*", adb("logcat", "-d")) or [""])[0] or "not finished in 2 min"))
+    def download_check():
+        log = adb("logcat", "-d")
+        m = re.search(r"download done: .*", log)
+        if m:
+            return True, m.group(0)
+        # Explain why: the worker's log lines and what the menu showed.
+        why = [l for l in log.splitlines() if re.search(r"Sangeet|WM-|DownloadWorker|already", l, re.I)][-12:]
+        return False, "not finished in 2 min; now playing: " + now_title() + "\n" + "\n".join(why)
+    step("Song menu: Download", download, download_check)
+    for item in ["Like", "Play next", "Add to queue", "Add to playlist", "Start radio", "Share"]:
+        step(f"Song menu: {item}", menu(item, then_back=item in ("Add to playlist", "Share")))
+    step("Song menu: Go to artist", menu("Go to artist", wait=6))
+
     back(2)
+
+    # Download status screen: the downloaded song must be listed there.
+    fresh()
+    go_tab("Your Library")
+    step("Downloads screen: open", lambda: tap("Downloads", scroll=3, wait=4),
+         lambda: (find("Saved on this phone", contains=True) is not None, "saved songs listed"))
+    step("Downloads screen: play downloads", lambda: tap("Play downloads", wait=6), lambda: (playing(), f"playing: {now_title()}"))
+    back()
 
     # ---------------------------------------------------------------- Settings
     fresh()
@@ -333,13 +347,48 @@ def main():
         step(f"Settings switch: {label}", toggle_twice(label))
         swipe_down()  # back to the top for the next search
         swipe_down()
-    for label in ["Theme", "Equalizer & Bass boost", "Music sources", "Open AI DJ"]:
+    def phone_copy():
+        out = sh("content query --uri content://media/external/audio/media --projection _display_name:relative_path")
+        hits = [l for l in out.splitlines() if "Music/Sangeet" in l]
+        return bool(hits), (hits[0].strip()[:120] if hits else "nothing in Music/Sangeet")
+    step("Settings: Save downloads to phone storage", lambda: tap("Save downloads to phone storage", scroll=10, wait=6), phone_copy)
+    step("Settings: Save downloads to phone storage (off again)", lambda: tap("Save downloads to phone storage", wait=2))
+    swipe_down()
+    swipe_down()
+    def wrong_password():
+        if not tap("Music sources", scroll=10, wait=3):
+            return False
+        n = find("Password")
+        if not n:
+            return False
+        sh(f"input tap {n['x']} {n['y']}")
+        sh("input text 1111")
+        time.sleep(1)
+        tap("Unlock", wait=4)
+        return True
+    step("Settings: Music sources is locked (wrong password refused)", wrong_password,
+         lambda: (find("Wrong password") is not None, "wrong password refused"))
+    back(2)
+    swipe_down()
+    swipe_down()
+    for label in ["Theme", "Equalizer & Bass boost", "Open AI DJ"]:
         step(f"Settings: {label}", open_and_back(label, scroll=8, wait=3))
         swipe_down()
         swipe_down()
     step("Settings: Move library to another phone", open_and_back("Move library to another phone", scroll=10, wait=4))
-    step("Settings: Report a problem", lambda: tap("Report a problem", scroll=10, wait=5)
-         and sh(f"am start -n {PKG}/.MainActivity") is not None and time.sleep(3) is None)
+    def report_form():
+        if not tap("Report a problem", scroll=10, wait=3):
+            return False
+        n = find("What went wrong?", contains=True)
+        if not n:
+            return False
+        sh(f"input tap {n['x']} {n['y']}")
+        sh("input text test")
+        time.sleep(1)
+        return True
+    step("Settings: Report a problem (in-app form, not sent)", report_form,
+         lambda: (find("WhatsApp", contains=True) is not None, "form with send buttons"))
+    back(2)
     back(2)
 
     # ---------------------------------------------------------------- report

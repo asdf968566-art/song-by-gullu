@@ -101,7 +101,7 @@ fun TrackOptionsSheet(
                 }
             }
             SheetItem(if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, if (liked) "Remove from Liked Songs" else "Like") {
-                scope.launch { container.library.toggleFavorite(track) }
+                container.scope.launch { container.library.toggleFavorite(track) }
                 onDismiss()
             }
             SheetItem(Icons.Rounded.SkipNext, "Play next") {
@@ -121,29 +121,35 @@ fun TrackOptionsSheet(
                 }
             }
             SheetItem(Icons.Rounded.Share, "Share") {
-                scope.launch { runCatching { ShareCard.share(context, track) } }
+                container.scope.launch { runCatching { ShareCard.share(context, track) } }
                 onDismiss()
             }
             if (playlistId != null) {
                 SheetItem(Icons.Rounded.RemoveCircleOutline, "Remove from this playlist") {
-                    scope.launch { container.library.removeFromPlaylist(playlistId, track.id) }
+                    container.scope.launch { container.library.removeFromPlaylist(playlistId, track.id) }
                     onDismiss()
                 }
             }
             if (track.source.isOnline) {
                 when (dl?.state) {
                     DownloadState.DONE -> SheetItem(Icons.Rounded.Delete, "Remove download") {
-                        scope.launch { container.downloads.remove(track.id) }
+                        container.scope.launch { container.downloads.remove(track.id) }
                         onDismiss()
                     }
                     DownloadState.QUEUED, DownloadState.DOWNLOADING -> SheetItem(Icons.Rounded.DownloadDone, "Downloading… ${dl?.progress ?: 0}% (tap to cancel)") {
-                        scope.launch { container.downloads.remove(track.id) }
+                        container.scope.launch { container.downloads.remove(track.id) }
                         onDismiss()
                     }
                     else -> SheetItem(Icons.Rounded.Download, "Download") {
-                        scope.launch {
-                            container.downloads.download(track)
-                            Toast.makeText(context, "Downloading: ${track.title}", Toast.LENGTH_SHORT).show()
+                        // App-wide scope: the sheet closes right away, which would cancel its own scope's work.
+                        container.scope.launch {
+                            val started = container.downloads.download(track)
+                            Toast.makeText(
+                                context,
+                                if (started) "Downloading ${track.title}. See progress in Library → Downloads"
+                                else "Already downloaded. It's in Library → Downloads",
+                                Toast.LENGTH_LONG,
+                            ).show()
                         }
                         onDismiss()
                     }

@@ -1,5 +1,9 @@
 package com.sangeet.player.data.download
 
+import com.sangeet.player.MainActivity
+import android.content.Intent
+import android.app.PendingIntent
+import kotlinx.coroutines.flow.combine
 import androidx.work.OutOfQuotaPolicy
 import androidx.work.ForegroundInfo
 import androidx.core.app.NotificationCompat
@@ -66,6 +70,14 @@ class DownloadRepository(
 
     val downloadedTracks: Flow<List<Track>> = dao.observeDownloadedTracks().map { it.map(TrackEntity::toTrack) }
 
+    /** Every download with its song and status (downloading, waiting, failed, done), newest first. */
+    val items: Flow<List<Pair<Track, DownloadInfo>>> = combine(dao.observeAllDownloadTracks(), downloads) { tracks, map ->
+        tracks.mapNotNull { e -> map[e.id]?.let { e.toTrack() to it } }
+    }
+
+    /** How many songs are downloading or waiting right now. */
+    val activeCount: Flow<Int> = downloads.map { m -> m.values.count { it.state == DownloadState.QUEUED || it.state == DownloadState.DOWNLOADING } }
+
     /** Download ho chuka ho to local file path. */
     fun localPath(trackId: String): String? {
         val info = downloads.value[trackId] ?: return null
@@ -73,9 +85,14 @@ class DownloadRepository(
         return info.filePath?.takeIf { File(it).exists() }
     }
 
-    suspend fun download(track: Track) {
-        if (track.source == SourceType.LOCAL) return
-        if (downloads.value[track.id]?.state == DownloadState.DONE) return
+    /** Starts a download. Returns false when this song (or the same song from another source) is already downloaded. */
+    suspend fun download(track: Track): Boolean {
+        if (track.source == SourceType.LOCAL) return false
+        if (downloads.value[track.id]?.state == DownloadState.DONE) return false
+        if (sameSongDownloaded(track)) {
+            android.util.Log.i("Sangeet", "download skipped, same song already downloaded: ${track.title} (${track.artist})")
+            return false
+        }
         library.remember(listOf(track))
         val quality = settings.current.downloadQuality
         dao.upsert(DownloadEntity(track.id, DownloadState.QUEUED.name, 0, null, quality.name))
@@ -93,9 +110,43 @@ class DownloadRepository(
             .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
             .build()
         WorkManager.getInstance(context).enqueueUniqueWork(workName(track.id), ExistingWorkPolicy.REPLACE, request)
+        return true
     }
 
+    /** The same song already downloaded from another source (e.g. YouTube vs JioSaavn): same clean title and singer or length. */
+    private suspend fun sameSongDownloaded(track: Track): Boolean {
+        val want = cleanTitle(track.title)
+        if (want.isBlank()) return false
+        val singers = track.artist.lowercase().split(',', '&').map { it.trim() }.filter { it.length > 2 }
+        return downloads.value.values.filter { it.state == DownloadState.DONE && it.trackId != track.id }.any { info ->
+            val other = library.find(info.trackId) ?: return@any false
+            if (cleanTitle(other.title) != want) return@any false
+            android.util.Log.i("Sangeet", "same title as download ${other.id}: '${other.title}' by ${other.artist}")
+            val sameSinger = singers.any { other.artist.lowercase().contains(it) }
+            val sameLength = track.durationMs > 0 && other.durationMs > 0 && kotlin.math.abs(track.durationMs - other.durationMs) <= 5_000
+            sameSinger || sameLength
+        }
+    }
+
+    private fun cleanTitle(t: String) = t.lowercase()
+        .replace(Regex("""\(.*?\)|\[.*?]"""), " ")
+        .substringBefore(" - ")
+        .replace(Regex("[^\\p{L}\\p{N}]+"), " ")
+        .trim()
+
     suspend fun downloadAll(tracks: List<Track>) = tracks.forEach { download(it) }
+
+    /** Copies every finished download to Music/Sangeet (when "Save downloads to phone storage" is turned on). */
+    suspend fun copyAllToPhone(): Int = withContext(Dispatchers.IO) {
+        var n = 0
+        for (info in downloads.value.values) {
+            if (info.state != DownloadState.DONE) continue
+            val file = info.filePath?.let(::File)?.takeIf { it.exists() } ?: continue
+            val track = library.find(info.trackId) ?: continue
+            if (PhoneMusic.save(context, track, file) != null) n++
+        }
+        n
+    }
 
     suspend fun remove(trackId: String) {
         WorkManager.getInstance(context).cancelUniqueWork(workName(trackId))
@@ -128,15 +179,24 @@ class DownloadWorker(appContext: Context, params: WorkerParameters) : CoroutineW
 
         return try {
             dao.updateState(trackId, DownloadState.DOWNLOADING.name, 0)
-            val file = fetch(url, trackId) { p -> dao.updateState(trackId, DownloadState.DOWNLOADING.name, p) }
+            notifyProgress(track.title, 0)
+            val file = fetch(url, trackId) { p ->
+                dao.updateState(trackId, DownloadState.DOWNLOADING.name, p)
+                notifyProgress(track.title, p)
+            }
+            notifyDone(track.title)
             dao.upsert(entry.copy(state = DownloadState.DONE.name, progress = 100, filePath = file.absolutePath))
             android.util.Log.i("Sangeet", "download done: ${track.title} (${file.length() / 1024} KB from ${Uri.parse(url).host})")
+            if (container.settings.current.saveToPhone) {
+                PhoneMusic.save(applicationContext, track, file)?.let { android.util.Log.i("Sangeet", "saved to phone: $it") }
+            }
 
             // Offline ke liye cover art aur lyrics bhi save kar lo.
             saveArtwork(track)?.let { art -> container.library.remember(listOf(track.copy(artworkUrl = art))) }
             runCatching { container.lyrics.get(track) }
             Result.success()
         } catch (e: Exception) {
+            cancelNotification()
             if (runAttemptCount < 2) {
                 dao.updateState(trackId, DownloadState.QUEUED.name, 0)
                 Result.retry()
@@ -162,7 +222,53 @@ class DownloadWorker(appContext: Context, params: WorkerParameters) : CoroutineW
         else ForegroundInfo(NOTIFICATION_ID, n)
     }
 
+    // ------------------------------------------------------------ progress in the notification shade
+
+    private val nm get() = applicationContext.getSystemService(NotificationManager::class.java)
+    private val notifyId get() = NOTIFICATION_ID + (inputData.getString(KEY_TRACK_ID)?.hashCode() ?: 0) % 1000
+
+    private fun channel() {
+        if (nm.getNotificationChannel(CHANNEL) == null) {
+            nm.createNotificationChannel(NotificationChannel(CHANNEL, "Downloads", NotificationManager.IMPORTANCE_LOW))
+        }
+    }
+
+    private fun openDownloads() = PendingIntent.getActivity(
+        applicationContext, 0,
+        Intent(applicationContext, MainActivity::class.java).setAction(MainActivity.ACTION_DOWNLOADS)
+            .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+    )
+
+    private fun notifyProgress(title: String, pct: Int) = runCatching {
+        channel()
+        nm.notify(notifyId, NotificationCompat.Builder(applicationContext, CHANNEL)
+            .setSmallIcon(android.R.drawable.stat_sys_download)
+            .setContentTitle(title)
+            .setContentText("Downloading… $pct%")
+            .setProgress(100, pct, pct == 0)
+            .setOngoing(true)
+            .setSilent(true)
+            .setContentIntent(openDownloads())
+            .build())
+    }
+
+    private fun notifyDone(title: String) = runCatching {
+        channel()
+        nm.notify(notifyId, NotificationCompat.Builder(applicationContext, CHANNEL)
+            .setSmallIcon(android.R.drawable.stat_sys_download_done)
+            .setContentTitle(title)
+            .setContentText("Downloaded — plays without internet")
+            .setAutoCancel(true)
+            .setSilent(true)
+            .setContentIntent(openDownloads())
+            .build())
+    }
+
+    private fun cancelNotification() = runCatching { nm.cancel(notifyId) }
+
     private suspend fun fail(dao: DownloadDao, trackId: String): Result {
+        cancelNotification()
         dao.updateState(trackId, DownloadState.FAILED.name, 0)
         return Result.failure()
     }
@@ -210,7 +316,7 @@ class DownloadWorker(appContext: Context, params: WorkerParameters) : CoroutineW
                                 done += n
                                 if (total > 0) {
                                     val pct = (done * 100 / total).toInt()
-                                    if (pct >= lastPct + 5) { lastPct = pct; onProgress(pct) }
+                                    if (pct >= lastPct + 2) { lastPct = pct; onProgress(pct) }
                                 }
                             }
                         }
