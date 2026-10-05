@@ -64,12 +64,12 @@ const $ = (s) => document.querySelector(s);
 function fill(el, ...kids) {
   el.replaceChildren(...kids.flat(Infinity).filter((c) => c != null && c !== false));
 }
-function toast(msg) {
+function toast(msg, ms = 2200) {
   const t = $('#toast');
   t.textContent = msg;
   t.hidden = false;
   clearTimeout(toast.timer);
-  toast.timer = setTimeout(() => (t.hidden = true), 2200);
+  toast.timer = setTimeout(() => (t.hidden = true), ms);
 }
 function fmt(s) {
   if (!isFinite(s) || s <= 0) return '0:00';
@@ -547,7 +547,7 @@ const Player = {
     else audio.play().catch(() => {});
   },
   seek(s) {
-    if (this.mode === 'yt') Tube.player?.seekTo(s, true); else audio.currentTime = s;
+    if (this.mode === 'yt') { Tube.player?.seekTo(s, true); this.updateState(); } else audio.currentTime = s;
     UI.tick();
   },
   time() { return this.mode === 'yt' ? (Tube.player?.getCurrentTime?.() || 0) : audio.currentTime || 0; },
@@ -577,20 +577,49 @@ const Player = {
   onYtState(s) {
     if (this.mode !== 'yt') return;
     if (s === 0) return this.next();
+    const was = this.playing;
     this.playing = s === 1;
     this.loading = s === 3 || s === -1;
+    if (s === 1 && !was) this.updateSession();
+    if (was !== this.playing) this.updateState();
     UI.update();
   },
-  updateSession(t) {
-    if (!('mediaSession' in navigator)) return;
+  /** Song name, singer and cover on the lock screen, Control Center and Dynamic Island. */
+  updateSession(t = this.current) {
+    if (!('mediaSession' in navigator) || !t) return;
+    const big = art(t, true);
     navigator.mediaSession.metadata = new MediaMetadata({
-      title: t.title, artist: t.artist, album: t.album,
-      artwork: t.img ? [{ src: art(t, true), sizes: '500x500', type: 'image/jpeg' }] : [],
+      title: t.title, artist: t.artist, album: t.album || 'Sangeet',
+      artwork: t.img
+        ? ['150x150', '500x500'].map((sz) => ({ src: big.replace('500x500', sz), sizes: sz, type: 'image/jpeg' }))
+        : [{ src: new URL('icon-512.png', location.href).href, sizes: '512x512', type: 'image/png' }],
     });
   },
+  /** Playing/paused and the seek bar for the lock screen (only when they change: iPhone dislikes constant updates). */
+  updateState() {
+    if (!('mediaSession' in navigator)) return;
+    const ms = navigator.mediaSession;
+    ms.playbackState = this.playing ? 'playing' : 'paused';
+    const d = this.duration();
+    if (ms.setPositionState && d) {
+      try { ms.setPositionState({ duration: d, position: Math.min(this.time(), d), playbackRate: 1 }); } catch {}
+    }
+  },
 };
-audio.addEventListener('playing', () => { Player.playing = true; Player.loading = false; UI.update(); });
-audio.addEventListener('pause', () => { Player.playing = false; UI.update(); });
+audio.addEventListener('playing', () => {
+  Player.playing = true; Player.loading = false;
+  // iPhone forgets the song details when a new song loads: set them again once it really plays.
+  Player.updateSession(); Player.updateState();
+  UI.update();
+  // First song on an iPhone: there is no notification there, so say where the controls are.
+  if (!S.tipControls && /iPhone|iPad/.test(navigator.userAgent)) {
+    S.tipControls = true; save();
+    setTimeout(() => toast('Controls: lock screen, Control Center or the Dynamic Island', 5000), 1500);
+  }
+});
+audio.addEventListener('pause', () => { Player.playing = false; Player.updateState(); UI.update(); });
+audio.addEventListener('seeked', () => Player.updateState());
+audio.addEventListener('durationchange', () => Player.updateState());
 audio.addEventListener('waiting', () => { Player.loading = true; UI.update(); });
 audio.addEventListener('ended', () => Player.next());
 audio.addEventListener('error', () => { if (audio.getAttribute('src') && Player.mode === 'audio') Player.failed(); });
@@ -600,7 +629,8 @@ if ('mediaSession' in navigator) {
   ms.setActionHandler('pause', () => Player.pause());
   ms.setActionHandler('previoustrack', () => Player.prev());
   ms.setActionHandler('nexttrack', () => Player.next());
-  try { ms.setActionHandler('seekto', (d) => Player.seek(d.seekTime)); } catch {}
+  try { ms.setActionHandler('seekto', (d) => { Player.seek(d.seekTime); Player.updateState(); }); } catch {}
+  try { ms.setActionHandler('stop', () => Player.pause()); } catch {}
 }
 
 /* ------------------------------------------------------------------ shared UI pieces */
@@ -1318,9 +1348,6 @@ const UI = {
     if (bar) bar.style.width = p + '%';
     Feed.activePage()?.seek.tick();
     if (UI.np) { UI.np.seek.tick(); UI.np.lyricsTick?.(); }
-    if ('mediaSession' in navigator && navigator.mediaSession.setPositionState && d && Player.mode === 'audio') {
-      try { navigator.mediaSession.setPositionState({ duration: d, position: Math.min(Player.time(), d), playbackRate: 1 }); } catch {}
-    }
   },
   openNowPlaying(refresh) {
     const t = Player.current;
