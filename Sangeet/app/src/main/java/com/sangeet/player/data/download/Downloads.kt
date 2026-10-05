@@ -109,6 +109,18 @@ class DownloadRepository(
 
     suspend fun downloadAll(tracks: List<Track>) = tracks.forEach { download(it) }
 
+    /** Copies every finished download to Music/Sangeet (when "Save downloads to phone storage" is turned on). */
+    suspend fun copyAllToPhone(): Int = withContext(Dispatchers.IO) {
+        var n = 0
+        for (info in downloads.value.values) {
+            if (info.state != DownloadState.DONE) continue
+            val file = info.filePath?.let(::File)?.takeIf { it.exists() } ?: continue
+            val track = library.find(info.trackId) ?: continue
+            if (PhoneMusic.save(context, track, file) != null) n++
+        }
+        n
+    }
+
     suspend fun remove(trackId: String) {
         WorkManager.getInstance(context).cancelUniqueWork(workName(trackId))
         withContext(Dispatchers.IO) {
@@ -148,6 +160,9 @@ class DownloadWorker(appContext: Context, params: WorkerParameters) : CoroutineW
             notifyDone(track.title)
             dao.upsert(entry.copy(state = DownloadState.DONE.name, progress = 100, filePath = file.absolutePath))
             android.util.Log.i("Sangeet", "download done: ${track.title} (${file.length() / 1024} KB from ${Uri.parse(url).host})")
+            if (container.settings.current.saveToPhone) {
+                PhoneMusic.save(applicationContext, track, file)?.let { android.util.Log.i("Sangeet", "saved to phone: $it") }
+            }
 
             // Offline ke liye cover art aur lyrics bhi save kar lo.
             saveArtwork(track)?.let { art -> container.library.remember(listOf(track.copy(artworkUrl = art))) }

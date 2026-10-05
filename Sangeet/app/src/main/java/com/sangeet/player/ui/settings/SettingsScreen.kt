@@ -1,5 +1,6 @@
 package com.sangeet.player.ui.settings
 
+import androidx.compose.material.icons.rounded.SdStorage
 import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.SyncAlt
 import androidx.compose.material.icons.rounded.VolumeUp
@@ -125,6 +126,22 @@ fun SettingsScreen(nav: NavController) {
         SettingsGroup("Online / Offline") {
             SettingsSwitch(Icons.Rounded.CloudOff, "Offline mode", "Only play downloads and songs on this phone. Uses no data.", s.offlineMode) {
                 scope.launch { c.settings.setOfflineMode(it) }
+            }
+            SettingsSwitch(
+                Icons.Rounded.SdStorage,
+                "Save downloads to phone storage",
+                if (com.sangeet.player.data.download.PhoneMusic.supported()) "Also keeps a copy in Music/Sangeet. Stays even if you uninstall the app"
+                else "Needs Android 10 or newer",
+                s.saveToPhone,
+            ) { on ->
+                if (!com.sangeet.player.data.download.PhoneMusic.supported()) return@SettingsSwitch
+                scope.launch {
+                    c.settings.setSaveToPhone(on)
+                    if (on) {
+                        val n = c.downloads.copyAllToPhone()
+                        android.widget.Toast.makeText(context, if (n > 0) "Copied $n songs to Music/Sangeet" else "New downloads will also go to Music/Sangeet", android.widget.Toast.LENGTH_LONG).show()
+                    }
+                }
             }
             SettingsSwitch(Icons.Rounded.Wifi, "Download on Wi-Fi only", "Downloads pause on mobile data", s.downloadOnWifiOnly) {
                 scope.launch { c.settings.setDownloadOnWifiOnly(it) }

@@ -49,6 +49,8 @@ data class AppSettings(
     val downloadQuality: AudioQuality = AudioQuality.HIGH,
     val offlineMode: Boolean = false,
     val downloadOnWifiOnly: Boolean = false,
+    /** Also keep a copy of each download in the phone's Music/Sangeet folder (stays after uninstall). */
+    val saveToPhone: Boolean = false,
     val autoLyrics: Boolean = true,
     val skipSilence: Boolean = false,
     val playbackSpeed: Float = 1f,
@@ -96,6 +98,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val downloadQuality = stringPreferencesKey("download_quality")
         val offlineMode = booleanPreferencesKey("offline_mode")
         val downloadOnWifiOnly = booleanPreferencesKey("download_wifi_only")
+        val saveToPhone = booleanPreferencesKey("save_to_phone")
         val autoLyrics = booleanPreferencesKey("auto_lyrics")
         val skipSilence = booleanPreferencesKey("skip_silence")
         val playbackSpeed = floatPreferencesKey("playback_speed")
@@ -133,6 +136,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             downloadQuality = p.enumOf(Keys.downloadQuality, d.downloadQuality),
             offlineMode = p[Keys.offlineMode] ?: d.offlineMode,
             downloadOnWifiOnly = p[Keys.downloadOnWifiOnly] ?: d.downloadOnWifiOnly,
+            saveToPhone = p[Keys.saveToPhone] ?: d.saveToPhone,
             autoLyrics = p[Keys.autoLyrics] ?: d.autoLyrics,
             skipSilence = p[Keys.skipSilence] ?: d.skipSilence,
             playbackSpeed = p[Keys.playbackSpeed] ?: d.playbackSpeed,
@@ -169,6 +173,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     suspend fun setDownloadQuality(v: AudioQuality) = context.dataStore.edit { it[Keys.downloadQuality] = v.name }
     suspend fun setOfflineMode(v: Boolean) = context.dataStore.edit { it[Keys.offlineMode] = v }
     suspend fun setDownloadOnWifiOnly(v: Boolean) = context.dataStore.edit { it[Keys.downloadOnWifiOnly] = v }
+    suspend fun setSaveToPhone(v: Boolean) = context.dataStore.edit { it[Keys.saveToPhone] = v }
     suspend fun setAutoLyrics(v: Boolean) = context.dataStore.edit { it[Keys.autoLyrics] = v }
     suspend fun setSkipSilence(v: Boolean) = context.dataStore.edit { it[Keys.skipSilence] = v }
     suspend fun setPlaybackSpeed(v: Float) = context.dataStore.edit { it[Keys.playbackSpeed] = v }

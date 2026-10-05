@@ -341,6 +341,14 @@ def main():
         step(f"Settings switch: {label}", toggle_twice(label))
         swipe_down()  # back to the top for the next search
         swipe_down()
+    def phone_copy():
+        out = sh("content query --uri content://media/external/audio/media --projection _display_name:relative_path")
+        hits = [l for l in out.splitlines() if "Music/Sangeet" in l]
+        return bool(hits), (hits[0].strip()[:120] if hits else "nothing in Music/Sangeet")
+    step("Settings: Save downloads to phone storage", lambda: tap("Save downloads to phone storage", scroll=10, wait=6), phone_copy)
+    step("Settings: Save downloads to phone storage (off again)", lambda: tap("Save downloads to phone storage", wait=2))
+    swipe_down()
+    swipe_down()
     for label in ["Theme", "Equalizer & Bass boost", "Music sources", "Open AI DJ"]:
         step(f"Settings: {label}", open_and_back(label, scroll=8, wait=3))
         swipe_down()
