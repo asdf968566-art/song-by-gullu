@@ -43,7 +43,8 @@ jobs:
           case "${{ github.event_name }}" in
             workflow_dispatch) MIN="${{ inputs.minutes }}" ;;
             schedule) MIN=150 ;;
-            *) [ "${{ github.ref }}" = "refs/heads/main" ] && MIN=150 || MIN=8 ;;
+            # App changes go live fast; the long crawl runs every night.
+            *) [ "${{ github.ref }}" = "refs/heads/main" ] && MIN=10 || MIN=8 ;;
           esac
           python .github/scripts/build-web-catalog.py SangeetWeb/data catalog-state/state.json.gz "$MIN" | tee build.log
           grep -E "state:|core |crawl|songs in catalog|TOTAL" build.log >> summary.txt

@@ -60,6 +60,10 @@ function h(tag, props, ...kids) {
   return el;
 }
 const $ = (s) => document.querySelector(s);
+/** replaceChildren that, like h(), accepts lists and skips empty parts (a plain array would show as text). */
+function fill(el, ...kids) {
+  el.replaceChildren(...kids.flat(Infinity).filter((c) => c != null && c !== false));
+}
 function toast(msg) {
   const t = $('#toast');
   t.textContent = msg;
@@ -183,8 +187,11 @@ const Catalog = {
     const out = [];
     for (const t of this.tracks) {
       if (!words.every((w) => t._k.includes(w))) continue;
-      const title = norm(t.title);
-      let s = title === words.join(' ') ? 4 : title.startsWith(words[0]) ? 2 : 0;
+      const title = norm(t.title), want = words.join(' ');
+      let s = title === want ? 4 : title.startsWith(words[0]) ? 2 : 0;
+      const singers = splitArtists(t.artist).map(norm);
+      if (singers.includes(want)) s += singers[0] === want ? 3 : 2.5;
+      if (JUNK.test(t.title)) s -= 3;
       s += (this.trackPl.get(t.id) || []).length * 0.05;
       out.push([t, s]);
     }
@@ -253,7 +260,13 @@ const Deep = {
       const row = byShard.get(Math.floor(n / per))?.[n % per];
       if (!row) continue;
       const t = Catalog.byId.get('js:' + row[0]) || fromRow(row, row[9]);
-      out.push([t, norm(t.title) === want ? 2 : norm(t.title).startsWith(want) ? 1 : 0, n]);
+      const title = norm(t.title);
+      let s = title === want ? 3 : title.startsWith(want) ? 1.5 : 0;
+      // A singer's name: their own songs first, not mashups that only mention them in the title.
+      const singers = splitArtists(t.artist).map(norm);
+      if (singers.includes(want)) s += singers[0] === want ? 3 : 2.5;
+      if (JUNK.test(t.title)) s -= 3;
+      out.push([t, s, n]);
     }
     return out.sort((a, b) => b[1] - a[1] || a[2] - b[2]).slice(0, limit).map((x) => x[0]);
   },
@@ -279,6 +292,58 @@ const Deep = {
         if (b && b !== String(this.info.build)) c.delete(req);
       }
     } catch {}
+  },
+};
+
+const JUNK = /mash ?up|lo-?fi|remix|slowed|reverb|mixtape|karaoke|instrumental|jukebox|non ?stop|\b8d\b/i;
+
+/** True when a and b differ by at most `max` letters (typos like "arjit" for "arijit"). */
+function near(a, b, max) {
+  if (Math.abs(a.length - b.length) > max) return false;
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    let best = i;
+    for (let j = 1; j <= b.length; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      best = Math.min(best, cur[j]);
+    }
+    if (best > max) return false;
+    prev = cur;
+  }
+  return prev[b.length] <= max;
+}
+
+/* ------------------------------------------------------------------ singers (artist results + spelling fixes) */
+const Artists = {
+  list: null,
+  async load() {
+    if (this.list) return this.list;
+    let rows = Deep.info ? await Deep.get(`data/artists.json${Deep.v()}`) : null;
+    if (!Array.isArray(rows) || !rows.length) {
+      // Older catalog without the singers file: use the songs already on the phone.
+      const c = new Map();
+      for (const t of Catalog.tracks) for (const a of splitArtists(t.artist)) c.set(a, (c.get(a) || 0) + 1);
+      rows = [...c.entries()].filter((x) => x[1] >= 2).sort((a, b) => b[1] - a[1]);
+    }
+    return (this.list = rows.map(([name, n]) => ({ name, n, k: norm(name).replace(/ /g, '') })));
+  },
+  /** Singers for what was typed: the exact name, the start of a name, or a small spelling mistake. */
+  async find(q, max = 3) {
+    const k = norm(q).replace(/ /g, '');
+    if (Array.from(k).length < 3) return [];
+    const out = [];
+    for (const a of await this.load()) {
+      let s = 0, how = '';
+      if (a.k === k) { s = 30; how = 'exact'; }
+      else if (k.length >= 4 && a.k.startsWith(k)) { s = 15; how = 'start'; }
+      else if (k.length >= 6 && a.n >= 5 && a.k[0] === k[0] && near(a.k, k, k.length >= 10 ? 2 : 1)) { s = 10; how = 'typo'; }
+      // Song count weighs a lot: "arjit singh" (a mistagged name with 3 songs) means Arijit Singh.
+      if (s) out.push([{ ...a, how }, s + Math.log10(a.n + 1) * 12]);
+    }
+    // Typed a real name correctly: no look-alike names.
+    const list = out.some((x) => x[0].how === 'exact') ? out.filter((x) => x[0].how !== 'typo') : out;
+    return list.sort((x, y) => y[1] - x[1]).slice(0, max).map((x) => x[0]);
   },
 };
 
@@ -318,8 +383,14 @@ function suggestions(count = 25, exclude = new Set()) {
 
 /* ------------------------------------------------------------------ YouTube (search + songs that aren't in the library) */
 const Tube = {
+  cache: new Map(),
   async search(q) {
     if (!S.ytKey) return [];
+    const key = norm(q);
+    if (!this.cache.has(key)) this.cache.set(key, this.fetchSearch(q).then((r) => { if (!r.length) this.cache.delete(key); return r; }));
+    return this.cache.get(key);
+  },
+  async fetchSearch(q) {
     const u = new URL('https://www.googleapis.com/youtube/v3/search');
     Object.entries({ part: 'snippet', type: 'video', videoCategoryId: '10', videoEmbeddable: 'true', regionCode: 'IN', maxResults: '20', q, key: S.ytKey })
       .forEach(([k, v]) => u.searchParams.set(k, v));
@@ -567,6 +638,7 @@ function trackMenu(t) {
     ['Add to queue', () => Player.addToQueue(t)],
     [isLiked(t) ? 'Remove from Liked' : 'Like', () => toggleLike(t)],
     ['Add to playlist', () => playlistPicker(t)],
+    ...(t.artist && t.src === 'js' ? [['Go to artist', () => openArtist(splitArtists(t.artist)[0] || t.artist)]] : []),
     ['Share', () => share(t)],
   ]);
 }
@@ -734,34 +806,51 @@ const ROOTS = {
   settings: settingsPage,
 };
 
+function artistRow(a) {
+  return h('div', { class: 'row', onclick: () => pushPage(() => artistPage(a.name)) },
+    h('div', { class: 'art avatar' }, Array.from(a.name)[0] || '?'),
+    h('div', { class: 'meta' }, h('div', { class: 't' }, a.name), h('div', { class: 's' }, `Artist · ${a.n} songs`)));
+}
 function searchPage() {
   const results = h('div');
   const input = h('input', { type: 'search', placeholder: 'Songs, artists, movies', autocomplete: 'off', autocapitalize: 'off', spellcheck: false, enterkeyhint: 'search' });
-  let ytTimer, seq = 0;
+  let ytTimer, ytAuto, seq = 0;
   const run = () => {
     const q = input.value.trim();
+    searchPage.q = q;
     const my = ++seq;
     clearTimeout(ytTimer);
+    clearTimeout(ytAuto);
     if (q.length < 2) { results.replaceChildren(browse()); return; }
     const local = Catalog.search(q, 40);
-    const deepBox = h('div'), ytBox = h('div');
-    results.replaceChildren(local.length ? trackList(local) : h('div', { class: 'spinner' }), deepBox, ytBox);
+    const artistBox = h('div'), deepBox = h('div'), fixBox = h('div'), ytBox = h('div');
+    results.replaceChildren(artistBox, fixBox, local.length ? trackList(local) : h('div', { class: 'spinner' }), deepBox, ytBox);
+    const shown = new Set(local.map((t) => norm(t.title)));
     const youtube = async () => {
       ytBox.replaceChildren(h('div', { class: 'spinner' }));
       const yt = (await Tube.search(q)).filter((t) => !shown.has(norm(t.title)));
       if (my !== seq) return;
-      ytBox.replaceChildren(yt.length ? [h('div', { class: 'section' }, 'From YouTube'), trackList(yt)] : shown.size ? [] : h('div', { class: 'empty' }, 'No songs found'));
+      fill(ytBox, yt.length ? [h('div', { class: 'section' }, 'From YouTube'), trackList(yt)] : shown.size ? [] : h('div', { class: 'empty' }, 'No songs found'));
     };
-    const shown = new Set(local.map((t) => norm(t.title)));
-    // Then the full catalog (lakhs of songs); YouTube only for what isn't there.
+    // Then the full catalog (lakhs of songs) and singers; YouTube only for what isn't there.
     ytTimer = setTimeout(async () => {
       const ids = new Set(local.map((t) => t.id));
-      const deep = (await Deep.search(q)).filter((t) => !ids.has(t.id));
+      const [deep, artists] = await Promise.all([Deep.search(q), Artists.find(q)]);
       if (my !== seq) return;
-      if (!local.length) results.firstChild.remove();
-      deep.forEach((t) => shown.add(norm(t.title)));
-      if (deep.length) deepBox.replaceChildren(local.length ? h('div', { class: 'section' }, 'More songs') : null, trackList(deep));
-      if (shown.size < 8) youtube();
+      if (!local.length) results.children[2].remove();
+      const more = deep.filter((t) => !ids.has(t.id));
+      more.forEach((t) => shown.add(norm(t.title)));
+      if (artists.length) fill(artistBox, h('div', { class: 'section' }, 'Artists'), artists.map(artistRow));
+      if (more.length) fill(deepBox, local.length ? h('div', { class: 'section' }, 'More songs') : null, trackList(more));
+      // Misspelt singer ("arjit singh", "sidhu moosewala"): first the songs of the singer it most likely means.
+      const fix = artists[0];
+      if (fix && fix.how !== 'start' && norm(fix.name) !== norm(q)) {
+        const songs = (await Deep.search(fix.name, 40)).filter((t) => !shown.has(norm(t.title)));
+        if (my !== seq) return;
+        songs.forEach((t) => shown.add(norm(t.title)));
+        if (songs.length) fill(fixBox, h('div', { class: 'section' }, `Songs by ${fix.name}`), trackList(songs));
+      }
+      if (shown.size < 8) ytAuto = setTimeout(youtube, 600); // only once typing has stopped (YouTube allows few searches a day)
       else ytBox.replaceChildren(h('button', { class: 'chip', style: 'margin:12px 16px', onclick: youtube }, 'Search YouTube too'));
     }, 350);
   };
@@ -787,8 +876,47 @@ function searchPage() {
       h('div', { class: 'chips' }, moods.map((m) => h('button', { class: 'chip', onclick: () => pushPage(() => djPage(`${m} ${S.langs[0] || 'hindi'} songs`)) }, m))),
       charts.length ? [h('div', { class: 'section' }, 'Top charts'), h('div', { class: 'grid' }, charts.map(playlistCard))] : null);
   };
-  results.replaceChildren(browse());
+  // Coming back from an artist or a song: keep what was searched.
+  if (searchPage.q) { input.value = searchPage.q; run(); } else results.replaceChildren(browse());
   return h('div', null, header('Search'), h('div', { class: 'search-box' }, input), results);
+}
+
+/** All songs of one singer: popular ones first, YouTube when the catalog has only a few. */
+function artistPage(name) {
+  const body = h('div', null, h('div', { class: 'spinner' }));
+  const key = norm(name);
+  const cached = artistPage.cache.get(key);
+  const show = (songs, yt) => {
+    const all = [...songs, ...yt];
+    fill(body,
+      all.length ? h('div', { class: 'actions' },
+        h('button', { class: 'pill primary', onclick: () => Player.play(all) }, icon('play'), 'Play'),
+        h('button', { class: 'pill', onclick: () => Player.play(shuffle(all)) }, icon('shuffle'), 'Shuffle')) : null,
+      songs.length ? trackList(songs) : null,
+      yt.length ? [h('div', { class: 'section' }, 'From YouTube'), trackList(yt)] : null,
+      all.length ? null : h('div', { class: 'empty' }, 'No songs found'));
+  };
+  if (cached) show(...cached);
+  else (async () => {
+    const seen = new Set(), songs = [];
+    const add = (t) => {
+      const k = norm(t.title);
+      if (!seen.has(k) && splitArtists(t.artist).some((a) => norm(a) === key)) { seen.add(k); songs.push(t); }
+    };
+    Catalog.tracks.forEach(add);
+    (await Deep.search(name, 80)).forEach(add);
+    let yt = [];
+    if (songs.length < 15) yt = (await Tube.search(`${name} songs`)).filter((t) => !seen.has(norm(t.title)));
+    artistPage.cache.set(key, [songs, yt]);
+    show(songs, yt);
+  })();
+  return h('div', null, header(name, true), body);
+}
+artistPage.cache = new Map();
+function openArtist(name) {
+  UI.closeNowPlaying();
+  if (tab === 'feed') document.querySelector('#tabs button[data-tab="search"]').click();
+  pushPage(() => artistPage(name));
 }
 
 function libraryPage() {

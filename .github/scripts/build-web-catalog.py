@@ -8,6 +8,7 @@ Usage: build-web-catalog.py <out dir> <state file> <minutes to crawl>
 
 Output (<out>):
   index.json                 {"build", "total", "rows": ROWS, "languages": {lang: count}}
+  artists.json               [[singer, number of songs], ...] most songs first (artist results + spelling fixes)
   <lang>.json                popular songs + playlists of one language (the app loads these first)
                              {"songs": [row...], "playlists": [[id, title, subtitle, image, [song indexes], isChart]]}
   r/<n>.json                 every song, ROWS per file, in a fixed order: [row + language]
@@ -351,6 +352,15 @@ def write(playlists_by_lang):
             enc[t] = d
         with open(os.path.join(OUT, "i", f"{k}.json"), "w", encoding="utf-8") as f:
             json.dump(enc, f, ensure_ascii=False, separators=(",", ":"))
+
+    # Singers with how many songs they have here, so the app can show artists and fix misspelt names.
+    singers = collections.Counter()
+    for sid in order:
+        for a in C.songs[sid][2].split(", "):
+            if a and a != "Unknown":
+                singers[a] += 1
+    with open(os.path.join(OUT, "artists.json"), "w", encoding="utf-8") as f:
+        json.dump([[a, n] for a, n in singers.most_common(40000) if n >= 2], f, ensure_ascii=False, separators=(",", ":"))
 
     counts = collections.Counter(r[9] for r in C.songs.values())
     for lang in LANGS:

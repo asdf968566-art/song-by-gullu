@@ -39,6 +39,7 @@ body.has-mini #page { bottom: calc(var(--tabs-h) + var(--mini-h)); }
 .row { display: flex; align-items: center; gap: 12px; padding: 8px 16px; min-height: 64px; }
 .row:active { background: var(--surface); }
 .row .art { width: 48px; height: 48px; border-radius: 6px; object-fit: cover; background: var(--surface); flex: none; }
+.row .avatar { border-radius: 50%; display: grid; place-items: center; font-size: 20px; font-weight: 600; color: var(--accent); background: var(--surface); text-transform: uppercase; }
 .row .meta { flex: 1; min-width: 0; }
 .row .t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .row .s { color: var(--muted); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
