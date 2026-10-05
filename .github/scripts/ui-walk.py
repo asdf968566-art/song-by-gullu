@@ -391,6 +391,33 @@ def main():
     back(2)
     back(2)
 
+    # ---------------------------------------------------------------- themes: Liquid Glass on every page
+    def shot(name):
+        with open(f"out/theme-{name}.png", "wb") as f:
+            subprocess.run(["adb", "exec-out", "screencap", "-p"], stdout=f)
+        return True
+
+    def set_theme(name):
+        def act():
+            go_tab("Home")
+            if not tap("Settings", wait=3) or not tap("Theme", scroll=8, wait=3):
+                return False
+            if not tap(name, scroll=6, wait=3):
+                return False
+            shot(f"picker-{name.replace(' ', '')}")
+            back(2)
+            return True
+        return act
+
+    fresh(play=True)
+    step("Theme: choose Liquid Glass", set_theme("Liquid Glass"))
+    for t in ["Home", "Search", "Your Library", "For You"]:
+        step(f"Liquid Glass: {t} page", lambda t=t: go_tab(t) and shot(t.replace(" ", "")))
+    step("Liquid Glass: Now Playing", lambda: open_now_playing() and shot("NowPlaying"))
+    step("Liquid Glass: song menu sheet", lambda: tap("Options", wait=2) and shot("Sheet"))
+    back(2)
+    step("Theme: back to Classic Dark", set_theme("Classic Dark"))
+
     # ---------------------------------------------------------------- report
     print("\n================ UI walk report ================")
     for status, name, detail in results:

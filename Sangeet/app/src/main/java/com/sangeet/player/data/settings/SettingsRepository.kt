@@ -26,6 +26,7 @@ enum class ThemeStyle(val label: String, val tagline: String) {
     NEUMORPHISM("Neumorphism", "Soft 3D raised buttons"),
     AMOLED("AMOLED Black", "Pure black, saves battery"),
     MATERIAL_YOU("Material You", "Colors from your wallpaper (Android 12+)"),
+    LIQUID_GLASS("Liquid Glass", "Clear glass over the song's colors"),
 }
 
 enum class DarkMode(val label: String) { SYSTEM("System"), LIGHT("Light"), DARK("Dark") }

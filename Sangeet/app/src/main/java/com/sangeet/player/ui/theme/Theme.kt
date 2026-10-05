@@ -77,6 +77,13 @@ private fun specFor(style: ThemeStyle, dark: Boolean, accent: Color, scheme: Col
         lightShadow = Color(0xFFFFFFFF), darkShadow = Color(0x55A3B1C6),
     )
 
+    // Clear glass: panels let the song's colors (the background) show through, with a bright rim.
+    ThemeStyle.LIQUID_GLASS -> if (dark) ThemeSpec(
+        style, true, accent, Color(0xFF0C0E14), Color(0x1AFFFFFF), Color.White, Color(0xFFD0D4DE), Color(0x33FFFFFF),
+    ) else ThemeSpec(
+        style, false, accent, Color(0xFFEEF1F7), Color(0x8CFFFFFF), Color(0xFF111318), Color(0xFF4A505E), Color(0x99FFFFFF),
+    )
+
     ThemeStyle.AMOLED -> ThemeSpec(
         style, true, accent, Color.Black, Color(0xFF0E0E0E), Color.White, Color(0xFF9E9E9E), Color.Black,
     )
@@ -118,14 +125,22 @@ fun SangeetTheme(settings: AppSettings, styleOverride: ThemeStyle? = null, conte
         surfaceVariant = spec.surface,
         onSurfaceVariant = spec.muted,
         surfaceContainer = spec.surface,
-        surfaceContainerHigh = if (dark) Color(0xFF2A2A2A) else Color(0xFFFFFFFF),
-        surfaceContainerHighest = if (dark) Color(0xFF333333) else Color(0xFFF0F0F0),
+        // Sheets, menus and dialogs: a solid shade of this theme's own background (not the same grey everywhere).
+        surfaceContainerHigh = sheetColor(spec, 0.09f),
+        surfaceContainerHighest = sheetColor(spec, 0.14f),
         outline = spec.muted.copy(alpha = 0.5f),
     ).let { if (style == ThemeStyle.MATERIAL_YOU && dynamic != null) dynamic else it }
 
     CompositionLocalProvider(LocalThemeSpec provides spec) {
         MaterialTheme(colorScheme = scheme, typography = SangeetTypography, content = content)
     }
+}
+
+/** Solid sheet/dialog color from the theme background: a little lighter in dark mode, near white in light mode. */
+private fun sheetColor(spec: ThemeSpec, lift: Float): Color {
+    val base = spec.background
+    val t = if (spec.isDark) lift else 0.75f - lift
+    return Color(base.red + (1f - base.red) * t, base.green + (1f - base.green) * t, base.blue + (1f - base.blue) * t, 1f)
 }
 
 val SangeetTypography = Typography(
