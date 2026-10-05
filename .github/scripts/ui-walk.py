@@ -391,6 +391,62 @@ def main():
     back(2)
     back(2)
 
+    # ---------------------------------------------------------------- themes: Liquid Glass on every page
+    def shot(name):
+        path = f"out/theme-{name}.png"
+        with open(path, "wb") as f:
+            subprocess.run(["adb", "exec-out", "screencap", "-p"], stdout=f)
+        # Also into the log as a small JPEG (artifacts can't always be opened), between SHOT markers.
+        # A screenshot problem never fails the walk.
+        try:
+            import base64
+            import io
+            try:
+                from PIL import Image
+            except ImportError:
+                print(f"(screenshot {name} not logged: Pillow missing)")
+                return True
+            img = Image.open(path).convert("RGB")
+            img.thumbnail((300, 700))
+            buf = io.BytesIO()
+            img.save(buf, "JPEG", quality=45)
+            data = base64.b64encode(buf.getvalue()).decode()
+            print(f"SHOT-BEGIN {name}")
+            for i in range(0, len(data), 3000):
+                print("SHOT " + data[i:i + 3000])
+            print(f"SHOT-END {name}")
+        except Exception as e:  # noqa: BLE001
+            print(f"(screenshot {name} not logged: {e})")
+        return True
+
+    def on_screen():
+        return ", ".join(sorted({n["text"] or n["desc"] for n in nodes(dump()) if n["text"] or n["desc"]})[:40])
+
+    def set_theme(name):
+        def act():
+            go_tab("Home")
+            for label, scroll in [("Settings", 0), ("Theme", 8), (name, 6)]:
+                if not tap(label, scroll=scroll, wait=3):
+                    print(f"[theme] '{label}' not found; on screen: {on_screen()}")
+                    shot(f"missing-{label.replace(' ', '')}")
+                    return False
+            shot(f"picker-{name.replace(' ', '')}")
+            back(2)
+            return True
+        return act
+
+    fresh(play=True)
+    step("Theme: choose Liquid Glass", set_theme("Liquid Glass"))
+    for t in ["Home", "Search", "Your Library", "For You"]:
+        step(f"Liquid Glass: {t} page", lambda t=t: go_tab(t) and shot(t.replace(" ", "")))
+    step("Liquid Glass: Now Playing", lambda: open_now_playing() and shot("NowPlaying"))
+    step("Liquid Glass: song menu sheet", lambda: tap("Options", wait=2) and shot("Sheet"))
+    back()
+    # Close Now Playing too (its down arrow), so the tabs are reachable again.
+    if find("Close"):
+        tap("Close", wait=2)
+    step("Theme: back to Classic Dark", set_theme("Classic Dark"))
+
     # ---------------------------------------------------------------- report
     print("\n================ UI walk report ================")
     for status, name, detail in results:

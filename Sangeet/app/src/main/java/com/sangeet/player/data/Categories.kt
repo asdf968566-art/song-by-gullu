@@ -2,8 +2,30 @@ package com.sangeet.player.data
 
 import java.util.Calendar
 
-/** Home / Search ki lines: "🎵 Hindi Romantic", "🔥 Party"... Har ek ek search query hai. */
-data class Category(val name: String, val emoji: String, val query: String, val language: String, val color: Long)
+/**
+ * Home / Search ki lines: "🎵 Hindi Romantic", "🔥 Party"... Har ek ek search query hai.
+ * `more` + `match`: a category made of several searches whose songs must fit it (e.g. Haryanvi Badmashi):
+ * results of a search that names the category itself are kept, results of the other searches (singers)
+ * only when the song title fits `match`.
+ */
+data class Category(
+    val name: String,
+    val emoji: String,
+    val query: String,
+    val language: String,
+    val color: Long,
+    val more: List<String> = emptyList(),
+    val match: Regex? = null,
+)
+
+/** Haryanvi badmashi songs: words from their titles (gunda, bandook, jail, dushman...). */
+val BADMASHI = Regex(
+    "badma?sh?|bdmash|\\bgund[aeiy]|gundagardi|\\bgoli|band[ou]+k|raf+al|rifle|pistol|\\bkatt[ae]\\b|\\basla\\b|licen[cs]e|" +
+        "\\bjail\\b|khoon|dushman|gangster|\\bgang\\b|ak ?47|\\bbore\\b|encounter|rangdari|dabdaba|hathyar|qatal|\\bkatl\\b|" +
+        "\\bmaut\\b|\\bbadla\\b|warrant|hawalat|\\bdaku\\b|bahubali|khatarnak|\\bthar\\b|bawal|rangbaaz|shooter|firing|" +
+        "\\bfire\\b|\\bbullet\\b|danger|\\bdon\\b",
+    RegexOption.IGNORE_CASE,
+)
 
 object Categories {
     val all = listOf(
@@ -17,6 +39,14 @@ object Categories {
         Category("Old is Gold", "📻", "old hindi songs 90s", "hindi", 0xFFBA5D07),
         Category("Punjabi Romantic", "💕", "punjabi romantic songs", "punjabi", 0xFFB06239),
         Category("Haryanvi", "🌾", "haryanvi songs", "haryanvi", 0xFF608108),
+        Category(
+            "Haryanvi Badmashi", "😎", "haryanvi badmashi songs", "haryanvi", 0xFF8B1E1E,
+            more = listOf(
+                "badmashi haryanvi", "badmash haryanvi song", "haryanvi gangster songs", "haryanvi bandook song",
+                "masoom sharma", "amit saini rohtakiya", "narender bhagana", "raj mawar", "khasa aala chahar", "ndee kundu",
+            ),
+            match = BADMASHI,
+        ),
         Category("Bhojpuri", "🎺", "bhojpuri songs", "bhojpuri", 0xFF27856A),
         Category("Devotional", "🙏", "bhakti songs hindi", "hindi", 0xFFF59B23),
         Category("Workout", "💪", "gym workout hindi songs", "hindi", 0xFF148A08),

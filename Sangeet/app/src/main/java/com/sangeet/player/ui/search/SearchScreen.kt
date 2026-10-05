@@ -72,6 +72,8 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import com.sangeet.player.data.settings.ThemeStyle
+import com.sangeet.player.ui.theme.themedCard
 
 @OptIn(FlowPreview::class)
 class SearchViewModel(private val c: AppContainer) : ViewModel() {
@@ -196,30 +198,35 @@ fun SearchScreen(nav: NavController) {
             )
         }
         item {
+            // Classic Dark keeps the white Spotify-style box; other themes use their own surface (glass, soft 3D...).
+            val classic = spec.style == ThemeStyle.SPOTIFY || spec.style == ThemeStyle.AMOLED
+            val fieldText = if (classic) Color(0xFF121212) else spec.onSurface
+            val shape = RoundedCornerShape(if (spec.style == ThemeStyle.LIQUID_GLASS) 24.dp else 8.dp)
             TextField(
                 value = ui.query,
                 onValueChange = vm::onQuery,
-                placeholder = { Text("What do you want to listen to?", color = Color(0xFF535353)) },
-                leadingIcon = { Icon(Icons.Rounded.Search, null, tint = Color(0xFF121212)) },
+                placeholder = { Text("What do you want to listen to?", color = if (classic) Color(0xFF535353) else spec.muted) },
+                leadingIcon = { Icon(Icons.Rounded.Search, null, tint = fieldText) },
                 trailingIcon = {
                     if (ui.query.isNotEmpty()) {
-                        IconButton(onClick = { vm.onQuery("") }) { Icon(Icons.Rounded.Close, "Clear", tint = Color(0xFF121212)) }
+                        IconButton(onClick = { vm.onQuery("") }) { Icon(Icons.Rounded.Close, "Clear", tint = fieldText) }
                     }
                 },
                 singleLine = true,
-                shape = RoundedCornerShape(8.dp),
+                shape = shape,
                 colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White,
-                    focusedTextColor = Color(0xFF121212),
-                    unfocusedTextColor = Color(0xFF121212),
+                    focusedContainerColor = if (classic) Color.White else Color.Transparent,
+                    unfocusedContainerColor = if (classic) Color.White else Color.Transparent,
+                    focusedTextColor = fieldText,
+                    unfocusedTextColor = fieldText,
                     focusedIndicatorColor = Color.Transparent,
                     unfocusedIndicatorColor = Color.Transparent,
-                    cursorColor = Color(0xFF121212),
+                    cursorColor = if (classic) Color(0xFF121212) else spec.accent,
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = 16.dp)
+                    .then(if (classic) Modifier else Modifier.themedCard(spec, shape, corner = if (spec.style == ThemeStyle.LIQUID_GLASS) 24.dp else 8.dp, elevation = 4.dp)),
             )
         }
 

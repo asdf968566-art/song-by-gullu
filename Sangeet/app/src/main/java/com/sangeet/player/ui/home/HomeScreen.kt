@@ -132,7 +132,9 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
             launch {
                 delay(800)
                 val langs = c.settings.current.languages
-                val cats = Categories.ordered(langs).filter { it.language in langs }.take(4)
+                // Special categories (Haryanvi Badmashi) always get a row when their language is chosen.
+                val cats = (Categories.ordered(langs).filter { it.language in langs }.take(4) +
+                    Categories.all.filter { it.more.isNotEmpty() && it.language in langs }).distinct()
                 val rows = cats.map { cat ->
                     async { cat to runCatching { c.online.saavn.searchPage(cat.query, 1).filter { it.inLanguages(langs) }.take(20) }.getOrDefault(emptyList()) }
                 }.awaitAll().filter { it.second.isNotEmpty() }

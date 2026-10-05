@@ -71,6 +71,12 @@ import com.sangeet.player.ui.settings.SettingsScreen
 import com.sangeet.player.ui.settings.ThemePickerScreen
 import com.sangeet.player.ui.theme.Sangeet
 import com.sangeet.player.ui.theme.ThemedBackground
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.NavigationBarDefaults
+import com.sangeet.player.data.settings.ThemeStyle
+import com.sangeet.player.ui.theme.liquidGlass
 
 object Routes {
     const val HOME = "home"
@@ -226,7 +232,17 @@ private fun BottomNav(nav: NavHostController) {
     )
     val backStack by nav.currentBackStackEntryAsState()
     val route = backStack?.destination?.route
-    NavigationBar(containerColor = spec.navBar, tonalElevation = 0.dp) {
+    val liquid = spec.style == ThemeStyle.LIQUID_GLASS
+    // Liquid Glass: the tab bar floats as a glass capsule above the bottom edge.
+    NavigationBar(
+        containerColor = if (liquid) Color.Transparent else spec.navBar,
+        tonalElevation = 0.dp,
+        windowInsets = if (liquid) WindowInsets(0) else NavigationBarDefaults.windowInsets,
+        modifier = if (liquid) Modifier
+            .navigationBarsPadding()
+            .padding(start = 14.dp, end = 14.dp, bottom = 8.dp)
+            .liquidGlass(spec, RoundedCornerShape(30.dp)) else Modifier,
+    ) {
         tabs.forEach { tab ->
             val selected = route == tab.route
             NavigationBarItem(
@@ -245,7 +261,7 @@ private fun BottomNav(nav: NavHostController) {
                     selectedTextColor = spec.onSurface,
                     unselectedIconColor = spec.muted,
                     unselectedTextColor = spec.muted,
-                    indicatorColor = Color.Transparent,
+                    indicatorColor = if (liquid) Color.White.copy(alpha = if (spec.isDark) 0.16f else 0.55f) else Color.Transparent,
                 ),
             )
         }

@@ -84,6 +84,10 @@ import com.sangeet.player.ui.theme.playIconColor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.compose.ui.graphics.lerp
+import com.sangeet.player.data.settings.ThemeStyle
+import com.sangeet.player.ui.theme.ThemedBackground
+import com.sangeet.player.ui.theme.themedCard
 
 /** Poori screen ka player (Spotify jaisa): cover ke rang ka gradient, seek bar, lyrics card. */
 @Composable
@@ -121,7 +125,9 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
     LaunchedEffect(track.artworkUrl) {
         dominant = dominantColor(context, track.artworkUrl) ?: spec.accent
     }
-    val bg by animateColorAsState(dominant, tween(600), label = "bg")
+    // The cover's color over this theme's background; softened in light mode so dark text stays readable.
+    val tint = if (spec.isDark) dominant else lerp(dominant, Color.White, 0.55f)
+    val bg by animateColorAsState(tint, tween(600), label = "bg")
 
     val lrcPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) scope.launch {
@@ -143,8 +149,9 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
     if (showSpeed) SpeedDialog { showSpeed = false }
     if (showOptions) TrackOptionsSheet(track, onDismiss = { showOptions = false })
 
-    val textColor = Color.White
-    val muted = Color.White.copy(alpha = 0.7f)
+    val textColor = if (spec.isDark) Color.White else spec.onSurface
+    val muted = textColor.copy(alpha = 0.7f)
+    val glassy = spec.style in setOf(ThemeStyle.GLASS, ThemeStyle.LIQUID_GLASS, ThemeStyle.AURORA, ThemeStyle.NEUMORPHISM)
     val quality = c.online.streamingQuality()
     val qualityText = when {
         downloads[track.id]?.filePath != null -> "Downloaded • ${downloads[track.id]?.quality?.label}"
@@ -152,14 +159,15 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
         else -> "${c.online.qualityLabel(track, quality)} • ${if (network.unmetered) "Wi-Fi" else "Mobile data"}"
     }
 
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(Color(0xFF121212))
-            .background(Brush.verticalGradient(listOf(bg.copy(alpha = 0.95f), bg.copy(alpha = 0.45f), Color(0xFF121212))))
-            // Neeche ki screen tak touch na jaye.
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
+    // Same theme as every other page (Liquid Glass: the cover itself is the background).
+    ThemedBackground(
+        // Neeche ki screen tak touch na jaye.
+        Modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
     ) {
+        if (spec.style != ThemeStyle.LIQUID_GLASS) {
+            val top = if (spec.isDark) 0.9f else 0.7f
+            Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(bg.copy(alpha = top), bg.copy(alpha = top * 0.45f), Color.Transparent))))
+        }
         Column(
             Modifier
                 .fillMaxSize()
@@ -310,7 +318,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier
-                            .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(50))
+                            .background(if (spec.isDark) Color.Black.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.55f), RoundedCornerShape(50))
                             .padding(horizontal = 10.dp, vertical = 4.dp),
                     )
                 }
@@ -329,7 +337,10 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                     Modifier
                         .padding(16.dp)
                         .fillMaxWidth()
-                        .background(bg.copy(alpha = 0.55f), RoundedCornerShape(14.dp))
+                        .then(
+                            if (glassy) Modifier.themedCard(spec, RoundedCornerShape(14.dp), corner = 14.dp)
+                            else Modifier.background(bg.copy(alpha = 0.55f), RoundedCornerShape(14.dp))
+                        )
                         .padding(vertical = 12.dp),
                 ) {
                     Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -406,7 +417,7 @@ private suspend fun dominantColor(context: android.content.Context, url: String?
             val bmp = (result as? SuccessResult)?.drawable?.toBitmap() ?: return@runCatching null
             val px = Bitmap.createScaledBitmap(bmp, 1, 1, true).getPixel(0, 0)
             val color = Color(px)
-            // Bahut halka rang ho to thoda gehra karo taaki safed text padha jaye.
+            // Bahut halka rang ho to thoda gehra karo taaki safed text padha jaye (light themes lighten it again).
             val lum = 0.2126f * color.red + 0.7152f * color.green + 0.0722f * color.blue
             if (lum > 0.6f) Color(color.red * 0.6f, color.green * 0.6f, color.blue * 0.6f) else color
         }.getOrNull()

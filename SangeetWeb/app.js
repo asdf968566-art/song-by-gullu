@@ -958,6 +958,8 @@ function searchPage() {
         h('div', { class: 'section' }, 'Recent searches'),
         h('div', { class: 'chips' }, recentQ.map((x) => h('button', { class: 'chip', onclick: () => { input.value = x; run(); } }, x))),
       ] : null,
+      h('div', { class: 'section' }, 'Categories'),
+      h('div', { class: 'cat-row' }, CATEGORIES.map((c) => h('div', { class: 'cat', style: `background:${c.color}`, onclick: () => pushPage(() => categoryPage(c)) }, `${c.emoji} ${c.name}`))),
       h('div', { class: 'section' }, 'Moods'),
       h('div', { class: 'chips' }, moods.map((m) => h('button', { class: 'chip', onclick: () => pushPage(() => djPage(`${m} ${S.langs[0] || 'hindi'} songs`)) }, m))),
       charts.length ? [h('div', { class: 'section' }, 'Top charts'), h('div', { class: 'grid' }, charts.map(playlistCard))] : null);
@@ -966,6 +968,35 @@ function searchPage() {
   if (searchPage.q) { input.value = searchPage.q; run(); } else results.replaceChildren(browse());
   return h('div', null, header('Search'), h('div', { class: 'search-box' }, input), results);
 }
+
+/* ------------------------------------------------------------------ special categories (Haryanvi Badmashi) */
+const BADMASHI = /badma?sh?|bdmash|\bgund[aeiy]|gundagardi|\bgoli|band[ou]+k|raf+al|rifle|pistol|\bkatt[ae]\b|\basla\b|licen[cs]e|\bjail\b|khoon|dushman|gangster|\bgang\b|ak ?47|\bbore\b|encounter|rangdari|dabdaba|hathyar|qatal|\bkatl\b|\bmaut\b|\bbadla\b|warrant|hawalat|\bdaku\b|bahubali|khatarnak|\bthar\b|bawal|rangbaaz|shooter|firing|\bfire\b|\bbullet\b|danger|\bdon\b/i;
+const CATEGORIES = [
+  // The language's popular songs whose titles fit the category, most popular first.
+  { name: 'Haryanvi Badmashi', emoji: '😎', color: 'linear-gradient(135deg,#8b1e1e,#2b0b0b)', lang: 'haryanvi', match: BADMASHI },
+];
+function categoryPage(cat) {
+  const body = h('div', null, h('div', { class: 'spinner' }));
+  const cached = categoryPage.cache.get(cat.name);
+  const show = (songs) => fill(body,
+    songs.length ? h('div', { class: 'actions' },
+      h('button', { class: 'pill primary', onclick: () => Player.play(songs) }, icon('play'), 'Play'),
+      h('button', { class: 'pill', onclick: () => Player.play(shuffle(songs)) }, icon('shuffle'), 'Shuffle')) : null,
+    songs.length ? trackList(songs) : h('div', { class: 'empty' }, "Couldn't load songs. Check your connection."));
+  if (cached) show(cached);
+  else (async () => {
+    const seen = new Set(), songs = [];
+    const add = (t) => {
+      const k = norm(t.title);
+      if (t.lang === cat.lang && cat.match.test(t.title) && !JUNK.test(t.title) && !seen.has(k)) { seen.add(k); songs.push(t); }
+    };
+    (await Catalog.loadLang(cat.lang))?.tracks.forEach(add);
+    categoryPage.cache.set(cat.name, songs);
+    show(songs);
+  })();
+  return h('div', null, header(`${cat.emoji} ${cat.name}`, true), body);
+}
+categoryPage.cache = new Map();
 
 /** All songs of one singer: popular ones first, YouTube when the catalog has only a few. */
 function artistPage(name) {
