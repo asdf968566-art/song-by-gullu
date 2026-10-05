@@ -397,14 +397,26 @@ def main():
         with open(path, "wb") as f:
             subprocess.run(["adb", "exec-out", "screencap", "-p"], stdout=f)
         # Also into the log as a small JPEG (artifacts can't always be opened), between SHOT markers.
-        jpg = subprocess.run(["convert", path, "-resize", "300x", "-quality", "40", "jpg:-"], capture_output=True).stdout
-        if jpg:
+        # A screenshot problem never fails the walk.
+        try:
             import base64
-            data = base64.b64encode(jpg).decode()
+            import io
+            try:
+                from PIL import Image
+            except ImportError:
+                subprocess.run([sys.executable, "-m", "pip", "install", "-q", "pillow"], capture_output=True)
+                from PIL import Image
+            img = Image.open(path).convert("RGB")
+            img.thumbnail((300, 700))
+            buf = io.BytesIO()
+            img.save(buf, "JPEG", quality=45)
+            data = base64.b64encode(buf.getvalue()).decode()
             print(f"SHOT-BEGIN {name}")
             for i in range(0, len(data), 3000):
                 print("SHOT " + data[i:i + 3000])
             print(f"SHOT-END {name}")
+        except Exception as e:  # noqa: BLE001
+            print(f"(screenshot {name} not logged: {e})")
         return True
 
     def on_screen():
