@@ -83,6 +83,17 @@ class ImportViewModel(private val c: AppContainer) : ViewModel() {
     fun loadLink(link: String) = viewModelScope.launch {
         if (link.isBlank()) return@launch
         _ui.value = Ui(working = true)
+        // A friend's Blend link: one playlist from their taste and yours.
+        if (com.sangeet.player.data.LibrarySync.isBlendLink(link)) {
+            _ui.value = try {
+                val (name, songs) = com.sangeet.player.data.LibrarySync.importBlend(c.library, link)
+                if (songs.isEmpty()) Ui(error = "That Blend link has no songs.")
+                else Ui(message = "Made \"$name\" with ${songs.size} songs. It's in your playlists.")
+            } catch (e: Exception) {
+                Ui(error = "That Blend link is damaged or incomplete.")
+            }
+            return@launch
+        }
         // A "Move library" link from another phone: add its liked songs and playlists.
         if (com.sangeet.player.data.LibrarySync.isSyncLink(link)) {
             _ui.value = try {

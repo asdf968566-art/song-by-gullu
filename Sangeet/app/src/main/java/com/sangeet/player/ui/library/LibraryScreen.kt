@@ -63,6 +63,11 @@ import com.sangeet.player.ui.theme.Sangeet
 import com.sangeet.player.ui.theme.themedCard
 import kotlinx.coroutines.launch
 import com.sangeet.player.ui.theme.bottomBarPadding
+import androidx.compose.material.icons.rounded.People
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.platform.LocalContext
 
 @Composable
 fun LibraryScreen(nav: NavController) {
@@ -76,6 +81,8 @@ fun LibraryScreen(nav: NavController) {
     val localSongs by c.local.songs.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableStateOf(0) } // 0 playlists, 1 albums, 2 artists
     var creating by remember { mutableStateOf(false) }
+    var blendAsk by remember { mutableStateOf(false) }
+    if (blendAsk) BlendDialog { blendAsk = false }
 
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) scope.launch { c.local.scan() }
@@ -162,6 +169,14 @@ fun LibraryScreen(nav: NavController) {
                         gradient = listOf(Color(0xFF7C4DFF), Color(0xFF00E5C3)),
                         icon = Icons.Rounded.BarChart,
                     ) { nav.navigate(Routes.STATS) }
+                }
+                item {
+                    LibraryRow(
+                        title = "Blend with a friend",
+                        subtitle = "One playlist from your taste and a friend's",
+                        gradient = listOf(Color(0xFFFF5F6D), Color(0xFFFFC371)),
+                        icon = Icons.Rounded.People,
+                    ) { blendAsk = true }
                 }
                 item {
                     LibraryRow(
@@ -252,4 +267,41 @@ private fun LibraryRow(
             Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = spec.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
+}
+
+/**
+ * Blend: sends a link with your taste. The friend opens it on iPhone (Sangeet web app) or pastes it in
+ * Import playlist on Android, and gets one playlist mixed from both.
+ */
+@Composable
+private fun BlendDialog(onDone: () -> Unit) {
+    val c = LocalAppContainer.current
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("blend", android.content.Context.MODE_PRIVATE) }
+    var name by remember { mutableStateOf(prefs.getString("name", "").orEmpty()) }
+    AlertDialog(
+        onDismissRequest = onDone,
+        title = { Text("Blend with a friend") },
+        text = {
+            Column {
+                Text("Send your friend a link with your taste. When they open it, Sangeet mixes your songs with theirs into one playlist. Ask them for theirs too, and paste it in Import playlist.")
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Your name") }, singleLine = true)
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                val who = name.trim().ifBlank { "Friend" }
+                prefs.edit().putString("name", who).apply()
+                c.scope.launch {
+                    val link = com.sangeet.player.data.LibrarySync.blendLink(c.library, who)
+                    val send = android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain")
+                        .putExtra(android.content.Intent.EXTRA_TEXT, "Let's Blend on Sangeet 🎵 Open this to get a playlist from both our tastes:\n$link")
+                    context.startActivity(android.content.Intent.createChooser(send, "Send Blend link").addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                }
+                onDone()
+            }) { Text("Send link") }
+        },
+        dismissButton = { TextButton(onClick = onDone) { Text("Cancel") } },
+    )
 }

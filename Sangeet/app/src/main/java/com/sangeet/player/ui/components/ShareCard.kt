@@ -38,6 +38,54 @@ object ShareCard {
         context.startActivity(Intent.createChooser(send, "Share song").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 
+    /** "My Sangeet Wrapped": minutes, top songs, top singers and streak on one picture. */
+    suspend fun shareWrapped(context: Context, minutes: Long, songs: List<Pair<String, String>>, singers: List<String>, streak: Int, coverUrl: String?) {
+        val file = withContext(Dispatchers.IO) {
+            val bmp = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bmp)
+            val cover: Bitmap? = coverUrl?.let { url ->
+                runCatching {
+                    val res = context.imageLoader.execute(ImageRequest.Builder(context).data(url).allowHardware(false).size(400).build())
+                    (res as? SuccessResult)?.drawable?.toBitmap()
+                }.getOrNull()
+            }
+            val tint = cover?.let { Bitmap.createScaledBitmap(it, 1, 1, true).getPixel(0, 0) } ?: 0xFF1DB954.toInt()
+            canvas.drawRect(0f, 0f, W.toFloat(), H.toFloat(), Paint().apply {
+                shader = LinearGradient(0f, 0f, W.toFloat(), H.toFloat(), tint, 0xFF0B0B0F.toInt(), Shader.TileMode.CLAMP)
+            })
+            if (cover != null) {
+                val rect = RectF(700f, 90f, 1000f, 390f)
+                val save = canvas.save()
+                canvas.clipPath(android.graphics.Path().apply { addRoundRect(rect, 28f, 28f, android.graphics.Path.Direction.CW) })
+                canvas.drawBitmap(cover, null, rect, Paint(Paint.FILTER_BITMAP_FLAG))
+                canvas.restoreToCount(save)
+            }
+            val white = 0xFFFFFFFF.toInt()
+            val dim = 0xB3FFFFFF.toInt()
+            val year = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+            drawText(canvas, "MY SANGEET WRAPPED", 40f, Typeface.DEFAULT_BOLD, dim, 100f, maxLines = 1, width = 560, left = true)
+            drawText(canvas, "$year", 120f, Typeface.DEFAULT_BOLD, white, 170f, maxLines = 1, width = 560, left = true)
+            drawText(canvas, "${"%,d".format(minutes)} minutes of music", 58f, Typeface.DEFAULT_BOLD, white, 430f, maxLines = 1, left = true)
+            drawText(canvas, "Top songs", 40f, Typeface.DEFAULT_BOLD, dim, 560f, maxLines = 1, x = 70f, width = 460, left = true)
+            drawText(canvas, "Top singers", 40f, Typeface.DEFAULT_BOLD, dim, 560f, maxLines = 1, x = 580f, width = 440, left = true)
+            var ys = 630f
+            songs.take(5).forEachIndexed { i, (t, _) -> ys = drawText(canvas, "${i + 1}. $t", 38f, Typeface.DEFAULT_BOLD, white, ys, maxLines = 2, x = 70f, width = 470, left = true) + 10f }
+            var ya = 630f
+            singers.take(5).forEachIndexed { i, a -> ya = drawText(canvas, "${i + 1}. $a", 38f, Typeface.DEFAULT_BOLD, white, ya, maxLines = 2, x = 580f, width = 440, left = true) + 10f }
+            if (streak > 0) drawText(canvas, "🔥 $streak-day listening streak", 44f, Typeface.DEFAULT_BOLD, white, 1150f, maxLines = 1, left = true)
+            canvas.drawText("🎵 Sangeet", 70f, H - 60f, TextPaint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x99FFFFFF.toInt(); textSize = 34f; typeface = Typeface.DEFAULT_BOLD })
+            val dir = File(context.cacheDir, "share").apply { mkdirs() }
+            File(dir, "sangeet_wrapped.png").also { f -> f.outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) } }
+        }
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file)
+        val send = Intent(Intent.ACTION_SEND)
+            .setType("image/png")
+            .putExtra(Intent.EXTRA_STREAM, uri)
+            .putExtra(Intent.EXTRA_TEXT, "My Sangeet Wrapped 🎵")
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        context.startActivity(Intent.createChooser(send, "Share your Wrapped").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+
     private suspend fun render(context: Context, track: Track, lyricLine: String?): File {
         val cover: Bitmap? = track.artworkUrl?.let { url ->
             val res = context.imageLoader.execute(ImageRequest.Builder(context).data(url).allowHardware(false).size(900).build())
@@ -79,16 +127,18 @@ object ShareCard {
         return File(dir, "sangeet_share.png").also { f -> f.outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) } }
     }
 
-    private fun drawText(canvas: Canvas, text: String, size: Float, face: Typeface, color: Int, y: Float, maxLines: Int): Float {
+    private fun drawText(
+        canvas: Canvas, text: String, size: Float, face: Typeface, color: Int, y: Float, maxLines: Int,
+        x: Float = 70f, width: Int = W - 140, left: Boolean = false,
+    ): Float {
         val paint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = size; typeface = face; this.color = color }
-        val width = W - 140
         val layout = StaticLayout.Builder.obtain(text, 0, text.length, paint, width)
-            .setAlignment(Layout.Alignment.ALIGN_CENTER)
+            .setAlignment(if (left) Layout.Alignment.ALIGN_NORMAL else Layout.Alignment.ALIGN_CENTER)
             .setMaxLines(maxLines)
             .setEllipsize(android.text.TextUtils.TruncateAt.END)
             .build()
         canvas.save()
-        canvas.translate(70f, y)
+        canvas.translate(x, y)
         layout.draw(canvas)
         canvas.restore()
         return y + layout.height

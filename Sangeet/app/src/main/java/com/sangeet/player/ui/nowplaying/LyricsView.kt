@@ -22,8 +22,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.sangeet.player.data.lyrics.Lyrics
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 
 /** Synced lyrics: chal rahi line highlight hoti hai aur apne aap scroll hota hai. Line dabao = wahan seek. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun LyricsView(
     lyrics: Lyrics,
@@ -32,6 +35,8 @@ fun LyricsView(
     textColor: Color,
     modifier: Modifier = Modifier,
     compact: Boolean = false,
+    /** Long-press a line: share it as a picture. */
+    onShareLine: ((String) -> Unit)? = null,
 ) {
     if (!lyrics.isSynced) {
         Column(modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 12.dp)) {
@@ -82,7 +87,10 @@ fun LyricsView(
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { onSeek(line.timeMs) }
+                    .combinedClickable(
+                        onClick = { onSeek(line.timeMs) },
+                        onLongClick = onShareLine?.let { share -> { if (line.text.isNotBlank()) share(line.text) } },
+                    )
                     .padding(vertical = if (compact) 4.dp else 8.dp),
             )
         }

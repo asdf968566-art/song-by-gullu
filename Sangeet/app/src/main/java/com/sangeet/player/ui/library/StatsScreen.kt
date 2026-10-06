@@ -51,6 +51,9 @@ import com.sangeet.player.ui.components.SectionHeader
 import com.sangeet.player.ui.theme.Sangeet
 import java.time.LocalDate
 import com.sangeet.player.ui.theme.bottomBarPadding
+import androidx.compose.material3.Button
+import com.sangeet.player.ui.components.ShareCard
+import androidx.compose.ui.platform.LocalContext
 
 private data class Stats(
     val totalMs: Long,
@@ -66,6 +69,7 @@ fun StatsScreen(nav: NavController) {
     val c = LocalAppContainer.current
     val spec = Sangeet.spec
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var period by rememberSaveable { mutableIntStateOf(0) } // 0 week, 1 month, 2 all time
     val periods = listOf("This week", "This month", "All time")
 
@@ -120,6 +124,23 @@ fun StatsScreen(nav: NavController) {
                 EmptyState(Icons.Rounded.BarChart, "No stats yet", "Listen to a few songs and your stats will show up here.")
             }
             else -> {
+                item {
+                    // A picture of your year (minutes, top songs and singers, streak) for Instagram / WhatsApp.
+                    Button(
+                        onClick = {
+                            c.scope.launch {
+                                val cover = s.tracks.firstOrNull()?.let { c.library.find(it.trackId)?.artworkUrl }
+                                runCatching {
+                                    ShareCard.shareWrapped(
+                                        context, s.totalMs / 60_000, s.tracks.map { it.title to it.artist },
+                                        s.artists.map { it.artist.substringBefore(",").trim() }.distinct(), s.streak, cover,
+                                    )
+                                }
+                            }
+                        },
+                        modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+                    ) { Text("🎁 Share my Wrapped") }
+                }
                 item {
                     Column(
                         Modifier
