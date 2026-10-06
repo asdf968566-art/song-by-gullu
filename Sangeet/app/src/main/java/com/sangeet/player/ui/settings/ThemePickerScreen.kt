@@ -48,6 +48,7 @@ import com.sangeet.player.ui.theme.playButtonStyle
 import com.sangeet.player.ui.theme.playIconColor
 import com.sangeet.player.ui.theme.themedCard
 import kotlinx.coroutines.launch
+import com.sangeet.player.ui.theme.LocalBottomBarSpace
 
 @Composable
 fun ThemePickerScreen(nav: NavController) {
@@ -56,7 +57,7 @@ fun ThemePickerScreen(nav: NavController) {
     val scope = rememberCoroutineScope()
     val spec = Sangeet.spec
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = LocalBottomBarSpace.current)) {
         SettingsTopBar(nav, "Choose theme")
 
         ThemeStyle.entries.chunked(2).forEach { row ->

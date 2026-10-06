@@ -1,7 +1,5 @@
 package com.sangeet.player.ui.theme
 
-import android.os.Build
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -18,7 +16,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
@@ -27,17 +24,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import com.sangeet.player.data.settings.ThemeStyle
-import com.sangeet.player.ui.LocalAppContainer
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -59,84 +49,12 @@ fun ThemedBackground(modifier: Modifier = Modifier, content: @Composable BoxScop
                             0.35f to Color.Transparent,
                         )
                     )
-                    ThemeStyle.LIQUID_GLASS -> Modifier.liquidBlobs(spec)
                     else -> Modifier
                 }
             ),
-    ) {
-        if (spec.style == ThemeStyle.LIQUID_GLASS) LiquidBackdrop(spec)
-        content()
-    }
-}
-
-/**
- * Liquid Glass: the playing song's cover, hugely soft, fills the screen and the glass panels sit on it,
- * so every page takes the song's colors. A tiny (24 px) copy stretched up is blurry by itself and cheap.
- */
-@Composable
-private fun BoxScope.LiquidBackdrop(spec: ThemeSpec) {
-    val state by LocalAppContainer.current.player.state.collectAsStateWithLifecycle()
-    val context = LocalContext.current
-    Crossfade(state.current?.artworkUrl, animationSpec = tween(700), modifier = Modifier.matchParentSize(), label = "liquid") { url ->
-        if (url != null) {
-            AsyncImage(
-                model = ImageRequest.Builder(context).data(url.replace("500x500", "50x50")).size(24).build(),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .then(if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) Modifier.blur(24.dp) else Modifier)
-                    .graphicsLayer { alpha = if (spec.isDark) 0.9f else 0.75f },
-            )
-        }
-    }
-    // A veil so text stays easy to read on any cover.
-    Box(
-        Modifier
-            .matchParentSize()
-            .background(
-                if (spec.isDark) Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.30f), Color.Black.copy(alpha = 0.50f), Color.Black.copy(alpha = 0.72f)))
-                else Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.40f), Color.White.copy(alpha = 0.52f), Color.White.copy(alpha = 0.70f)))
-            )
+        content = content,
     )
 }
-
-/** Liquid Glass when nothing is playing yet: soft pools of color. */
-private fun Modifier.liquidBlobs(spec: ThemeSpec): Modifier = this
-    .background(
-        Brush.linearGradient(
-            if (spec.isDark) listOf(Color(0xFF101A2E), Color(0xFF0C0E14), Color(0xFF231231))
-            else listOf(Color(0xFFDDE8FF), Color(0xFFF4F1FF), Color(0xFFFFE3EC))
-        )
-    )
-    .drawBehind {
-        val w = size.width
-        val h = size.height
-        listOf(
-            Triple(Offset(w * 0.1f, h * 0.12f), w * 0.7f, spec.accent),
-            Triple(Offset(w * 0.95f, h * 0.5f), w * 0.6f, Color(0xFF38BDF8)),
-            Triple(Offset(w * 0.25f, h * 0.92f), w * 0.7f, Color(0xFFF472B6)),
-        ).forEach { (c, r, col) ->
-            drawCircle(Brush.radialGradient(listOf(col.copy(alpha = if (spec.isDark) 0.35f else 0.45f), Color.Transparent), c, r), r, c)
-        }
-    }
-
-/** A clear glass panel: see-through fill, a light sheen on top and a bright rim that catches the light. */
-fun Modifier.liquidGlass(spec: ThemeSpec, shape: Shape): Modifier = this
-    .clip(shape)
-    .background(spec.surface)
-    .background(Brush.verticalGradient(0f to Color.White.copy(alpha = if (spec.isDark) 0.10f else 0.35f), 0.6f to Color.Transparent))
-    .border(
-        1.dp,
-        Brush.linearGradient(
-            listOf(
-                Color.White.copy(alpha = if (spec.isDark) 0.55f else 0.95f),
-                Color.White.copy(alpha = 0.04f),
-                Color.White.copy(alpha = if (spec.isDark) 0.22f else 0.5f),
-            )
-        ),
-        shape,
-    )
 
 /** Aurora: dheere-dheere ghoomte hue rang ke badal. */
 private fun Modifier.auroraBackdrop(spec: ThemeSpec): Modifier = composed {
@@ -217,7 +135,10 @@ fun Modifier.themedCard(
         .clip(shape)
         .background(spec.surface)
         .border(1.dp, Color(0xFF1C1C1C), shape)
-    ThemeStyle.LIQUID_GLASS -> this.liquidGlass(spec, shape)
+    // Liquid Glass keeps content plain (glass is only for the controls floating above it).
+    ThemeStyle.LIQUID_GLASS -> this
+        .clip(shape)
+        .background(spec.surface)
     else -> this
         .clip(shape)
         .background(spec.surface)
@@ -259,8 +180,8 @@ fun Modifier.playButtonStyle(spec: ThemeSpec, size: Dp): Modifier = when (spec.s
         .background(Brush.linearGradient(listOf(spec.accent, Color(0xFF7C4DFF))))
     ThemeStyle.LIQUID_GLASS -> this
         .clip(RoundedCornerShape(50))
-        .background(spec.accent.copy(alpha = 0.85f))
-        .liquidGlass(spec.copy(surface = Color.Transparent), RoundedCornerShape(50))
+        .background(spec.accent)
+        .glassRim(spec, RoundedCornerShape(50))
     else -> this
         .clip(RoundedCornerShape(50))
         .background(spec.accent)

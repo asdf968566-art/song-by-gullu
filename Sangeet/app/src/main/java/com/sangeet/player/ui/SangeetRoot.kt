@@ -71,12 +71,29 @@ import com.sangeet.player.ui.settings.SettingsScreen
 import com.sangeet.player.ui.settings.ThemePickerScreen
 import com.sangeet.player.ui.theme.Sangeet
 import com.sangeet.player.ui.theme.ThemedBackground
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.NavigationBarDefaults
 import com.sangeet.player.data.settings.ThemeStyle
 import com.sangeet.player.ui.theme.liquidGlass
+import com.sangeet.player.ui.theme.rememberGlassSource
+import com.sangeet.player.ui.theme.glassSource
+import com.sangeet.player.ui.theme.LocalGlassSource
+import com.sangeet.player.ui.theme.LocalBottomBarSpace
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.Alignment
+import androidx.compose.material3.MaterialTheme
 
 object Routes {
     const val HOME = "home"
@@ -137,7 +154,10 @@ fun SangeetRoot() {
 
     BackHandler(enabled = expanded) { expanded = false }
 
-    CompositionLocalProvider(LocalNav provides nav) {
+    // Liquid Glass: the pages run under the floating glass bars, which show them through the glass.
+    val liquid = Sangeet.spec.style == ThemeStyle.LIQUID_GLASS
+    val glass = rememberGlassSource()
+    CompositionLocalProvider(LocalNav provides nav, LocalGlassSource provides glass.takeIf { liquid }) {
     ThemedBackground {
         Scaffold(
             containerColor = Color.Transparent,
@@ -149,10 +169,11 @@ fun SangeetRoot() {
                 }
             },
         ) { padding ->
+            CompositionLocalProvider(LocalBottomBarSpace provides if (liquid) padding.calculateBottomPadding() else 0.dp) {
             NavHost(
                 nav,
                 startDestination = Routes.DISCOVER,
-                modifier = Modifier.padding(padding),
+                modifier = if (liquid) Modifier.padding(top = padding.calculateTopPadding()).glassSource(glass) else Modifier.padding(padding),
                 // Quick fades: the default 700 ms cross-fade felt slow and left two screens on top of each other.
                 enterTransition = { fadeIn(tween(140)) },
                 exitTransition = { fadeOut(tween(90)) },
@@ -206,6 +227,7 @@ fun SangeetRoot() {
                     TrackListScreen(nav, kind, entry.arguments?.getString("arg") ?: "")
                 }
             }
+            }
         }
 
         AnimatedVisibility(
@@ -232,28 +254,23 @@ private fun BottomNav(nav: NavHostController) {
     )
     val backStack by nav.currentBackStackEntryAsState()
     val route = backStack?.destination?.route
-    val liquid = spec.style == ThemeStyle.LIQUID_GLASS
-    // Liquid Glass: the tab bar floats as a glass capsule above the bottom edge.
-    NavigationBar(
-        containerColor = if (liquid) Color.Transparent else spec.navBar,
-        tonalElevation = 0.dp,
-        windowInsets = if (liquid) WindowInsets(0) else NavigationBarDefaults.windowInsets,
-        modifier = if (liquid) Modifier
-            .navigationBarsPadding()
-            .padding(start = 14.dp, end = 14.dp, bottom = 8.dp)
-            .liquidGlass(spec, RoundedCornerShape(30.dp)) else Modifier,
-    ) {
+    val go: (String) -> Unit = { r ->
+        nav.navigate(r) {
+            popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+    if (spec.style == ThemeStyle.LIQUID_GLASS) {
+        LiquidTabBar(tabs, route, go)
+        return
+    }
+    NavigationBar(containerColor = spec.navBar, tonalElevation = 0.dp) {
         tabs.forEach { tab ->
             val selected = route == tab.route
             NavigationBarItem(
                 selected = selected,
-                onClick = {
-                    nav.navigate(tab.route) {
-                        popUpTo(nav.graph.findStartDestination().id) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                },
+                onClick = { go(tab.route) },
                 icon = { Icon(if (selected) tab.selectedIcon else tab.icon, tab.label) },
                 label = { Text(tab.label) },
                 colors = NavigationBarItemDefaults.colors(
@@ -261,9 +278,64 @@ private fun BottomNav(nav: NavHostController) {
                     selectedTextColor = spec.onSurface,
                     unselectedIconColor = spec.muted,
                     unselectedTextColor = spec.muted,
-                    indicatorColor = if (liquid) Color.White.copy(alpha = if (spec.isDark) 0.16f else 0.55f) else Color.Transparent,
+                    indicatorColor = Color.Transparent,
                 ),
             )
+        }
+    }
+}
+
+/**
+ * iOS 26 tab bar: a floating glass capsule with the tabs (the chosen one sits in a lighter glass pill),
+ * and Search on its own round glass button at the right.
+ */
+@Composable
+private fun LiquidTabBar(tabs: List<Tab>, route: String?, go: (String) -> Unit) {
+    val spec = Sangeet.spec
+    val search = tabs.first { it.route == Routes.SEARCH }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 8.dp)
+            .height(62.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Row(
+            Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .liquidGlass(spec, RoundedCornerShape(50))
+                .padding(4.dp),
+        ) {
+            tabs.filter { it != search }.forEach { tab ->
+                val selected = route == tab.route
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(50))
+                        .background(if (selected) (if (spec.isDark) Color.White.copy(alpha = 0.14f) else Color.Black.copy(alpha = 0.07f)) else Color.Transparent)
+                        .clickable { go(tab.route) },
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    val tint = if (selected) spec.accent else spec.onSurface
+                    Icon(if (selected) tab.selectedIcon else tab.icon, tab.label, tint = tint, modifier = Modifier.size(24.dp))
+                    Text(tab.label, color = tint, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                }
+            }
+        }
+        Spacer(Modifier.width(10.dp))
+        val onSearch = route == Routes.SEARCH
+        Box(
+            Modifier
+                .size(62.dp)
+                .liquidGlass(spec, CircleShape)
+                .clickable { go(Routes.SEARCH) },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(if (onSearch) search.selectedIcon else search.icon, search.label, tint = if (onSearch) spec.accent else spec.onSurface, modifier = Modifier.size(26.dp))
         }
     }
 }

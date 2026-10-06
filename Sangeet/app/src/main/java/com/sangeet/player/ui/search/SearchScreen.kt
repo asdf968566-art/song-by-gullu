@@ -84,6 +84,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.text.style.TextOverflow
 import com.sangeet.player.ui.components.Artwork
+import com.sangeet.player.ui.theme.bottomBarPadding
 
 /** One entry of "Recent searches": a song you picked from results, or words you searched. */
 @Serializable
@@ -215,7 +216,7 @@ fun SearchScreen(nav: NavController) {
 
     menuFor?.let { TrackOptionsSheet(it, onDismiss = { menuFor = null }) }
 
-    LazyColumn(Modifier.fillMaxSize()) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = bottomBarPadding()) {
         item {
             Text(
                 "Search",

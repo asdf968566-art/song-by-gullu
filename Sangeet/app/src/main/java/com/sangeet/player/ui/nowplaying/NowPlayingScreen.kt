@@ -151,7 +151,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
 
     val textColor = if (spec.isDark) Color.White else spec.onSurface
     val muted = textColor.copy(alpha = 0.7f)
-    val glassy = spec.style in setOf(ThemeStyle.GLASS, ThemeStyle.LIQUID_GLASS, ThemeStyle.AURORA, ThemeStyle.NEUMORPHISM)
+    val glassy = spec.style in setOf(ThemeStyle.GLASS, ThemeStyle.AURORA, ThemeStyle.NEUMORPHISM)
     val quality = c.online.streamingQuality()
     val qualityText = when {
         downloads[track.id]?.filePath != null -> "Downloaded • ${downloads[track.id]?.quality?.label}"
@@ -159,15 +159,13 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
         else -> "${c.online.qualityLabel(track, quality)} • ${if (network.unmetered) "Wi-Fi" else "Mobile data"}"
     }
 
-    // Same theme as every other page (Liquid Glass: the cover itself is the background).
+    // Same theme as every other page, with the cover's color on top (like Apple Music).
     ThemedBackground(
         // Neeche ki screen tak touch na jaye.
         Modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
     ) {
-        if (spec.style != ThemeStyle.LIQUID_GLASS) {
-            val top = if (spec.isDark) 0.9f else 0.7f
-            Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(bg.copy(alpha = top), bg.copy(alpha = top * 0.45f), Color.Transparent))))
-        }
+        val top = if (spec.isDark) 0.9f else 0.7f
+        Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(bg.copy(alpha = top), bg.copy(alpha = top * 0.45f), Color.Transparent))))
         Column(
             Modifier
                 .fillMaxSize()

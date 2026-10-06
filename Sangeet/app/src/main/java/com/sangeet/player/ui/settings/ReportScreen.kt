@@ -36,6 +36,7 @@ import androidx.navigation.NavController
 import com.sangeet.player.data.CrashReporter
 import com.sangeet.player.ui.theme.Sangeet
 import kotlinx.coroutines.launch
+import com.sangeet.player.ui.theme.LocalBottomBarSpace
 
 /** "Report a problem": write what went wrong and send it from right here (no browser, no GitHub app). */
 @Composable
@@ -50,7 +51,7 @@ fun ReportScreen(nav: NavController) {
     var error by remember { mutableStateOf<String?>(null) }
     val crash = remember { CrashReporter.pendingCrash(context) }
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = LocalBottomBarSpace.current)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(4.dp)) {
             IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back", tint = spec.onSurface) }
             Text("Report a problem", style = MaterialTheme.typography.titleLarge, color = spec.onSurface)

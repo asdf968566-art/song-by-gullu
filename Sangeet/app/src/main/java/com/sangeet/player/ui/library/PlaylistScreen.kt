@@ -42,6 +42,7 @@ import com.sangeet.player.ui.theme.Sangeet
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.sangeet.player.ui.theme.bottomBarPadding
 
 @Composable
 fun PlaylistScreen(nav: NavController, playlistId: Long) {
@@ -105,7 +106,7 @@ fun PlaylistScreen(nav: NavController, playlistId: Long) {
         )
     }
 
-    LazyColumn(Modifier.fillMaxSize()) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = bottomBarPadding()) {
         item {
             CollectionHeader(nav, name, "Playlist", tracks) {
                 Box {

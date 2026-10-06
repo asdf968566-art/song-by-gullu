@@ -77,11 +77,11 @@ private fun specFor(style: ThemeStyle, dark: Boolean, accent: Color, scheme: Col
         lightShadow = Color(0xFFFFFFFF), darkShadow = Color(0x55A3B1C6),
     )
 
-    // Clear glass: panels let the song's colors (the background) show through, with a bright rim.
+    // Liquid Glass (iOS 26): plain system background and cards; the glass is only on the floating controls.
     ThemeStyle.LIQUID_GLASS -> if (dark) ThemeSpec(
-        style, true, accent, Color(0xFF0C0E14), Color(0x1AFFFFFF), Color.White, Color(0xFFD0D4DE), Color(0x33FFFFFF),
+        style, true, accent, Color(0xFF000000), Color(0xFF1C1C1E), Color.White, Color(0xFF98989F), Color(0x00000000),
     ) else ThemeSpec(
-        style, false, accent, Color(0xFFEEF1F7), Color(0x8CFFFFFF), Color(0xFF111318), Color(0xFF4A505E), Color(0x99FFFFFF),
+        style, false, accent, Color(0xFFF2F2F7), Color(0xFFFFFFFF), Color(0xFF000000), Color(0xFF6C6C70), Color(0x00000000),
     )
 
     ThemeStyle.AMOLED -> ThemeSpec(

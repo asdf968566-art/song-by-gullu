@@ -43,6 +43,7 @@ import com.sangeet.player.ui.theme.Sangeet
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import com.sangeet.player.ui.theme.LocalBottomBarSpace
 
 @Composable
 fun SourcesScreen(nav: NavController) {
@@ -60,7 +61,7 @@ fun SourcesScreen(nav: NavController) {
     var jamendoStatus by remember { mutableStateOf<String?>(null) }
     var serverStatus by remember { mutableStateOf<String?>(null) }
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = LocalBottomBarSpace.current)) {
         SettingsTopBar(nav, "Music sources")
 
         Text(

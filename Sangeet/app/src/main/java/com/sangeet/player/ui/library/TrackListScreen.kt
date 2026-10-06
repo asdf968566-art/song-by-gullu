@@ -26,6 +26,7 @@ import com.sangeet.player.ui.components.LoadingBox
 import com.sangeet.player.ui.components.TrackOptionsSheet
 import com.sangeet.player.ui.components.TrackRow
 import kotlinx.coroutines.flow.flowOf
+import com.sangeet.player.ui.theme.bottomBarPadding
 
 enum class ListKind { LIKED, DOWNLOADS, RECENT, LOCAL, ALBUM, ARTIST, GENRE }
 
@@ -75,7 +76,7 @@ fun TrackListScreen(nav: NavController, kind: ListKind, arg: String) {
 
     menuFor?.let { TrackOptionsSheet(it, onDismiss = { menuFor = null }) }
 
-    LazyColumn(Modifier.fillMaxSize()) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = bottomBarPadding()) {
         item { CollectionHeader(nav, title, subtitle, tracks.orEmpty()) }
         when {
             tracks == null -> item { LoadingBox() }

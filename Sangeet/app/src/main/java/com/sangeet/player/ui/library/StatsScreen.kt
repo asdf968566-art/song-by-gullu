@@ -50,6 +50,7 @@ import com.sangeet.player.ui.components.LoadingBox
 import com.sangeet.player.ui.components.SectionHeader
 import com.sangeet.player.ui.theme.Sangeet
 import java.time.LocalDate
+import com.sangeet.player.ui.theme.bottomBarPadding
 
 private data class Stats(
     val totalMs: Long,
@@ -89,7 +90,7 @@ fun StatsScreen(nav: NavController) {
         )
     }
 
-    LazyColumn(Modifier.fillMaxSize()) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = bottomBarPadding()) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(4.dp)) {
                 IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back", tint = spec.onSurface) }
