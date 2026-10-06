@@ -1,0 +1,24 @@
+name: Net check
+
+# One-off: does the song CDN allow the web app to read files (CORS)? Needed for offline downloads on iPhone.
+on:
+  push:
+    branches: ["claude/**"]
+    paths: [".github/workflows/net-check.yml"]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          for u in "https://aac.saavncdn.com/815/eb95a5ab9f47186a53d2e9b6d0bcbb4a_160.mp4" "https://aac.saavncdn.com/"; do
+            echo "== GET $u"
+            curl -s -D - -o /dev/null -m 20 -H "Origin: https://asdf968566-art.github.io" -H "Range: bytes=0-99" "$u" | grep -iE "^HTTP|access-control|content-type|content-range|accept-ranges" || true
+            echo "== OPTIONS $u"
+            curl -s -D - -o /dev/null -m 20 -X OPTIONS -H "Origin: https://asdf968566-art.github.io" -H "Access-Control-Request-Method: GET" -H "Access-Control-Request-Headers: range" "$u" | grep -iE "^HTTP|access-control" || true
+          done
+          # A real song file from the catalog.
+          M=$(curl -s https://asdf968566-art.github.io/song-by-gullu/data/r/0.json | python3 -c "import json,sys; r=json.load(sys.stdin)[0]; print(r[6])")
+          U="https://aac.saavncdn.com/${M}_160.mp4"; case "$M" in http*) U="$M";; esac
+          echo "== GET catalog song $U"
+          curl -s -D - -o /dev/null -m 20 -H "Origin: https://asdf968566-art.github.io" -H "Range: bytes=0-99" "$U" | grep -iE "^HTTP|access-control|content-type|content-range|accept-ranges" || true
