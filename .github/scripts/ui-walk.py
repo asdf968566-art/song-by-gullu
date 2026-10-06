@@ -259,6 +259,25 @@ def main():
                   "picked song and words listed"))
     step("Search: remove one recent search", lambda: tap("Remove from recent", wait=2),
          lambda: (alive(), "removed"))
+
+    def lyric_line():
+        # A line from the middle of "Tujhe Dekha To" (not its name).
+        tap("Clear", wait=1)
+        n = find("What do you want to listen to?", contains=True)
+        if not n:
+            return False
+        sh(f"input tap {n['x']} {n['y']}")
+        time.sleep(1)
+        sh("input text 'pyaar%shota%shai%sdeewana%ssanam'")
+        sh("input keyevent KEYCODE_ENTER")
+        time.sleep(15)
+        return True
+    if step("Search: by a line of the lyrics", lyric_line, lambda: (alive(), "searched")):
+        # Genius (the lyrics search) can be blocked from CI servers, so this is only reported.
+        hit = find("Songs with these lyrics", contains=True, scroll=2)
+        print(("✅" if hit else "⚠️") + " lyrics search section " + ("shown" if hit else "not shown (Genius may be blocked here)"))
+    step("Search: voice search button", lambda: tap("Voice search", wait=3), lambda: (alive(), "opens the speech prompt or says it isn't available"))
+    back()
     back()
 
     # ---------------------------------------------------------------- Library
@@ -347,6 +366,16 @@ def main():
          lambda: (find("Saved on this phone", contains=True) is not None, "saved songs listed"))
     step("Downloads screen: play downloads", lambda: tap("Play downloads", wait=6), lambda: (playing(), f"playing: {now_title()}"))
     back()
+
+    # ---------------------------------------------------------------- tabs: tapping a tab goes to its own screen
+    fresh()
+    def home_from_settings():
+        go_tab("Home")
+        if not tap("Settings", wait=3):
+            return False
+        return go_tab("Home")
+    step("Tab: Home from inside Settings goes back to Home", home_from_settings,
+         lambda: (find("Good ", contains=True) is not None and find("Audio quality", contains=True) is None, "Home screen shown"))
 
     # ---------------------------------------------------------------- Settings
     fresh()
@@ -455,6 +484,22 @@ def main():
     # Close Now Playing too (its down arrow), so the tabs are reachable again.
     if find("Close"):
         tap("Close", wait=2)
+    # Light mode of Liquid Glass.
+    def mode(name):
+        def act():
+            go_tab("Home")
+            if not tap("Settings", wait=3) or not tap("Theme", scroll=8, wait=3) or not tap(name, scroll=6, wait=3):
+                return False
+            back(2)
+            return True
+        return act
+    step("Liquid Glass: light mode", mode("Light"))
+    for t in ["Home", "Search", "Your Library"]:
+        step(f"Liquid Glass light: {t} page", lambda t=t: go_tab(t) and shot("light-" + t.replace(" ", "")))
+    step("Liquid Glass light: Now Playing", lambda: open_now_playing() and shot("light-NowPlaying"))
+    if find("Close"):
+        tap("Close", wait=2)
+    step("Liquid Glass: dark mode again", mode("Dark"))
     step("Theme: back to Classic Dark", set_theme("Classic Dark"))
 
     # ---------------------------------------------------------------- report

@@ -29,6 +29,7 @@ const ICONS = {
   shuffle: 'M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z',
   plus: 'M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z',
   chart: 'M5 9.2h3V19H5zM10.6 5h2.8v14h-2.8zm5.6 8H19v6h-2.8z',
+  mic: 'M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z',
   clock: 'M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z',
   globe: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z',
   list: 'M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z',
@@ -950,20 +951,24 @@ function searchPage() {
     if (q.length < 2) { results.replaceChildren(browse()); return; }
     const local = Catalog.search(q, 40);
     const artistBox = h('div'), deepBox = h('div'), fixBox = h('div'), ytBox = h('div');
-    results.replaceChildren(artistBox, fixBox, local.length ? trackList(local, true) : h('div', { class: 'spinner' }), deepBox, ytBox);
+    // A few words (4+) may be a line from the middle of a song: YouTube finds songs by their lyrics, so its
+    // results come first then (they play from the catalog when the same song is there).
+    const line = q.split(/\s+/).length >= 4;
+    const localEl = local.length ? trackList(local, true) : h('div', { class: 'spinner' });
+    results.replaceChildren(artistBox, fixBox, line ? ytBox : '', localEl, deepBox, line ? '' : ytBox);
     const shown = new Set(local.map((t) => norm(t.title)));
     const youtube = async () => {
       ytBox.replaceChildren(h('div', { class: 'spinner' }));
-      const yt = (await Tube.search(q)).filter((t) => !shown.has(norm(t.title)));
+      const yt = (await Tube.search(line ? `${q} song` : q)).filter((t) => !shown.has(norm(t.title)));
       if (my !== seq) return;
-      fill(ytBox, yt.length ? [h('div', { class: 'section' }, 'From YouTube'), trackList(yt, true)] : shown.size ? [] : h('div', { class: 'empty' }, 'No songs found'));
+      fill(ytBox, yt.length ? [h('div', { class: 'section' }, line ? '🎤 Songs with these lyrics' : 'From YouTube'), trackList(yt, true)] : shown.size ? [] : h('div', { class: 'empty' }, 'No songs found'));
     };
     // Then the full catalog (lakhs of songs) and singers; YouTube only for what isn't there.
     ytTimer = setTimeout(async () => {
       const ids = new Set(local.map((t) => t.id));
       const [deep, artists] = await Promise.all([Deep.search(q), Artists.find(q)]);
       if (my !== seq) return;
-      if (!local.length) results.children[2].remove();
+      if (!local.length) localEl.remove();
       const more = deep.filter((t) => !ids.has(t.id));
       more.forEach((t) => shown.add(norm(t.title)));
       if (artists.length) fill(artistBox, h('div', { class: 'section' }, 'Artists'), artists.map(artistRow));
@@ -976,7 +981,7 @@ function searchPage() {
         songs.forEach((t) => shown.add(norm(t.title)));
         if (songs.length) fill(fixBox, h('div', { class: 'section' }, `Songs by ${fix.name}`), trackList(songs, true));
       }
-      if (shown.size < 8) ytAuto = setTimeout(youtube, 600); // only once typing has stopped (YouTube allows few searches a day)
+      if (shown.size < 8 || line) ytAuto = setTimeout(youtube, 600); // only once typing has stopped (YouTube allows few searches a day)
       else ytBox.replaceChildren(h('button', { class: 'chip', style: 'margin:12px 16px', onclick: youtube }, 'Search YouTube too'));
     }, 350);
   };
@@ -1002,7 +1007,28 @@ function searchPage() {
   };
   // Coming back from an artist or a song: keep what was searched.
   if (searchPage.q) { input.value = searchPage.q; run(); } else results.replaceChildren(browse());
-  return h('div', null, header('Search'), h('div', { class: 'search-box' }, input), results);
+  // Voice search: the browser's speech recognition (Safari on iPhone asks for the microphone once).
+  const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let mic = null;
+  if (Speech) {
+    mic = h('button', { class: 'icon-btn mic', 'aria-label': 'Voice search', onclick: () => {
+      if (mic.rec) { mic.rec.stop(); return; }
+      const rec = new Speech();
+      rec.lang = 'hi-IN'; // Hindi + English words
+      rec.interimResults = true;
+      rec.onresult = (e) => {
+        const r = e.results[e.results.length - 1];
+        input.value = r[0].transcript;
+        if (r.isFinal) { run(); Recent.add(null, input.value); }
+      };
+      rec.onerror = (e) => { if (e.error === 'not-allowed') toast('Allow the microphone for voice search'); };
+      rec.onend = () => { mic.rec = null; mic.classList.remove('on'); };
+      mic.rec = rec;
+      mic.classList.add('on');
+      try { rec.start(); toast('Listening… say a song, singer or a line'); } catch { mic.rec = null; mic.classList.remove('on'); }
+    } }, icon('mic'));
+  }
+  return h('div', null, header('Search'), h('div', { class: 'search-box' + (mic ? ' with-mic' : '') }, input, mic), results);
 }
 
 /* ------------------------------------------------------------------ special categories (Haryanvi Badmashi) */
