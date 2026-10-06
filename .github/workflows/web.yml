@@ -7,7 +7,10 @@ on:
     branches: ["main", "claude/**"]
     paths: ["SangeetWeb/**", ".github/workflows/web.yml", ".github/scripts/build-web-catalog.py"]
   schedule:
+    # Three crawls a day (2.5 h each) so the catalog grows faster and fewer songs need YouTube.
     - cron: "17 21 * * *"
+    - cron: "17 5 * * *"
+    - cron: "17 13 * * *"
   workflow_dispatch:
     inputs:
       minutes:

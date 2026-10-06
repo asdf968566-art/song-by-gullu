@@ -88,6 +88,57 @@ function fmt(s) {
 function norm(s) {
   return (s || '').toLowerCase().replace(/\(.*?\)|\[.*?\]/g, ' ').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 }
+/* Matching a YouTube video to the same song in the catalog (which plays in the background on iPhone).
+ * YouTube names carry extras ("Official Video", "Full Song", "| Movie | Actor", hashtags, years). Each part of the
+ * name is reduced to the song's own words; a catalog song counts as the same when its name matches one part AND
+ * its singer or film is named somewhere in the video too (a famous name alone could be someone else's song), and
+ * it is the same kind of version (not a remix / lofi / female version of it). */
+const NOISE = /\b(official|music|video|audio|lyrical|lyrics?|full|song|songs|hd|hq|4k|8k|1080p|new|latest|title|track|version|feat|ft|prod|starring|from|movie|film|with)\b/g;
+// Kinds of versions (a Dance Mix is not the Lofi version, nor the original).
+const VERSIONS = [['mix', /\b(re)?mix\b/], ['lofi', /\blo ?fi\b/], ['slowed', /\b(slowed|reverb|sped)\b/], ['acoustic', /\b(acoustic|unplugged)\b/],
+  ['reprise', /\breprise\b/], ['female', /\bfemale\b/], ['male', /\bmale\b/], ['cover', /\bcover\b/], ['8d', /\b8d\b/],
+  ['karaoke', /\b(karaoke|instrumental)\b/], ['live', /\blive\b/], ['mashup', /\bmash ?up\b/], ['jhankar', /\bjhankar\b/]];
+const versionOf = (x) => VERSIONS.filter(([, re]) => re.test(x)).map(([k]) => k).join(',');
+const plain = (s) => norm(String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, ''));
+function songKey(s) {
+  return plain(s).replace(/\b(19|20)\d\d\b/g, ' ').replace(NOISE, ' ').replace(/\s+/g, ' ').trim();
+}
+/** The video's name in parts (split at | : - …), each as a song key. */
+function ytKeys(yt) {
+  if (yt._keys) return yt._keys;
+  const parts = String(yt.raw || yt.title || '').replace(/#\S+/g, ' ').split(/\s*[|•:–—]\s*|\s-\s/).slice(0, 4);
+  return (yt._keys = [...new Set([yt.title, ...parts].map(songKey).filter(Boolean))]);
+}
+/** 1 = same name; 0.9 = same words in another order; 0.85 = the catalog name is inside it; else the share of words. */
+function keyMatch(c, y) {
+  if (!c || !y) return 0;
+  if (c === y) return 1;
+  const A = new Set(c.split(' ')), B = new Set(y.split(' '));
+  let common = 0;
+  A.forEach((w) => { if (B.has(w)) common++; });
+  const share = common / Math.max(A.size, B.size);
+  if (share === 1) return 0.9;
+  if (common === A.size && A.size >= 2) return 0.85;
+  return share;
+}
+/** 0 = not this song; 1.75+ = the same song (name + singer or film, same version). */
+function fitScore(yt, c, rank = 0) {
+  const ck = c._sk || (c._sk = songKey(c.title));
+  let sim = 0;
+  for (const k of ytKeys(yt)) sim = Math.max(sim, keyMatch(ck, k));
+  if (sim < 0.75) return 0;
+  const raw = plain(`${yt.raw || ''} ${yt.title || ''} ${yt.artist || ''}`);
+  const singer = splitArtists(c.artist).map(plain).some((a) => a.length > 2 && raw.includes(a));
+  // The film: the album, or the name in the catalog title's 'From "Jawan"'.
+  const films = [songKey(c.album), songKey((c.title.match(/from\s+["“'‘]?([^"”'’)]+)/i) || [])[1])];
+  const film = films.some((f) => f.length > 3 && f !== ck && raw.includes(f));
+  if (!singer && !film) return 0;
+  // Versions are often in brackets ("(Dance Mix)", "(Lofi Flip)"): look at the names as written.
+  const low = (x) => String(x || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ');
+  const otherVersion = versionOf(low(yt.raw || yt.title)) !== versionOf(low(c.title));
+  return sim + 1 + rank * 0.3 - (otherVersion ? 1.5 : 0);
+}
+
 function splitArtists(s) {
   return (s || '').split(/\s*(?:,|&| and | x | feat\.? | ft\.? )\s*/i).map((x) => x.trim()).filter((x) => x.length > 1);
 }
@@ -116,7 +167,7 @@ function markSeen(ids) {
   if (S.seen.length > 20000) S.seen.splice(0, S.seen.length - 20000).forEach((x) => seenSet.delete(x));
   save();
 }
-function slim(t) { const { _k, ...rest } = t; return rest; }
+function slim(t) { const { _k, _sk, _keys, ...rest } = t; return rest; }
 const isLiked = (t) => S.liked.some((x) => x.id === t.id);
 function toggleLike(t) {
   const i = S.liked.findIndex((x) => x.id === t.id);
@@ -213,17 +264,18 @@ const Catalog = {
   },
   /** Same song from YouTube → the library copy (plays in the background). */
   match(t) {
-    const want = norm(t.title);
-    if (!want) return null;
-    let best = null;
+    const keys = ytKeys(t);
+    if (!keys.length) return null;
+    // Quick filter: a catalog name must contain the longest word of one of the parts (fast over a lakh songs).
+    const words = keys.map((k) => k.split(' ').sort((x, y) => y.length - x.length)[0]);
+    let best = null, top = 0;
     for (const c of this.tracks) {
-      const n = norm(c.title);
-      if (n === want) {
-        if (splitArtists(t.artist).some((a) => norm(c.artist).includes(norm(a)))) return c;
-        best = best || c;
-      }
+      const ck = c._sk || (c._sk = songKey(c.title));
+      if (!words.some((w) => ck.includes(w))) continue;
+      const sc = fitScore(t, c, this.rank.get(c.id) || 0);
+      if (sc > top) { top = sc; best = c; }
     }
-    return best;
+    return top >= 1.75 ? best : null;
   },
 };
 
@@ -285,15 +337,16 @@ const Deep = {
     return out.sort((a, b) => b[1] - a[1] || a[2] - b[2]).slice(0, limit).map((x) => x[0]);
   },
   /** Finds one song by title + singer (YouTube songs, imported playlists). */
-  async findSong(title, artist) {
-    const want = norm(title);
-    if (!want) return null;
+  async findSong(title, artist, raw = '') {
+    const yt = { title, artist, raw };
+    const keys = ytKeys(yt);
+    if (!keys.length) return null;
     const singer = splitArtists(artist)[0] || '';
-    for (const q of [`${title} ${singer}`, title]) {
+    for (const q of [...new Set([`${keys[0]} ${singer}`.trim(), ...keys.slice(0, 2)])]) {
       const list = await this.search(q, 30);
-      const same = list.filter((t) => norm(t.title) === want);
-      const pick = same.find((t) => singer && norm(t.artist).includes(norm(singer))) || same[0];
-      if (pick) return pick;
+      let best = null, top = 0;
+      list.forEach((c, k) => { const sc = fitScore(yt, c, 1 - k / list.length); if (sc > top) { top = sc; best = c; } });
+      if (top >= 1.75) return best;
     }
     return null;
   },
@@ -463,7 +516,7 @@ const Tube = {
     const ch = (sn.channelTitle || '').replace(' - Topic', '');
     const [artist, title] = splitTitle(raw, ch);
     const th = sn.thumbnails || {};
-    return { id: 'yt:' + vid, src: 'yt', sid: vid, title, artist, album: 'YouTube', dur: 0, img: (th.high || th.medium || th.default || {}).url || '', lang: '' };
+    return { id: 'yt:' + vid, src: 'yt', sid: vid, title, artist, raw: `${raw} ${ch}`, album: 'YouTube', dur: 0, img: (th.high || th.medium || th.default || {}).url || '', lang: '' };
   },
   /** A public YouTube / YouTube Music playlist: {title, tracks}. */
   async playlist(id) {
@@ -573,7 +626,7 @@ const Offline = {
     let added = 0, skipped = 0, youtube = 0;
     for (let t of list) {
       if (t.src === 'yt') {
-        const m = Catalog.match(t) || (await Deep.findSong(t.title, t.artist));
+        const m = Catalog.match(t) || (await Deep.findSong(t.title, t.artist, t.raw));
         if (!m) { youtube++; continue; }
         t = m;
       }
@@ -740,7 +793,7 @@ const Player = {
     if (t.src === 'yt' || t.src === 'q') {
       // Same song in the catalog plays in the background, so prefer it.
       UI.trackChanged();
-      const m = Catalog.match(t) || (await Deep.findSong(t.title, t.artist));
+      const m = Catalog.match(t) || (await Deep.findSong(t.title, t.artist, t.raw));
       if (this.current !== t) return;
       if (m) t = this.queue[i] = m;
       else if (t.src === 'q') {
@@ -1184,7 +1237,9 @@ function searchPage() {
     const shown = new Set(local.map((t) => norm(t.title)));
     const youtube = async () => {
       ytBox.replaceChildren(h('div', { class: 'spinner' }));
-      const yt = (await Tube.search(line ? `${q} song` : q)).filter((t) => !shown.has(norm(t.title)));
+      const yt = (await Tube.search(line ? `${q} song` : q))
+        .map((t) => Catalog.match(t) || t) // in the catalog: show (and play) that one, it keeps playing in the background
+        .filter((t) => !shown.has(norm(t.title)));
       if (my !== seq) return;
       fill(ytBox, yt.length ? [h('div', { class: 'section' }, line ? '🎤 Songs with these lyrics' : 'From YouTube'), trackList(yt, true)] : shown.size ? [] : h('div', { class: 'empty' }, 'No songs found'));
     };
