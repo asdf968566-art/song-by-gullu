@@ -72,6 +72,8 @@ fun SettingsScreen(nav: NavController) {
             })
         }
 
+        SettingsGroup("Song languages") { LanguageChooser() }
+
         SettingsGroup("Audio quality") {
             ChoiceRow("Wi-Fi streaming", "Quality on Wi-Fi", qualities, s.wifiQuality, { it.label }) {
                 scope.launch { c.settings.setWifiQuality(it) }

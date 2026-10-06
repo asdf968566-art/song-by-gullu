@@ -377,6 +377,13 @@ def main():
     step("Tab: Home from inside Settings goes back to Home", home_from_settings,
          lambda: (find("Good ", contains=True) is not None and find("Audio quality", contains=True) is None, "Home screen shown"))
 
+    def languages_from_home():
+        go_tab("Home")
+        return tap("Song languages", wait=3)
+    step("Home: Song languages (outside Music sources)", languages_from_home,
+         lambda: (find("Haryanvi", contains=True) is not None and find("Done") is not None, "language chips shown"))
+    tap("Done", wait=3)
+
     # ---------------------------------------------------------------- Settings
     fresh()
     go_tab("Home")

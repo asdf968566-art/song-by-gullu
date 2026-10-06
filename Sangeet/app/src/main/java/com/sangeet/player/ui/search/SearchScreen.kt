@@ -97,6 +97,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.rounded.Mic
+import kotlinx.coroutines.Deferred
 
 /** One entry of "Recent searches": a song you picked from results, or words you searched. */
 @Serializable
@@ -153,8 +154,8 @@ class SearchViewModel(private val c: AppContainer) : ViewModel() {
                     }.take(30)
                 _ui.value = _ui.value.copy(loading = true, local = local, lyricsMatches = emptyList())
                 // A line from the lyrics: find which songs it is from, alongside the normal search.
-                val lyricsJob = if (LyricsSearch.looksLikeLine(q) && c.online.canGoOnline) viewModelScope.async {
-                    runCatching { songsFromLyrics(q.trim()) }.getOrDefault(emptyList())
+                val lyricsJob: Deferred<List<Track>>? = if (LyricsSearch.looksLikeLine(q) && c.online.canGoOnline) {
+                    viewModelScope.async { runCatching { songsFromLyrics(q.trim()) }.getOrDefault(emptyList<Track>()) }
                 } else null
                 // Hindi mein likha ho to Hinglish mein bhi dhoondho ("तुम ही हो" + "tum hi ho")
                 val alt = q.trim().takeIf(Transliterate::hasDevanagari)?.let(Transliterate::toLatin)

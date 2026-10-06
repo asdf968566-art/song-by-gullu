@@ -71,37 +71,7 @@ fun SourcesScreen(nav: NavController) {
             modifier = Modifier.padding(horizontal = 20.dp),
         )
 
-        SettingsGroup("Your languages") {
-            Text(
-                "Songs in these languages appear first in your feed, Home and recommendations.",
-                style = MaterialTheme.typography.bodySmall,
-                color = spec.muted,
-                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp),
-            )
-            Row(
-                Modifier
-                    .horizontalScroll(rememberScrollState())
-                    .padding(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Categories.languages.forEach { lang ->
-                    val on = lang in s.languages
-                    FilterChip(
-                        selected = on,
-                        onClick = {
-                            val next = if (on) s.languages - lang else s.languages + lang
-                            if (next.isNotEmpty()) scope.launch { c.settings.setLanguages(next) }
-                        },
-                        label = { Text(lang.replaceFirstChar(Char::uppercase)) },
-                        shape = RoundedCornerShape(50),
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = spec.accent,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
-                        ),
-                    )
-                }
-            }
-        }
+        // Song languages are in Settings and on Home (anyone can change them, no password).
 
         SettingsGroup("JioSaavn (Hindi, Punjabi, Bollywood)") {
             SettingsSwitch(
