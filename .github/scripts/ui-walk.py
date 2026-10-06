@@ -249,6 +249,16 @@ def main():
         time.sleep(10)
         return True
     step("Search: play a result", play_result, lambda: (playing(), f"playing: {now_title()}"))
+    def clear_search():
+        if not tap("Clear", wait=2):
+            return False
+        time.sleep(2)
+        return True
+    step("Search: recent searches after clearing", clear_search,
+         lambda: (find("Recent searches") is not None and find("Song •", contains=True) is not None,
+                  "picked song and words listed"))
+    step("Search: remove one recent search", lambda: tap("Remove from recent", wait=2),
+         lambda: (alive(), "removed"))
     back()
 
     # ---------------------------------------------------------------- Library

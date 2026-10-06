@@ -701,7 +701,11 @@ function trackList(tracks, asRadio = false) {
   let shown = 0;
   const more = () => {
     const end = Math.min(tracks.length, shown + 60);
-    for (; shown < end; shown++) { const i = shown; box.append(trackRow(tracks[i], () => (asRadio ? Player.playRadio(tracks[i]) : Player.play(tracks, i)))); }
+    for (; shown < end; shown++) { const i = shown; box.append(trackRow(tracks[i], () => {
+      if (!asRadio) return Player.play(tracks, i);
+      Recent.onPick?.({ t: slim(tracks[i]) });
+      Player.playRadio(tracks[i]);
+    })); }
     if (shown < tracks.length) box.append(sentinel);
   };
   const sentinel = h('div', { style: 'height:1px' });
@@ -892,8 +896,44 @@ const ROOTS = {
   settings: settingsPage,
 };
 
+/** "Recent searches", like Spotify: songs and singers picked from results, and words searched. Newest first. */
+const Recent = {
+  onPick: null,
+  key: (r) => (r.t ? 't:' + r.t.id : r.a ? 'a:' + norm(r.a.name) : 'q:' + norm(r.q)),
+  list() {
+    if (!S.recent) S.recent = (S.searches || []).map((q) => ({ q })); // older versions kept only the words
+    return S.recent;
+  },
+  add(item, words) {
+    const q = (words || '').trim();
+    const add = [item, q.length >= 2 ? { q } : null].filter(Boolean);
+    if (!add.length) return;
+    const keys = new Set(add.map(this.key));
+    S.recent = [...add, ...this.list().filter((r) => !keys.has(this.key(r)))].slice(0, 15);
+    save();
+  },
+  remove(r) { S.recent = this.list().filter((x) => this.key(x) !== this.key(r)); save(); },
+  clear() { S.recent = []; save(); },
+  row(r, onWords, refresh) {
+    const x = h('button', { class: 'icon-btn more', 'aria-label': 'Remove', onclick: (e) => { e.stopPropagation(); this.remove(r); refresh(); } }, '✕');
+    if (r.t) {
+      return h('div', { class: 'row', onclick: () => Player.playRadio(r.t) },
+        h('img', { class: 'art', src: art(r.t), loading: 'lazy', alt: '' }),
+        h('div', { class: 'meta' }, h('div', { class: 't' }, r.t.title), h('div', { class: 's' }, `Song · ${r.t.artist}`)), x);
+    }
+    if (r.a) {
+      return h('div', { class: 'row', onclick: () => pushPage(() => artistPage(r.a.name)) },
+        h('div', { class: 'art avatar' }, Array.from(r.a.name)[0] || '?'),
+        h('div', { class: 'meta' }, h('div', { class: 't' }, r.a.name), h('div', { class: 's' }, 'Artist')), x);
+    }
+    return h('div', { class: 'row', onclick: onWords },
+      h('div', { class: 'art avatar recent-q' }, icon('clock')),
+      h('div', { class: 'meta' }, h('div', { class: 't' }, r.q), h('div', { class: 's' }, 'Search')), x);
+  },
+};
+
 function artistRow(a) {
-  return h('div', { class: 'row', onclick: () => pushPage(() => artistPage(a.name)) },
+  return h('div', { class: 'row', onclick: () => { Recent.onPick?.({ a: { name: a.name, n: a.n } }); pushPage(() => artistPage(a.name)); } },
     h('div', { class: 'art avatar' }, Array.from(a.name)[0] || '?'),
     h('div', { class: 'meta' }, h('div', { class: 't' }, a.name), h('div', { class: 's' }, `Artist · ${a.n} songs`)));
 }
@@ -941,22 +981,18 @@ function searchPage() {
     }, 350);
   };
   input.addEventListener('input', () => { clearTimeout(run.t); run.t = setTimeout(run, 150); });
-  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') input.blur(); });
-  // Remember what you searched when you play something from it.
-  results.addEventListener('click', (e) => {
-    const q = input.value.trim();
-    if (q.length < 2 || !e.target.closest('.row') || e.target.closest('.more')) return;
-    S.searches = [q, ...(S.searches || []).filter((x) => x.toLowerCase() !== q.toLowerCase())].slice(0, 8);
-    save();
-  });
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { input.blur(); Recent.add(null, input.value); } });
+  // A song or singer picked from the results goes into "Recent searches", with the words typed.
+  Recent.onPick = (item) => Recent.add(item, input.value);
   const browse = () => {
-    const recentQ = S.searches || [];
+    const recent = Recent.list();
     const charts = Catalog.playlists.filter((p) => p.chart).slice(0, 6);
     const moods = ['Romantic', 'Sad', 'Party', 'Chill', 'Workout', '90s', 'Bhakti', 'Wedding', 'Road trip', 'Rain'];
     return h('div', null,
-      recentQ.length ? [
-        h('div', { class: 'section' }, 'Recent searches'),
-        h('div', { class: 'chips' }, recentQ.map((x) => h('button', { class: 'chip', onclick: () => { input.value = x; run(); } }, x))),
+      recent.length ? [
+        h('div', { class: 'section-row' }, h('div', { class: 'section' }, 'Recent searches'),
+          h('button', { class: 'link', onclick: () => { Recent.clear(); results.replaceChildren(browse()); } }, 'Clear all')),
+        recent.map((r) => Recent.row(r, () => { if (r.q != null) { input.value = r.q; run(); } }, () => results.replaceChildren(browse()))),
       ] : null,
       h('div', { class: 'section' }, 'Categories'),
       h('div', { class: 'cat-row' }, CATEGORIES.map((c) => h('div', { class: 'cat', style: `background:${c.color}`, onclick: () => pushPage(() => categoryPage(c)) }, `${c.emoji} ${c.name}`))),
