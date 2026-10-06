@@ -750,6 +750,61 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) save(
 
 /* ------------------------------------------------------------------ player */
 const audio = $('#audio');
+/**
+ * "YouTube in background" (experimental): a YouTube song as plain audio from public Invidious / Piped servers,
+ * so it keeps playing with the screen locked (YouTube's own player stops there). The servers come and go;
+ * the list is checked again with every catalog build. When none works, YouTube's player is used as before.
+ */
+const YtAudio = {
+  servers: null, good: null,
+  async list() {
+    if (!this.servers) this.servers = await fetch(`data/yt-servers.json${Deep.v()}`).then((r) => r.json()).catch(() => []);
+    // The server that worked last time first.
+    return this.good ? [this.good, ...this.servers.filter((s) => s !== this.good)] : this.servers;
+  },
+  async urlFrom(s, vid) {
+    if (s.type === 'invidious') return `${s.url}/latest_version?id=${vid}&itag=140&local=true`;
+    const r = await fetch(`${s.api}/streams/${vid}`, { signal: AbortSignal.timeout?.(6000) });
+    const streams = ((await r.json()).audioStreams || []).filter((a) => /mp4/.test(a.mimeType || ''));
+    return streams.sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0]?.url;
+  },
+  /** Plays [url]; true once it really plays (or can play but needs a tap first). */
+  tryUrl(url) {
+    return new Promise((resolve) => {
+      const done = (ok) => {
+        clearTimeout(timer);
+        ['playing', 'canplay', 'error'].forEach((e) => audio.removeEventListener(e, on[e]));
+        resolve(ok);
+      };
+      const on = { playing: () => done(true), canplay: () => {}, error: () => done(false) };
+      const timer = setTimeout(() => done(false), 9000);
+      Object.entries(on).forEach(([e, f]) => audio.addEventListener(e, f));
+      audio.src = url;
+      audio.play().catch((e) => {
+        if (e.name !== 'NotAllowedError') return;
+        if (audio.readyState >= 3) done(true);
+        else { audio.removeEventListener('canplay', on.canplay); on.canplay = () => done(true); audio.addEventListener('canplay', on.canplay); }
+      });
+    });
+  },
+  /** True when [t] now plays as audio (or a newer song took over); false: use YouTube's player. */
+  async play(t) {
+    Player.trying = true;
+    try {
+      for (const s of (await this.list()).slice(0, 4)) {
+        if (Player.current !== t) return true;
+        const url = await this.urlFrom(s, t.sid).catch(() => null);
+        if (Player.current !== t) return true;
+        if (url && (await this.tryUrl(url))) {
+          if (Player.current === t) this.good = s;
+          return true;
+        }
+      }
+      return false;
+    } finally { Player.trying = false; }
+  },
+};
+
 const Player = {
   queue: [], i: -1, playing: false, loading: false, mode: 'audio', error: '', fetching: false,
   get current() { return this.queue[this.i]; },
@@ -803,7 +858,20 @@ const Player = {
         t = this.queue[i] = y;
       }
     }
-    if (t.src === 'yt') {
+    let viaAudio = false;
+    if (t.src === 'yt' && S.ytAudio) {
+      this.mode = 'audio';
+      if (Tube.player && Tube.player.stopVideo) Tube.player.stopVideo();
+      $('#ytbox').hidden = true;
+      UI.trackChanged();
+      viaAudio = await YtAudio.play(t);
+      if (this.current !== t) return;
+      if (viaAudio) audio.defaultPlaybackRate = audio.playbackRate = S.speed || 1;
+      else if (!this.toldYt) { this.toldYt = true; toast('YouTube background servers are busy, playing with YouTube for now', 3500); }
+    }
+    if (viaAudio) {
+      // Playing already.
+    } else if (t.src === 'yt') {
       this.mode = 'yt';
       audio.pause();
       $('#ytbox').hidden = false;
@@ -951,7 +1019,7 @@ audio.addEventListener('seeked', () => Player.updateState());
 audio.addEventListener('durationchange', () => Player.updateState());
 audio.addEventListener('waiting', () => { Player.loading = true; UI.update(); });
 audio.addEventListener('ended', () => Player.ended());
-audio.addEventListener('error', () => { if (audio.getAttribute('src') && Player.mode === 'audio') Player.failed(); });
+audio.addEventListener('error', () => { if (audio.getAttribute('src') && Player.mode === 'audio' && !Player.trying) Player.failed(); });
 if ('mediaSession' in navigator) {
   const ms = navigator.mediaSession;
   ms.setActionHandler('play', () => Player.resume());
@@ -1865,6 +1933,9 @@ function settingsPage() {
     h('div', { class: 'section' }, 'YouTube Data API key'),
     h('div', { class: 'setting' }, key),
     h('div', { class: 'note' }, 'Used for search results. Leave empty to turn off.'),
+    toggleRow('YouTube in background (experimental)',
+      'YouTube songs keep playing with the screen locked, through free public servers. They are sometimes slow or down; then YouTube plays as before (stops when locked).',
+      !!S.ytAudio, (v) => { S.ytAudio = v; save(); }),
     h('div', { class: 'section' }, 'Move library'),
     h('button', { class: 'danger', style: 'color:var(--text)', onclick: () => Sync.share() }, 'Send liked songs and playlists to another phone'),
     h('div', { class: 'note' }, 'Open the link on the other phone. On Android, paste it in Library → Import playlist.'),

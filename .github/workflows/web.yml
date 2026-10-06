@@ -57,6 +57,12 @@ jobs:
         with:
           path: catalog-state
           key: catalog-${{ github.run_id }}
+      # Public servers that give YouTube songs as plain audio (the app's "YouTube in background" option).
+      - name: Find YouTube audio servers
+        run: |
+          timeout 120 python3 .github/scripts/yt-servers.py SangeetWeb/data/yt-servers.json | tee yt.log || true
+          [ -s SangeetWeb/data/yt-servers.json ] || echo '[]' > SangeetWeb/data/yt-servers.json
+          grep "YT SERVERS" yt.log >> summary.txt || echo "YT SERVERS: none (timed out)" >> summary.txt
       - name: Stamp version
         run: sed -i "s/__BUILD__/${{ github.run_number }}/g" SangeetWeb/sw.js SangeetWeb/index.html
       - uses: actions/upload-pages-artifact@v3
