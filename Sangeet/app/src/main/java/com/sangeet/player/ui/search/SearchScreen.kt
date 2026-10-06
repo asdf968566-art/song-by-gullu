@@ -74,6 +74,21 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import com.sangeet.player.data.settings.ThemeStyle
 import com.sangeet.player.ui.theme.themedCard
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.ListSerializer
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.text.style.TextOverflow
+import com.sangeet.player.ui.components.Artwork
+import com.sangeet.player.ui.theme.bottomBarPadding
+
+/** One entry of "Recent searches": a song you picked from results, or words you searched. */
+@Serializable
+data class RecentItem(val query: String? = null, val track: Track? = null)
 
 @OptIn(FlowPreview::class)
 class SearchViewModel(private val c: AppContainer) : ViewModel() {
@@ -84,7 +99,7 @@ class SearchViewModel(private val c: AppContainer) : ViewModel() {
         val online: List<SourceResult> = emptyList(),
         /** Likhte waqt suggestions ("kes" -> "kesariya"). */
         val suggestions: List<String> = emptyList(),
-        val recent: List<String> = emptyList(),
+        val recent: List<RecentItem> = emptyList(),
     )
 
     private val _ui = MutableStateFlow(Ui())
@@ -111,7 +126,8 @@ class SearchViewModel(private val c: AppContainer) : ViewModel() {
         viewModelScope.launch {
             queries.debounce(400).distinctUntilChanged().collectLatest { q ->
                 if (q.isBlank()) {
-                    _ui.value = Ui(query = q)
+                    // Keep the recent searches (a fresh Ui() used to wipe them until the screen was rebuilt).
+                    _ui.value = Ui(query = q, recent = _ui.value.recent)
                     return@collectLatest
                 }
                 val needle = q.trim().lowercase()
@@ -141,22 +157,34 @@ class SearchViewModel(private val c: AppContainer) : ViewModel() {
         queries.value = q
     }
 
-    /** Result pe tap kiya -> ye search "Recent" mein yaad rakho. */
-    fun rememberQuery() {
+    /** Searched (keyboard Search key) or picked a result: remember the words, and the song if one was picked. */
+    fun rememberQuery(picked: Track? = null) {
         val q = _ui.value.query.trim()
-        if (q.length < 2) return
-        val list = (listOf(q) + loadRecent().filterNot { it.equals(q, true) }).take(10)
-        prefs.edit().putString("recent", list.joinToString("\n")).apply()
-        _ui.value = _ui.value.copy(recent = list)
+        val add = listOfNotNull(picked?.let { RecentItem(track = it) }, q.takeIf { it.length >= 2 }?.let { RecentItem(query = it) })
+        if (add.isEmpty()) return
+        saveRecent(add + _ui.value.recent.filterNot { old -> add.any { same(it, old) } })
     }
 
-    fun clearRecent() {
-        prefs.edit().remove("recent").apply()
-        _ui.value = _ui.value.copy(recent = emptyList())
+    fun removeRecent(item: RecentItem) = saveRecent(_ui.value.recent.filterNot { same(it, item) })
+
+    fun clearRecent() = saveRecent(emptyList())
+
+    private fun same(a: RecentItem, b: RecentItem) =
+        if (a.track != null || b.track != null) a.track?.id == b.track?.id else a.query.equals(b.query, true)
+
+    private fun saveRecent(list: List<RecentItem>) {
+        val keep = list.take(15)
+        prefs.edit().putString("recent_items", Http.json.encodeToString(ListSerializer(RecentItem.serializer()), keep)).apply()
+        _ui.value = _ui.value.copy(recent = keep)
     }
 
-    private fun loadRecent(): List<String> =
-        prefs.getString("recent", null)?.split("\n")?.filter { it.isNotBlank() }.orEmpty()
+    private fun loadRecent(): List<RecentItem> {
+        prefs.getString("recent_items", null)?.let { saved ->
+            runCatching { return Http.json.decodeFromString(ListSerializer(RecentItem.serializer()), saved) }
+        }
+        // Older versions kept only the words.
+        return prefs.getString("recent", null)?.split("\n")?.filter { it.isNotBlank() }.orEmpty().map { RecentItem(query = it) }
+    }
 
     private suspend fun fetchSuggestions(q: String): List<String> {
         val url = "https://suggestqueries.google.com/complete/search?client=firefox&ds=yt&hl=hi&q=" +
@@ -188,7 +216,7 @@ fun SearchScreen(nav: NavController) {
 
     menuFor?.let { TrackOptionsSheet(it, onDismiss = { menuFor = null }) }
 
-    LazyColumn(Modifier.fillMaxSize()) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = bottomBarPadding()) {
         item {
             Text(
                 "Search",
@@ -200,6 +228,7 @@ fun SearchScreen(nav: NavController) {
         item {
             // Classic Dark keeps the white Spotify-style box; other themes use their own surface (glass, soft 3D...).
             val classic = spec.style == ThemeStyle.SPOTIFY || spec.style == ThemeStyle.AMOLED
+            val focus = LocalFocusManager.current
             val fieldText = if (classic) Color(0xFF121212) else spec.onSurface
             val shape = RoundedCornerShape(if (spec.style == ThemeStyle.LIQUID_GLASS) 24.dp else 8.dp)
             TextField(
@@ -213,6 +242,8 @@ fun SearchScreen(nav: NavController) {
                     }
                 },
                 singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { vm.rememberQuery(); focus.clearFocus() }),
                 shape = shape,
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = if (classic) Color.White else Color.Transparent,
@@ -251,23 +282,16 @@ fun SearchScreen(nav: NavController) {
         }
 
         if (ui.query.isBlank() && ui.recent.isNotEmpty()) {
-            item { SectionHeader("Recent searches", action = "Clear") { vm.clearRecent() } }
-            item {
-                Row(
-                    Modifier
-                        .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    ui.recent.forEach { r ->
-                        AssistChip(
-                            onClick = { vm.onQuery(r) },
-                            label = { Text(r) },
-                            leadingIcon = { Icon(Icons.Rounded.History, null, Modifier.height(16.dp)) },
-                            colors = AssistChipDefaults.assistChipColors(labelColor = spec.onSurface, leadingIconContentColor = spec.muted),
-                        )
-                    }
-                }
+            item { SectionHeader("Recent searches", action = "Clear all") { vm.clearRecent() } }
+            items(ui.recent.size, key = { "r_${it}_${ui.recent[it].track?.id ?: ui.recent[it].query}" }) { i ->
+                RecentRow(
+                    ui.recent[i],
+                    onClick = {
+                        val r = ui.recent[i]
+                        if (r.track != null) c.player.startRadio(r.track) else vm.onQuery(r.query.orEmpty())
+                    },
+                    onRemove = { vm.removeRecent(ui.recent[i]) },
+                )
             }
         }
 
@@ -321,14 +345,14 @@ fun SearchScreen(nav: NavController) {
             if (ui.local.isNotEmpty()) {
                 item { SectionHeader("On this phone") }
                 items(ui.local, key = { "l_" + it.id }) { t ->
-                    TrackRow(t, onClick = { vm.rememberQuery(); c.player.startRadio(t) }, onMore = { menuFor = t })
+                    TrackRow(t, onClick = { vm.rememberQuery(t); c.player.startRadio(t) }, onMore = { menuFor = t })
                 }
             }
             ui.online.forEach { res ->
                 if (res.tracks.isNotEmpty()) {
                     item(key = "h_${res.source}") { SectionHeader(res.source.label) }
                     items(res.tracks.size, key = { "o_${res.source}_${it}_${res.tracks[it].id}" }) { idx -> val t = res.tracks[idx]
-                        TrackRow(t, onClick = { vm.rememberQuery(); c.player.startRadio(t) }, onMore = { menuFor = t })
+                        TrackRow(t, onClick = { vm.rememberQuery(t); c.player.startRadio(t) }, onMore = { menuFor = t })
                     }
                 }
             }
@@ -344,5 +368,38 @@ fun SearchScreen(nav: NavController) {
             }
         }
         item { Spacer(Modifier.height(24.dp)) }
+    }
+}
+
+/** A recent search: the song (cover, "Song • singer") or the words (clock icon), with ✕ to remove it. */
+@Composable
+private fun RecentRow(item: RecentItem, onClick: () -> Unit, onRemove: () -> Unit) {
+    val spec = Sangeet.spec
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(start = 16.dp, top = 6.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        val t = item.track
+        if (t != null) {
+            Artwork(t.artworkUrl, size = 48.dp, shape = RoundedCornerShape(6.dp), seed = t.title)
+        } else {
+            Box(Modifier.size(48.dp).clip(RoundedCornerShape(6.dp)).background(spec.surface), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.History, null, tint = spec.muted)
+            }
+        }
+        Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+            Text(t?.title ?: item.query.orEmpty(), color = spec.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                if (t != null) "Song • ${t.artist}" else "Search",
+                color = spec.muted,
+                style = MaterialTheme.typography.bodySmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        IconButton(onClick = onRemove) { Icon(Icons.Rounded.Close, "Remove from recent", tint = spec.muted) }
     }
 }

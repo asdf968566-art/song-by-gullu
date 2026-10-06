@@ -43,6 +43,7 @@ import com.sangeet.player.ui.components.EmptyState
 import com.sangeet.player.ui.components.SectionHeader
 import com.sangeet.player.ui.theme.Sangeet
 import kotlinx.coroutines.launch
+import com.sangeet.player.ui.theme.bottomBarPadding
 
 /**
  * Download status: what is downloading right now (with %), what is waiting, what failed (retry),
@@ -60,7 +61,7 @@ fun DownloadsScreen(nav: NavController) {
     val failed = items.filter { it.second.state == DownloadState.FAILED }
     val done = items.filter { it.second.state == DownloadState.DONE }.map { it.first }
 
-    LazyColumn(Modifier.fillMaxSize()) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = bottomBarPadding()) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(4.dp)) {
                 IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back", tint = spec.onSurface) }

@@ -29,6 +29,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.sangeet.player.ui.LocalAppContainer
 import com.sangeet.player.ui.theme.Sangeet
+import com.sangeet.player.ui.theme.LocalBottomBarSpace
 
 @Composable
 fun EqualizerScreen(nav: NavController) {
@@ -36,7 +37,7 @@ fun EqualizerScreen(nav: NavController) {
     val eq by c.equalizer.state.collectAsStateWithLifecycle()
     val spec = Sangeet.spec
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = LocalBottomBarSpace.current)) {
         SettingsTopBar(nav, "Equalizer")
 
         if (!eq.available) {

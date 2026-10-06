@@ -36,6 +36,9 @@ import com.sangeet.player.ui.LocalAppContainer
 import com.sangeet.player.ui.theme.Sangeet
 import com.sangeet.player.ui.theme.themedCard
 import kotlinx.coroutines.launch
+import com.sangeet.player.data.settings.ThemeStyle
+import com.sangeet.player.ui.theme.liquidGlass
+import androidx.compose.ui.draw.clip
 
 /** Neeche chipka chhota player (Spotify jaisa). */
 @Composable
@@ -51,8 +54,16 @@ fun MiniPlayer(onExpand: () -> Unit, modifier: Modifier = Modifier) {
     Box(
         modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp)
-            .themedCard(spec, RoundedCornerShape(10.dp), corner = 10.dp, elevation = 5.dp)
+            .then(
+                // Liquid Glass: the mini player is a glass capsule floating just above the tab bar.
+                if (spec.style == ThemeStyle.LIQUID_GLASS) Modifier
+                    .padding(start = 16.dp, end = 16.dp, top = 4.dp)
+                    .liquidGlass(spec, RoundedCornerShape(30.dp))
+                    .clip(RoundedCornerShape(30.dp))
+                else Modifier
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                    .themedCard(spec, RoundedCornerShape(10.dp), corner = 10.dp, elevation = 5.dp)
+            )
             .clickable(onClick = onExpand)
     ) {
         Column {

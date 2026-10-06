@@ -147,3 +147,7 @@ body.np-open #ytbox { bottom: auto; top: calc(env(safe-area-inset-top) + 60px); 
 .cat-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 6px 16px; }
 .cat { height: 64px; border-radius: 10px; padding: 12px; color: #fff; font-weight: 700; font-size: 16px; display: flex; align-items: flex-end; }
 .cat:active { transform: scale(.97); }
+.section-row { display: flex; align-items: baseline; justify-content: space-between; padding-right: 16px; }
+.link { color: var(--muted); font-size: 14px; background: none; border: 0; padding: 8px 0; }
+.row .recent-q { color: var(--muted); }
+.row .recent-q svg { width: 22px; height: 22px; }

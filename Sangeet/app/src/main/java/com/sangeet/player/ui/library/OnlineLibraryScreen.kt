@@ -62,6 +62,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.sangeet.player.ui.theme.bottomBarPadding
 
 class OnlineLibraryViewModel(private val c: AppContainer) : ViewModel() {
     data class Ui(
@@ -118,7 +119,7 @@ fun OnlineLibraryScreen(nav: NavController) {
             .collect { (last, total) -> if (last != null && last >= total - 8) vm.loadMore() }
     }
 
-    LazyColumn(Modifier.fillMaxSize(), state = list) {
+    LazyColumn(Modifier.fillMaxSize(), state = list, contentPadding = bottomBarPadding()) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(4.dp)) {
                 IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back", tint = spec.onSurface) }
@@ -182,7 +183,7 @@ fun OnlinePlaylistScreen(nav: NavController, id: String, title: String) {
 
     menuFor?.let { TrackOptionsSheet(it, onDismiss = { menuFor = null }) }
 
-    LazyColumn(Modifier.fillMaxSize()) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = bottomBarPadding()) {
         item {
             CollectionHeader(nav, title, "JioSaavn", tracks.orEmpty()) {
                 val list = tracks

@@ -93,6 +93,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.sangeet.player.ui.theme.LocalBottomBarSpace
 
 class DiscoverViewModel(private val c: AppContainer) : ViewModel() {
     data class Ui(
@@ -413,7 +414,7 @@ private fun FeedPage(
             Modifier
                 .fillMaxSize()
                 .padding(horizontal = 24.dp)
-                .padding(top = 72.dp, bottom = 24.dp),
+                .padding(top = 72.dp, bottom = 24.dp + LocalBottomBarSpace.current),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {

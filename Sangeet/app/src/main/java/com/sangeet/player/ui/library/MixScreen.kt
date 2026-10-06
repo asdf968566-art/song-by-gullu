@@ -29,6 +29,7 @@ import com.sangeet.player.ui.components.TrackOptionsSheet
 import com.sangeet.player.ui.components.TrackRow
 import com.sangeet.player.ui.theme.Sangeet
 import kotlinx.coroutines.launch
+import com.sangeet.player.ui.theme.bottomBarPadding
 
 /** Track record se bani mix (Daily Mix, Artist Mix, On Repeat...). */
 @Composable
@@ -43,7 +44,7 @@ fun MixScreen(nav: NavController, mixId: String) {
 
     menuFor?.let { TrackOptionsSheet(it, onDismiss = { menuFor = null }) }
 
-    LazyColumn(Modifier.fillMaxSize()) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = bottomBarPadding()) {
         item {
             CollectionHeader(nav, mix?.title ?: "Mix", mix?.subtitle ?: "Made for you", tracks, artwork = mix?.artworkUrl) {
                 if (mix != null) {

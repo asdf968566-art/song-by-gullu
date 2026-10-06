@@ -62,6 +62,7 @@ import com.sangeet.player.ui.components.Artwork
 import com.sangeet.player.ui.theme.Sangeet
 import com.sangeet.player.ui.theme.themedCard
 import kotlinx.coroutines.launch
+import com.sangeet.player.ui.theme.bottomBarPadding
 
 @Composable
 fun LibraryScreen(nav: NavController) {
@@ -85,7 +86,7 @@ fun LibraryScreen(nav: NavController) {
     val albums = remember(localSongs) { c.local.albums(localSongs) }
     val artists = remember(localSongs) { c.local.artists(localSongs) }
 
-    LazyColumn(Modifier.fillMaxSize()) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = bottomBarPadding()) {
         item {
             Row(
                 Modifier

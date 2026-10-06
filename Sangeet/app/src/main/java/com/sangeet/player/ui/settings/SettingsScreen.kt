@@ -52,6 +52,7 @@ import com.sangeet.player.data.model.AudioQuality
 import com.sangeet.player.ui.LocalAppContainer
 import com.sangeet.player.ui.Routes
 import kotlinx.coroutines.launch
+import com.sangeet.player.ui.theme.LocalBottomBarSpace
 
 @Composable
 fun SettingsScreen(nav: NavController) {
@@ -62,7 +63,7 @@ fun SettingsScreen(nav: NavController) {
     val context = LocalContext.current
     val qualities = AudioQuality.entries
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = LocalBottomBarSpace.current)) {
         SettingsTopBar(nav, "Settings")
 
         SettingsGroup("Look") {

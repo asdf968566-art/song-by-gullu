@@ -44,6 +44,10 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.withContext
 import okhttp3.Request
+import androidx.work.BackoffPolicy
+import androidx.work.WorkRequest
+import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.delay
 
 /**
  * Online gaane app ke private storage mein save hote hain (Spotify offline jaisa),
@@ -108,6 +112,8 @@ class DownloadRepository(
             .addTag(TAG)
             // Runs right away even when the phone limits background work (Realme, Oppo, Xiaomi...).
             .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+            // A failed try is retried after 10 s, not WorkManager's default 30 s, 60 s...
+            .setBackoffCriteria(BackoffPolicy.LINEAR, WorkRequest.MIN_BACKOFF_MILLIS, TimeUnit.MILLISECONDS)
             .build()
         WorkManager.getInstance(context).enqueueUniqueWork(workName(track.id), ExistingWorkPolicy.REPLACE, request)
         return true
@@ -174,8 +180,11 @@ class DownloadWorker(appContext: Context, params: WorkerParameters) : CoroutineW
         val entry = dao.get(trackId) ?: return Result.failure()
         val track = container.library.find(trackId) ?: return fail(dao, trackId)
         val quality = runCatching { AudioQuality.valueOf(entry.quality) }.getOrDefault(AudioQuality.HIGH)
-        val url = withContext(Dispatchers.IO) { runCatching { container.online.downloadUrl(track, quality) }.getOrNull() }
-            ?: return fail(dao, trackId)
+        val url = withContext(Dispatchers.IO) {
+            runCatching { container.online.downloadUrl(track, quality) }
+                .onFailure { android.util.Log.w("Sangeet", "download: no stream for ${track.title}", it) }
+                .getOrNull()
+        } ?: return fail(dao, trackId)
 
         return try {
             dao.updateState(trackId, DownloadState.DOWNLOADING.name, 0)
@@ -196,6 +205,7 @@ class DownloadWorker(appContext: Context, params: WorkerParameters) : CoroutineW
             runCatching { container.lyrics.get(track) }
             Result.success()
         } catch (e: Exception) {
+            android.util.Log.w("Sangeet", "download failed (try ${runAttemptCount + 1}): ${track.title}: ${e.message}")
             cancelNotification()
             if (runAttemptCount < 2) {
                 dao.updateState(trackId, DownloadState.QUEUED.name, 0)
@@ -287,10 +297,12 @@ class DownloadWorker(appContext: Context, params: WorkerParameters) : CoroutineW
             var lastPct = -1
             tmp.outputStream().use { output ->
                 val buf = ByteArray(64 * 1024)
-                while (total < 0 || done < total) {
-                    if (isStopped) throw IOException("Cancelled")
+                var resumable = true
+                // One piece from where we are. A piece that breaks off is fetched again from the same byte
+                // (a few quick tries), instead of failing the whole download and starting over later.
+                suspend fun piece(): Pair<Boolean, Long> {
                     val req = Request.Builder().url(url).header("Range", "bytes=$done-${done + CHUNK - 1}").build()
-                    val (whole, got) = Http.client.newCall(req).execute().use { res ->
+                    return Http.client.newCall(req).execute().use { res ->
                         if (!res.isSuccessful) throw IOException("HTTP ${res.code}")
                         val body = res.body ?: throw IOException("Empty body")
                         body.contentType()?.subtype?.let { sub ->
@@ -303,6 +315,7 @@ class DownloadWorker(appContext: Context, params: WorkerParameters) : CoroutineW
                             }
                         }
                         val partial = res.code == 206
+                        resumable = partial || done == 0L
                         total = if (partial) res.header("Content-Range")?.substringAfter('/')?.toLongOrNull() ?: -1L
                         else body.contentLength()
                         var got = 0L
@@ -323,6 +336,22 @@ class DownloadWorker(appContext: Context, params: WorkerParameters) : CoroutineW
                         if (got == 0L) throw IOException("No data")
                         !partial to got // !partial: the whole file came in one go
                     }
+                }
+                while (total < 0 || done < total) {
+                    if (isStopped) throw IOException("Cancelled")
+                    var tries = 0
+                    var result: Pair<Boolean, Long>? = null
+                    while (result == null) {
+                        result = try {
+                            piece()
+                        } catch (e: IOException) {
+                            if (isStopped || !resumable || ++tries > 3) throw e
+                            android.util.Log.w("Sangeet", "download piece broke at ${done / 1024} KB (${e.message}), again ($tries)")
+                            delay(1000L * tries)
+                            null
+                        }
+                    }
+                    val (whole, got) = result!!
                     if (whole || (total < 0 && got < CHUNK)) break
                 }
             }

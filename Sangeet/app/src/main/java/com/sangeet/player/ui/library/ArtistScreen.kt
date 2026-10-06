@@ -42,6 +42,7 @@ import com.sangeet.player.ui.components.ShelfCard
 import com.sangeet.player.ui.components.TrackOptionsSheet
 import com.sangeet.player.ui.components.TrackRow
 import com.sangeet.player.ui.theme.Sangeet
+import com.sangeet.player.ui.theme.bottomBarPadding
 
 private data class ArtistData(
     val top: List<Track>,
@@ -83,7 +84,7 @@ fun ArtistScreen(nav: NavController, name: String) {
     menuFor?.let { TrackOptionsSheet(it, onDismiss = { menuFor = null }) }
 
     val top = data?.top.orEmpty()
-    LazyColumn(Modifier.fillMaxSize()) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = bottomBarPadding()) {
         item {
             CollectionHeader(nav, name, "Artist", top) {
                 if (top.isNotEmpty()) {

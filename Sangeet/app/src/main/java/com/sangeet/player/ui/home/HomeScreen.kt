@@ -72,6 +72,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
+import com.sangeet.player.ui.theme.bottomBarPadding
 
 class HomeViewModel(private val c: AppContainer) : ViewModel() {
     data class Ui(
@@ -174,7 +175,7 @@ fun HomeScreen(nav: NavController) {
 
     menuFor?.let { TrackOptionsSheet(it, onDismiss = { menuFor = null }) }
 
-    LazyColumn(Modifier.fillMaxSize()) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = bottomBarPadding()) {
         item {
             Row(
                 Modifier
