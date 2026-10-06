@@ -29,6 +29,9 @@ const ICONS = {
   shuffle: 'M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z',
   plus: 'M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z',
   chart: 'M5 9.2h3V19H5zM10.6 5h2.8v14h-2.8zm5.6 8H19v6h-2.8z',
+  download: 'M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z',
+  files: 'M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z',
+  close: 'M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z',
   mic: 'M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z',
   clock: 'M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z',
   globe: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z',
@@ -513,6 +516,135 @@ function splitTitle(raw, channel) {
   return [channel, s];
 }
 
+/* ------------------------------------------------------------------ downloads: songs saved in the app (play without internet)
+ * The song files come from JioSaavn's CDN, which allows the app to read them (CORS). They are kept in
+ * IndexedDB; "Save to Files" also puts a copy in the iPhone's Files app (kept even if the app is removed). */
+const Offline = {
+  db: null, ids: new Set(), blobs: new Map(), urls: new Map(), sizes: new Map(),
+  queue: [], active: new Map(), running: false, onchange: null,
+  open() {
+    return this.db || (this.db = new Promise((ok, fail) => {
+      const r = indexedDB.open('sangeet-offline', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('songs');
+      r.onsuccess = () => ok(r.result);
+      r.onerror = () => fail(r.error);
+    }));
+  },
+  async store(mode, fn) {
+    const db = await this.open();
+    return new Promise((ok, fail) => {
+      const tx = db.transaction('songs', mode);
+      const req = fn(tx.objectStore('songs'));
+      tx.oncomplete = () => ok(req && req.result);
+      tx.onerror = () => fail(tx.error);
+    });
+  },
+  /** Keeps a playable link to every saved song, so playing one needs no waiting (iPhone wants play() right on the tap). */
+  keep(rec) {
+    this.ids.add(rec.t.id);
+    this.blobs.set(rec.t.id, rec.blob);
+    this.sizes.set(rec.t.id, rec.size || rec.blob.size);
+    this.meta.set(rec.t.id, rec.t);
+    if (!this.urls.has(rec.t.id)) this.urls.set(rec.t.id, URL.createObjectURL(rec.blob));
+  },
+  async init() {
+    try { (await this.store('readonly', (st) => st.getAll())).forEach((rec) => rec?.t && this.keep(rec)); } catch {}
+    this.list = null;
+  },
+  async songs() {
+    try { return (await this.store('readonly', (st) => st.getAll())).filter((r) => r?.t).sort((a, b) => b.at - a.at); } catch { return []; }
+  },
+  has(t) { return !!t && this.ids.has(t.id); },
+  /** Same song already saved from elsewhere (same name and singer). */
+  same(t) {
+    const want = norm(t.title) + '|' + norm(splitArtists(t.artist)[0] || '');
+    return [...this.ids].some((id) => { const x = this.meta.get(id); return x && norm(x.title) + '|' + norm(splitArtists(x.artist)[0] || '') === want; });
+  },
+  meta: new Map(),
+  /** Queue songs for download (YouTube songs: the same song from the catalog, when it is there). */
+  async add(list) {
+    let added = 0, skipped = 0, youtube = 0;
+    for (let t of list) {
+      if (t.src === 'yt') {
+        const m = Catalog.match(t) || (await Deep.findSong(t.title, t.artist));
+        if (!m) { youtube++; continue; }
+        t = m;
+      }
+      if (t.src !== 'js' || this.has(t) || this.active.has(t.id) || this.queue.some((x) => x.id === t.id) || this.same(t)) { skipped++; continue; }
+      this.queue.push(t);
+      added++;
+    }
+    if (added) toast(added === 1 ? 'Downloading… see Library → Downloads' : `Downloading ${added} songs… see Library → Downloads`);
+    else if (youtube) toast("This YouTube song isn't in the catalog, so it can't be saved");
+    else if (skipped) toast('Already downloaded');
+    this.changed();
+    this.run();
+    try { navigator.storage?.persist?.(); } catch {}
+  },
+  changed() {
+    clearTimeout(this.t);
+    this.t = setTimeout(() => { this.onchange?.(); }, 150);
+  },
+  async run() {
+    if (this.running) return;
+    this.running = true;
+    while (this.queue.length) {
+      const t = this.queue.shift();
+      const job = { t, pct: 0 };
+      this.active.set(t.id, job);
+      this.changed();
+      try {
+        const res = await fetch(streamUrl(t));
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const total = +res.headers.get('content-length') || 0;
+        const reader = res.body.getReader();
+        const parts = [];
+        let got = 0;
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          parts.push(value);
+          got += value.length;
+          if (total) { job.pct = Math.min(99, Math.round((got * 100) / total)); this.changed(); }
+        }
+        const blob = new Blob(parts, { type: 'audio/mp4' });
+        const rec = { t: slim(t), blob, size: blob.size, at: Date.now() };
+        await this.store('readwrite', (st) => st.put(rec, t.id));
+        this.keep(rec);
+        this.meta.set(t.id, rec.t);
+      } catch (e) {
+        toast(`Couldn't download "${t.title}". Check the internet and try again.`, 3500);
+      }
+      this.active.delete(t.id);
+      this.changed();
+    }
+    this.running = false;
+  },
+  async remove(id) {
+    try { await this.store('readwrite', (st) => st.delete(id)); } catch {}
+    const u = this.urls.get(id);
+    if (u && Player.current?.id !== id) URL.revokeObjectURL(u);
+    this.urls.delete(id); this.blobs.delete(id); this.ids.delete(id); this.sizes.delete(id); this.meta.delete(id);
+    this.changed();
+  },
+  /** A copy in the iPhone's Files app (Share sheet → "Save to Files"). Must run right on the tap. */
+  saveToFiles(t) {
+    const blob = this.blobs.get(t.id);
+    if (!blob) return toast('Download it first');
+    const name = `${t.title} - ${t.artist}`.replace(/[\\/:*?"<>|]/g, '').slice(0, 120) + '.m4a';
+    const file = new File([blob], name, { type: 'audio/mp4' });
+    if (navigator.canShare?.({ files: [file] })) {
+      navigator.share({ files: [file], title: t.title }).catch(() => {});
+      return;
+    }
+    const a = h('a', { href: this.urls.get(t.id), download: name });
+    document.body.append(a);
+    a.click();
+    a.remove();
+  },
+  bytes() { let n = 0; this.sizes.forEach((v) => (n += v)); return n; },
+};
+
 /* ------------------------------------------------------------------ player */
 const audio = $('#audio');
 const Player = {
@@ -568,7 +700,8 @@ const Player = {
       this.mode = 'audio';
       if (Tube.player && Tube.player.stopVideo) Tube.player.stopVideo();
       $('#ytbox').hidden = true;
-      audio.src = streamUrl(t);
+      // Saved on the phone: play the file (works without internet).
+      audio.src = Offline.urls.get(t.id) || streamUrl(t);
       audio.play().catch((e) => {
         this.loading = false;
         if (e.name === 'NotAllowedError') this.playing = false; // iPhone needs a tap first
@@ -692,7 +825,8 @@ if ('mediaSession' in navigator) {
 function trackRow(t, onClick) {
   return h('div', { class: 'row' + (Player.current?.id === t.id ? ' playing' : ''), 'data-id': t.id, onclick: onClick },
     h('img', { class: 'art', src: art(t), loading: 'lazy', alt: '' }),
-    h('div', { class: 'meta' }, h('div', { class: 't' }, t.title), h('div', { class: 's' }, t.src === 'yt' ? `${t.artist} · YouTube` : t.artist)),
+    h('div', { class: 'meta' }, h('div', { class: 't' }, t.title),
+      h('div', { class: 's' }, Offline.has(t) ? h('span', { class: 'saved', title: 'Downloaded' }, icon('download')) : null, t.src === 'yt' ? `${t.artist} · YouTube` : t.artist)),
     h('button', { class: 'icon-btn more', 'aria-label': 'More', onclick: (e) => { e.stopPropagation(); trackMenu(t); } }, icon('more')));
 }
 /** Long lists render 60 rows at a time as you scroll. `asRadio`: tapping a song plays it followed by songs like it
@@ -729,6 +863,9 @@ function trackMenu(t) {
     ['Add to queue', () => Player.addToQueue(t)],
     [isLiked(t) ? 'Remove from Liked' : 'Like', () => toggleLike(t)],
     ['Add to playlist', () => playlistPicker(t)],
+    ...(Offline.has(t)
+      ? [['Save to Files (iPhone)', () => Offline.saveToFiles(t)], ['Remove download', () => Offline.remove(t.id).then(() => toast('Download removed'))]]
+      : [['Download', () => Offline.add([t])]]),
     ...(t.artist && t.src === 'js' ? [['Go to artist', () => openArtist(splitArtists(t.artist)[0] || t.artist)]] : []),
     ['Share', () => share(t)],
   ]);
@@ -1107,6 +1244,7 @@ function libraryPage() {
     link('heartFill', 'Liked Songs', S.liked.length, () => pushPage(() => songsPage('Liked Songs', S.liked))),
     link('clock', 'Recently Played', null, () => pushPage(() => songsPage('Recently Played', recent().slice(0, 300)))),
     link('globe', 'Online Library', Catalog.playlists.length || null, () => pushPage(onlineLibraryPage)),
+    link('download', 'Downloads', Offline.ids.size || null, () => pushPage(downloadsPage)),
     link('plus', 'Import playlist', null, () => pushPage(importPage)),
     h('div', { class: 'section' }, 'Your playlists'),
     S.playlists.map((p) => link('list', p.name, p.tracks.length, () => pushPage(() => songsPage(p.name, p.tracks, p)))),
@@ -1230,10 +1368,44 @@ function playlistCard(p) {
     h('img', { class: 'cover', src: (p.img || '').replace('150x150', '500x500'), loading: 'lazy', alt: '' }),
     h('div', { class: 't' }, p.title));
 }
+/** Library → Downloads: what is downloading (with %), and every song saved in the app. */
+function downloadsPage() {
+  const body = h('div');
+  const render = async () => {
+    const saved = await Offline.songs();
+    const tracks = saved.map((r) => Catalog.byId.get(r.t.id) || r.t);
+    const mb = (n) => (n / 1048576).toFixed(n > 104857600 ? 0 : 1) + ' MB';
+    const going = [...Offline.active.values(), ...Offline.queue.map((t) => ({ t, pct: -1 }))];
+    fill(body,
+      h('div', { class: 'note' }, `${tracks.length} songs · ${mb(Offline.bytes())} on this iPhone. They play without internet. Keep the app open while songs download.`),
+      tracks.length ? h('div', { class: 'actions' },
+        h('button', { class: 'pill primary', onclick: () => Player.play(tracks) }, icon('play'), 'Play'),
+        h('button', { class: 'pill', onclick: () => Player.play(shuffle(tracks)) }, icon('shuffle'), 'Shuffle')) : null,
+      going.length ? [h('div', { class: 'section' }, 'Downloading'), going.map(({ t, pct }) =>
+        h('div', { class: 'row' },
+          h('img', { class: 'art', src: art(t), alt: '' }),
+          h('div', { class: 'meta' }, h('div', { class: 't' }, t.title),
+            h('div', { class: 'progress' }, h('div', { style: `width:${Math.max(pct, 0)}%` })),
+            h('div', { class: 's' }, pct < 0 ? 'Waiting…' : `${pct}%`))))] : null,
+      tracks.length ? [h('div', { class: 'section' }, 'Saved in the app'), tracks.map((t, i) =>
+        h('div', { class: 'row', onclick: () => Player.play(tracks, i) },
+          h('img', { class: 'art', src: art(t), loading: 'lazy', alt: '' }),
+          h('div', { class: 'meta' }, h('div', { class: 't' }, t.title), h('div', { class: 's' }, `${t.artist} · ${mb(Offline.sizes.get(t.id) || 0)}`)),
+          h('button', { class: 'icon-btn', 'aria-label': 'Save to Files', onclick: (e) => { e.stopPropagation(); Offline.saveToFiles(t); } }, icon('files')),
+          h('button', { class: 'icon-btn', 'aria-label': 'Remove download', onclick: (e) => { e.stopPropagation(); Offline.remove(t.id); } }, icon('close'))))]
+        : going.length ? null : h('div', { class: 'empty' }, 'No downloads yet. Tap ⋯ on a song and choose Download, or Download on a playlist.'),
+      tracks.length ? h('div', { class: 'note' }, '📁 Save to Files keeps a copy in the iPhone Files app (it stays even if Sangeet is removed).') : null);
+  };
+  Offline.onchange = () => { if (document.body.contains(body)) render(); };
+  render();
+  return h('div', null, header('Downloads', true), body);
+}
+
 function songsPage(title, tracks, mine, online) {
   const actions = tracks.length ? h('div', { class: 'actions' },
     h('button', { class: 'pill primary', onclick: () => Player.play(tracks) }, icon('play'), 'Play'),
     h('button', { class: 'pill', onclick: () => Player.play(shuffle(tracks)) }, icon('shuffle'), 'Shuffle'),
+    h('button', { class: 'pill', onclick: () => Offline.add(tracks) }, icon('download'), 'Download'),
     online ? h('button', { class: 'pill', onclick: () => { S.playlists.unshift({ id: String(Date.now()), name: title, tracks: tracks.map(slim) }); save(); toast('Saved to your playlists'); } }, icon('plus'), 'Save') : null,
     mine ? h('button', { class: 'pill', onclick: () => { if (confirm(`Delete "${mine.name}"?`)) { S.playlists = S.playlists.filter((x) => x !== mine); save(); popPage(); } } }, 'Delete') : null) : null;
   return h('div', null, header(title, true), actions, tracks.length ? trackList(tracks) : h('div', { class: 'empty' }, 'No songs yet'));
@@ -1681,7 +1853,7 @@ applyLook();
 (async () => {
   UI.initSwipe();
   Feed.init();
-  await Catalog.load();
+  await Promise.all([Catalog.load(), Offline.init()]);
   Feed.reset();
   UI.update();
   Sync.importFromHash();

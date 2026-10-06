@@ -204,3 +204,6 @@ body.glass .menu .box {
 }
 body.glass.light .menu .box { background: rgba(255, 255, 255, .82); }
 body.glass.light .card .cover { box-shadow: 0 6px 18px rgba(0, 0, 0, .15); }
+.row .s .saved svg { width: 14px; height: 14px; display: inline-block; vertical-align: -2px; margin-right: 4px; fill: var(--accent); }
+.progress { height: 4px; border-radius: 2px; background: var(--line); margin: 6px 0 4px; overflow: hidden; }
+.progress > div { height: 100%; background: var(--accent); transition: width .2s; }
