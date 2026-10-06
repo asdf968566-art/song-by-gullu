@@ -133,6 +133,8 @@ the GitHub MCP `get_job_logs` tool; test the web app locally with Playwright (Ch
   merge → wait for main's Build APK + Web App → give the owner the APK link and say the iPhone site updated. If
   red: read `ui-walk.txt` (ci-shots branch) / job logs and fix. In the Web App log, look for
   `YT SERVERS: N working` — if 0 for days, the YouTube background mode won't help; tell the owner.
+  First run (2026-10-06 13:50 UTC): **0 working** (public Invidious/Piped are widely blocked by YouTube); the owner
+  was told. The catalog was 11.8 lakh songs at that run (Hindi 7.4 lakh, Punjabi 2.1 lakh, Haryanvi 1.16 lakh).
 - Ideas the owner was offered but hasn't asked for: Navidrome/Subsonic option on the iPhone web app (Android has it).
 - Owner asked about hosting all catalog songs on their own server: advised against it (copyright takedowns could
   hit the GitHub account; ~400–500 GB per lakh songs; no gain since JioSaavn CDN already serves them).

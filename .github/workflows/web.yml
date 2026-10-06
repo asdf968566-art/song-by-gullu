@@ -5,7 +5,7 @@ name: Web App
 on:
   push:
     branches: ["main", "claude/**"]
-    paths: ["SangeetWeb/**", ".github/workflows/web.yml", ".github/scripts/build-web-catalog.py"]
+    paths: ["SangeetWeb/**", ".github/workflows/web.yml", ".github/scripts/build-web-catalog.py", ".github/scripts/yt-servers.py"]
   schedule:
     # Three crawls a day (2.5 h each) so the catalog grows faster and fewer songs need YouTube.
     - cron: "17 21 * * *"
