@@ -207,3 +207,23 @@ body.glass.light .card .cover { box-shadow: 0 6px 18px rgba(0, 0, 0, .15); }
 .row .s .saved svg { width: 14px; height: 14px; display: inline-block; vertical-align: -2px; margin-right: 4px; fill: var(--accent); }
 .progress { height: 4px; border-radius: 2px; background: var(--line); margin: 6px 0 4px; overflow: hidden; }
 .progress > div { height: 100%; background: var(--accent); transition: width .2s; }
+.np-bottom .row-icons .icon-btn.on { color: var(--accent); }
+.sleep-note { text-align: center; font-size: 12px; color: var(--accent); min-height: 14px; margin-top: 4px; }
+.stats-hero { margin: 8px 16px 4px; padding: 20px; border-radius: 20px; color: #fff; background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 35%, #000)); display: grid; gap: 4px; }
+.stats-hero .small { opacity: .85; font-size: 14px; }
+.stats-hero .big { font-size: 38px; font-weight: 900; letter-spacing: -1px; }
+.offline-banner { margin: 6px 16px; padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, var(--accent) 18%, var(--surface)); font-size: 14px; }
+.swatches { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+.swatch { width: 34px; height: 34px; border-radius: 50%; }
+.swatch.on { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--text); }
+.setting.toggle { display: flex; align-items: center; gap: 12px; }
+.setting.toggle > div { flex: 1; }
+.switch { width: 50px; height: 30px; border-radius: 15px; background: var(--line); position: relative; flex: none; transition: background .2s; }
+.switch span { position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; transition: transform .2s; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+.switch.on { background: var(--accent); }
+.switch.on span { transform: translateX(20px); }
+.chips.scroll { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.chips.scroll::-webkit-scrollbar { display: none; }
+.chips.scroll .chip { flex: none; }
+#toast { white-space: normal; max-width: calc(100% - 32px); width: max-content; text-align: center; }
+body.np-open #toast { bottom: auto; top: calc(env(safe-area-inset-top) + 56px); }
