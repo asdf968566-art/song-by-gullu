@@ -156,3 +156,51 @@ body.np-open #ytbox { bottom: auto; top: calc(env(safe-area-inset-top) + 60px); 
 .search-box .mic { position: absolute; right: 22px; top: 50%; transform: translateY(-50%); color: var(--muted); }
 .search-box .mic.on { color: var(--accent); animation: pulse 1s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: .45; } }
+
+/* ---------- Liquid Glass (iOS 26 style; Settings → Look)
+ * Glass only on the controls that float over the content: the tab bar (with Search as its own round
+ * button), the mini player and menus. The pages scroll underneath and show through, blurred and more
+ * colorful, with a bright rim on top. Content stays plain. */
+body.glass {
+  --bg: #000; --surface: #1c1c1e; --line: rgba(255, 255, 255, .08); --text: #fff; --muted: #98989f;
+  --glass: rgba(30, 30, 32, .42); --glass-rim: rgba(255, 255, 255, .5); --glass-edge: rgba(255, 255, 255, .14);
+  --glass-shadow: 0 10px 30px rgba(0, 0, 0, .35); --pill: rgba(255, 255, 255, .14); --bar-h: 62px;
+}
+body.glass.light {
+  --bg: #f2f2f7; --surface: #fff; --line: rgba(0, 0, 0, .08); --text: #000; --muted: #6c6c70; color-scheme: light;
+  --glass: rgba(247, 249, 252, .6); --glass-rim: #fff; --glass-edge: rgba(0, 0, 0, .1);
+  --glass-shadow: 0 12px 32px rgba(0, 0, 0, .18); --pill: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+body.glass .tab-page, body.glass.has-mini #page { bottom: 0; }
+body.glass #page { padding-bottom: calc(env(safe-area-inset-bottom) + 96px); }
+body.glass.has-mini #page { padding-bottom: calc(env(safe-area-inset-bottom) + 170px); }
+body.glass.light #page { padding-top: max(env(safe-area-inset-top), 8px); }
+body.glass #tabs .cap, body.glass #tabs > button, body.glass #mini {
+  background: linear-gradient(to bottom, rgba(255, 255, 255, .12), transparent 55%), var(--glass);
+  -webkit-backdrop-filter: blur(14px) saturate(180%); backdrop-filter: blur(14px) saturate(180%);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-rim), inset 0 -1px 0 rgba(255, 255, 255, .1), 0 0 0 .5px var(--glass-edge);
+}
+body.glass #tabs {
+  left: 16px; right: 16px; bottom: calc(env(safe-area-inset-bottom) + 8px); height: var(--bar-h);
+  padding: 0; gap: 10px; background: none; border: 0;
+}
+body.glass #tabs .cap { flex: 1; display: flex; border-radius: 999px; padding: 4px; }
+body.glass #tabs .cap button { border-radius: 999px; color: var(--text); transition: background .2s; }
+body.glass #tabs button.on { color: var(--accent); }
+body.glass #tabs .cap button.on { background: var(--pill); }
+/* Search: its own round glass button at the right. */
+body.glass #tabs > button { flex: none; width: var(--bar-h); border-radius: 50%; font-size: 0; gap: 0; color: var(--text); }
+body.glass #tabs > button.on { color: var(--accent); }
+body.glass #mini {
+  left: 16px; right: 16px; bottom: calc(env(safe-area-inset-bottom) + 8px + var(--bar-h) + 10px);
+  height: 60px; border-radius: 30px; border: 0; overflow: hidden; padding: 0 10px;
+}
+body.glass #mini .bar { top: auto; bottom: 0; }
+body.glass .fp { padding-bottom: calc(env(safe-area-inset-bottom) + 96px); }
+body.glass #toast { bottom: calc(env(safe-area-inset-bottom) + 160px); }
+body.glass .menu .box {
+  background: var(--glass); -webkit-backdrop-filter: blur(30px) saturate(180%); backdrop-filter: blur(30px) saturate(180%);
+  border-radius: 28px 28px 0 0; box-shadow: inset 0 1px 0 var(--glass-rim);
+}
+body.glass.light .menu .box { background: rgba(255, 255, 255, .82); }
+body.glass.light .card .cover { box-shadow: 0 6px 18px rgba(0, 0, 0, .15); }
