@@ -30,6 +30,10 @@ const ICONS = {
   plus: 'M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z',
   chart: 'M5 9.2h3V19H5zM10.6 5h2.8v14h-2.8zm5.6 8H19v6h-2.8z',
   download: 'M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z',
+  repeat: 'M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z',
+  repeatOne: 'M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4zm-4-2V9h-1l-2 1v1h1.5v4H13z',
+  speed: 'M20.38 8.57l-1.23 1.85a8 8 0 01-.22 7.58H5.07A8 8 0 0115.58 6.85l1.85-1.23A10 10 0 003.35 19a2 2 0 001.72 1h13.85a2 2 0 001.74-1 10 10 0 00-.27-10.44zm-9.79 6.84a2 2 0 002.83 0l5.66-8.49-8.49 5.66a2 2 0 000 2.83z',
+  moon: 'M12.34 2.02C6.59 1.82 2 6.42 2 12c0 5.52 4.48 10 10 10 3.71 0 6.93-2.02 8.66-5.02-7.51-.25-12.09-8.43-8.32-14.96z',
   files: 'M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z',
   close: 'M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z',
   mic: 'M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z',
@@ -643,7 +647,50 @@ const Offline = {
     a.remove();
   },
   bytes() { let n = 0; this.sizes.forEach((v) => (n += v)); return n; },
+  /** No internet, or Offline mode turned on in Settings: only downloaded songs play. */
+  only() { return !!S.offlineOnly || !navigator.onLine; },
 };
+
+/* ------------------------------------------------------------------ sleep timer */
+const Sleep = {
+  timer: null, until: 0, endOfSong: false,
+  set(min) {
+    this.clear();
+    if (min === 'end') { this.endOfSong = true; toast('Music stops after this song'); return; }
+    this.until = Date.now() + min * 60000;
+    this.timer = setTimeout(() => this.fire(), min * 60000);
+    toast(`Music stops in ${min} minutes`);
+  },
+  fire() { this.clear(); Player.pause(); toast('Sleep timer: paused'); },
+  /** Also checked every half second (timers can be late while the phone is locked). */
+  check() { if (this.until && Date.now() >= this.until) this.fire(); },
+  clear() { clearTimeout(this.timer); this.timer = null; this.until = 0; this.endOfSong = false; },
+  get on() { return !!this.until || this.endOfSong; },
+  label() {
+    if (this.endOfSong) return 'Stops after this song';
+    if (this.until) return `Stops in ${Math.max(1, Math.round((this.until - Date.now()) / 60000))} min`;
+    return '';
+  },
+};
+
+/* ------------------------------------------------------------------ listening stats (Library → Your Stats) */
+const dayKey = (d) => `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+const Stats = {
+  n: 0,
+  add(ms) {
+    const st = S.stats || (S.stats = { ms: 0, days: {}, hours: Array(24).fill(0) });
+    const d = new Date();
+    st.ms += ms;
+    st.days[dayKey(d)] = (st.days[dayKey(d)] || 0) + ms;
+    st.hours[d.getHours()] += ms;
+    if (++this.n % 30 === 0) { // every 15 s
+      const keys = Object.keys(st.days);
+      if (keys.length > 400) keys.slice(0, keys.length - 400).forEach((k) => delete st.days[k]);
+      save();
+    }
+  },
+};
+document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
 
 /* ------------------------------------------------------------------ player */
 const audio = $('#audio');
@@ -652,6 +699,11 @@ const Player = {
   get current() { return this.queue[this.i]; },
   play(list, i = 0, keep = false) {
     if (!list[i]) return;
+    // Offline: nothing in this list is downloaded, so leave what is playing alone.
+    if (Offline.only() && !list.some((t) => Offline.has(t))) {
+      toast("You're offline: only downloaded songs play (Library → Downloads)", 3500);
+      return;
+    }
     this.radioMode = false;
     this.queue = keep ? list : list.slice();
     this.load(i);
@@ -672,6 +724,12 @@ const Player = {
     toast('Added to queue');
   },
   async load(i) {
+    // Offline (no internet, or Offline mode on): only downloaded songs can play; skip to the next one.
+    if (Offline.only() && this.queue[i] && !Offline.has(this.queue[i])) {
+      const j = this.queue.findIndex((x, k) => k > i && Offline.has(x));
+      if (j < 0) { toast("You're offline: only downloaded songs play (Library → Downloads)", 3500); this.pause(); this.loading = false; UI.update(); return; }
+      i = j;
+    }
     this.i = i;
     let t = this.current;
     this.error = '';
@@ -696,12 +754,15 @@ const Player = {
       const p = await Tube.ensure();
       if (this.current !== t) return;
       p.loadVideoById(t.sid);
+      if ((S.speed || 1) !== 1) p.setPlaybackRate?.(S.speed);
     } else {
       this.mode = 'audio';
       if (Tube.player && Tube.player.stopVideo) Tube.player.stopVideo();
       $('#ytbox').hidden = true;
       // Saved on the phone: play the file (works without internet).
       audio.src = Offline.urls.get(t.id) || streamUrl(t);
+      audio.preservesPitch = true;
+      audio.defaultPlaybackRate = audio.playbackRate = S.speed || 1;
       audio.play().catch((e) => {
         this.loading = false;
         if (e.name === 'NotAllowedError') this.playing = false; // iPhone needs a tap first
@@ -715,7 +776,31 @@ const Player = {
   },
   next() {
     if (this.i + 1 < this.queue.length) return this.load(this.i + 1);
+    if (this.repeat === 'all' && this.queue.length) return this.load(0);
     this.autoplay(true); // never repeat on its own: fetch fresh songs
+  },
+  /** A song finished: sleep timer "end of song", repeat one, or the next song. */
+  ended() {
+    if (Sleep.endOfSong) { Sleep.clear(); this.playing = false; UI.update(); toast('Sleep timer: stopped after the song'); return; }
+    if (this.repeat === 'one') { this.seek(0); this.resume(); return; }
+    this.next();
+  },
+  repeat: 'off',
+  cycleRepeat() {
+    this.repeat = { off: 'all', all: 'one', one: 'off' }[this.repeat];
+    toast({ off: 'Repeat off', all: 'Repeat all', one: 'Repeat this song' }[this.repeat]);
+  },
+  shuffleOn: false,
+  /** Shuffle: mixes the songs still to come (the playing one stays). */
+  toggleShuffle() {
+    this.shuffleOn = !this.shuffleOn;
+    if (this.shuffleOn) this.queue.push(...shuffle(this.queue.splice(this.i + 1)));
+    toast(this.shuffleOn ? 'Shuffle on' : 'Shuffle off');
+  },
+  setSpeed(v) {
+    S.speed = v; save();
+    audio.defaultPlaybackRate = audio.playbackRate = v;
+    Tube.player?.setPlaybackRate?.(v);
   },
   prev() {
     if (this.time() > 3 || this.i <= 0) return this.seek(0);
@@ -764,7 +849,7 @@ const Player = {
   },
   onYtState(s) {
     if (this.mode !== 'yt') return;
-    if (s === 0) return this.next();
+    if (s === 0) return this.ended();
     const was = this.playing;
     this.playing = s === 1;
     this.loading = s === 3 || s === -1;
@@ -809,7 +894,7 @@ audio.addEventListener('pause', () => { Player.playing = false; Player.updateSta
 audio.addEventListener('seeked', () => Player.updateState());
 audio.addEventListener('durationchange', () => Player.updateState());
 audio.addEventListener('waiting', () => { Player.loading = true; UI.update(); });
-audio.addEventListener('ended', () => Player.next());
+audio.addEventListener('ended', () => Player.ended());
 audio.addEventListener('error', () => { if (audio.getAttribute('src') && Player.mode === 'audio') Player.failed(); });
 if ('mediaSession' in navigator) {
   const ms = navigator.mediaSession;
@@ -1136,8 +1221,13 @@ function searchPage() {
           h('button', { class: 'link', onclick: () => { Recent.clear(); results.replaceChildren(browse()); } }, 'Clear all')),
         recent.map((r) => Recent.row(r, () => { if (r.q != null) { input.value = r.q; run(); } }, () => results.replaceChildren(browse()))),
       ] : null,
-      h('div', { class: 'section' }, 'Categories'),
-      h('div', { class: 'cat-row' }, CATEGORIES.map((c) => h('div', { class: 'cat', style: `background:${c.color}`, onclick: () => pushPage(() => categoryPage(c)) }, `${c.emoji} ${c.name}`))),
+      h('div', { class: 'section' }, '🎉 Festivals & seasons'),
+      h('div', { class: 'chips scroll' }, festivalsNow().map(([name, emoji, q, , , now]) =>
+        h('button', { class: 'chip' + (now ? ' on' : ''), onclick: () => pushPage(() => djPage(q)) }, `${emoji} ${name}`))),
+      h('div', { class: 'section' }, 'Browse all'),
+      h('div', { class: 'cat-row' },
+        CATEGORIES.map((c) => h('div', { class: 'cat', style: `background:${c.color}`, onclick: () => pushPage(() => categoryPage(c)) }, `${c.emoji} ${c.name}`)),
+        BROWSE.map(([name, q, color]) => h('div', { class: 'cat', style: `background:${color}`, onclick: () => pushPage(() => djPage(q)) }, name))),
       h('div', { class: 'section' }, 'Moods'),
       h('div', { class: 'chips' }, moods.map((m) => h('button', { class: 'chip', onclick: () => pushPage(() => djPage(`${m} ${S.langs[0] || 'hindi'} songs`)) }, m))),
       charts.length ? [h('div', { class: 'section' }, 'Top charts'), h('div', { class: 'grid' }, charts.map(playlistCard))] : null);
@@ -1166,6 +1256,36 @@ function searchPage() {
     } }, icon('mic'));
   }
   return h('div', null, header('Search'), h('div', { class: 'search-box' + (mic ? ' with-mic' : '') }, input, mic), results);
+}
+
+/* ------------------------------------------------------------------ Browse all + festivals (same as the Android app) */
+const BROWSE = [
+  ['🎬 Bollywood Hits', 'bollywood hits', '#e13300'], ['🎵 Hindi Romantic', 'hindi romantic songs', '#dc148c'],
+  ['🥁 Punjabi Hits', 'punjabi hits', '#e8115b'], ['🔥 Party', 'bollywood party songs', '#7358ff'],
+  ['🎧 Lofi Chill', 'hindi lofi', '#477d95'], ['🎤 Arijit Singh', 'arijit singh', '#8d67ab'],
+  ['💔 Sad Songs', 'hindi sad songs', '#1e3264'], ['📻 Old is Gold', 'old hindi songs 90s', '#ba5d07'],
+  ['💕 Punjabi Romantic', 'punjabi romantic songs', '#b06239'], ['🌾 Haryanvi', 'haryanvi songs', '#608108'],
+  ['🎺 Bhojpuri', 'bhojpuri songs', '#27856a'], ['🙏 Devotional', 'bhakti songs hindi', '#f59b23'],
+  ['💪 Workout', 'gym workout hindi songs', '#148a08'], ['🎸 Indie India', 'indian indie songs', '#503750'],
+  ['🌍 English Pop', 'english pop hits', '#0d73ec'],
+];
+// [name, emoji, search, from [month, day], to [month, day]]
+const FESTIVALS = [
+  ['Lohri & Makar Sankranti', '🪁', 'lohri punjabi songs', [1, 8], [1, 16]], ['Republic Day', '🇮🇳', 'desh bhakti songs', [1, 20], [1, 27]],
+  ['Valentine Week', '💝', 'romantic love songs hindi', [2, 6], [2, 15]], ['Holi', '🎨', 'holi songs', [2, 25], [3, 25]],
+  ['Baisakhi', '🌾', 'baisakhi punjabi bhangra', [4, 5], [4, 16]], ['Monsoon', '🌧️', 'barish monsoon songs hindi', [6, 25], [9, 10]],
+  ['Independence Day', '🇮🇳', 'desh bhakti songs', [8, 8], [8, 16]], ['Raksha Bandhan', '🎀', 'raksha bandhan songs', [8, 1], [8, 31]],
+  ['Janmashtami', '🦚', 'krishna bhajan', [8, 10], [9, 10]], ['Ganesh Chaturthi', '🐘', 'ganpati songs', [8, 20], [9, 25]],
+  ['Navratri & Garba', '🪔', 'navratri garba dandiya songs', [9, 15], [10, 25]], ['Durga Puja', '🔱', 'durga puja songs', [9, 20], [10, 20]],
+  ['Diwali', '🪔', 'diwali songs', [10, 12], [11, 15]], ['Chhath Puja', '🌅', 'chhath puja geet', [10, 25], [11, 20]],
+  ['Wedding Season', '💍', 'wedding songs bollywood', [11, 10], [2, 28]], ['Christmas', '🎄', 'christmas songs', [12, 15], [12, 26]],
+  ['New Year Party', '🎉', 'new year party songs', [12, 26], [1, 3]],
+];
+/** Festivals going on today first. */
+function festivalsNow() {
+  const d = new Date(), today = (d.getMonth() + 1) * 100 + d.getDate();
+  const on = (f) => { const a = f[3][0] * 100 + f[3][1], b = f[4][0] * 100 + f[4][1]; return a <= b ? today >= a && today <= b : today >= a || today <= b; };
+  return [...FESTIVALS.filter(on).map((f) => [...f, true]), ...FESTIVALS.filter((f) => !on(f))];
 }
 
 /* ------------------------------------------------------------------ special categories (Haryanvi Badmashi) */
@@ -1244,7 +1364,10 @@ function libraryPage() {
     link('heartFill', 'Liked Songs', S.liked.length, () => pushPage(() => songsPage('Liked Songs', S.liked))),
     link('clock', 'Recently Played', null, () => pushPage(() => songsPage('Recently Played', recent().slice(0, 300)))),
     link('globe', 'Online Library', Catalog.playlists.length || null, () => pushPage(onlineLibraryPage)),
+    Offline.only() ? h('div', { class: 'offline-banner', onclick: () => pushPage(downloadsPage) },
+      navigator.onLine ? 'Offline mode is on: only downloaded songs play.' : "You're offline. Your downloaded songs still play →") : null,
     link('download', 'Downloads', Offline.ids.size || null, () => pushPage(downloadsPage)),
+    link('chart', 'Your Stats', null, () => pushPage(statsPage)),
     link('plus', 'Import playlist', null, () => pushPage(importPage)),
     h('div', { class: 'section' }, 'Your playlists'),
     S.playlists.map((p) => link('list', p.name, p.tracks.length, () => pushPage(() => songsPage(p.name, p.tracks, p)))),
@@ -1368,6 +1491,37 @@ function playlistCard(p) {
     h('img', { class: 'cover', src: (p.img || '').replace('150x150', '500x500'), loading: 'lazy', alt: '' }),
     h('div', { class: 't' }, p.title));
 }
+/** Library → Your Stats: how much you listened, streak, favourite time, top singers and songs. */
+function statsPage() {
+  const st = S.stats || { ms: 0, days: {}, hours: Array(24).fill(0) };
+  const dur = (ms) => { const m = Math.round(ms / 60000); return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`; };
+  const ago = (k) => dayKey(new Date(Date.now() - k * 864e5));
+  let week = 0;
+  for (let k = 0; k < 7; k++) week += st.days[ago(k)] || 0;
+  let streak = 0;
+  for (let k = (st.days[ago(0)] || 0) >= 60000 ? 0 : 1; (st.days[ago(k)] || 0) >= 60000; k++) streak++;
+  const hour = st.hours.indexOf(Math.max(...st.hours));
+  const hourName = (x) => `${((x + 11) % 12) + 1} ${x < 12 ? 'AM' : 'PM'}`;
+  const plays = Object.values(S.history).sort((a, b) => b.c - a.c);
+  const singers = new Map();
+  for (const r of plays) { const a = splitArtists(r.t.artist)[0]; if (a) singers.set(a, (singers.get(a) || 0) + r.c); }
+  const topSingers = [...singers.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
+  const topSongs = plays.slice(0, 20).map((r) => r.t);
+  return h('div', null, header('Your Stats', true),
+    h('div', { class: 'stats-hero' },
+      h('div', { class: 'small' }, 'You listened for'),
+      h('div', { class: 'big' }, dur(st.ms)),
+      h('div', null, `This week: ${dur(week)}`),
+      streak ? h('div', null, `🔥 ${streak}-day listening streak`) : null,
+      st.ms > 60000 ? h('div', null, `Your favourite time: ${hourName(hour)}`) : null,
+      topSingers[0] ? h('div', null, `Top singer: ${topSingers[0][0]}`) : null),
+    topSingers.length ? [h('div', { class: 'section' }, 'Top singers'), topSingers.map(([name, n]) =>
+      h('div', { class: 'row', onclick: () => pushPage(() => artistPage(name)) },
+        h('div', { class: 'art avatar' }, Array.from(name)[0]),
+        h('div', { class: 'meta' }, h('div', { class: 't' }, name), h('div', { class: 's' }, `${n} ${n === 1 ? 'play' : 'plays'}`))))] : null,
+    topSongs.length ? [h('div', { class: 'section' }, 'Most played'), trackList(topSongs)] : h('div', { class: 'empty' }, 'Play some songs and your stats show up here.'));
+}
+
 /** Library → Downloads: what is downloading (with %), and every song saved in the app. */
 function downloadsPage() {
   const body = h('div');
@@ -1589,6 +1743,22 @@ function djPage(initial) {
     h('div', { class: 'chips' }, examples.map((e) => h('button', { class: 'chip', onclick: () => run(e) }, e))), out);
 }
 
+const ACCENTS = [['Coral', '#ff5c6b'], ['Green', '#1db954'], ['Violet', '#8b5cf6'], ['Blue', '#3b82f6'], ['Teal', '#14b8a6'], ['Orange', '#f97316'], ['Pink', '#ec4899'], ['Red', '#ef4444']];
+function toggleRow(label, note, on, change) {
+  const sw = h('button', { class: 'switch' + (on ? ' on' : ''), role: 'switch', 'aria-label': label, 'aria-checked': String(on), onclick: () => {
+    on = !on; sw.classList.toggle('on', on); sw.setAttribute('aria-checked', String(on)); change(on);
+  } }, h('span'));
+  return h('div', { class: 'setting toggle' }, h('div', null, h('label', null, label), h('div', { class: 'note', style: 'padding:2px 0 0' }, note)), sw);
+}
+/** "Report a problem": the user writes what happened; it is shared (WhatsApp, email…) with app details. */
+function reportProblem() {
+  const what = prompt('What went wrong?');
+  if (what == null) return;
+  const text = `Sangeet (iPhone app) problem\n\n${what || '(not described)'}\n\nVersion ${window.SANGEET_BUILD} · ${navigator.userAgent}\nNow playing: ${Player.current ? `${Player.current.title} (${Player.current.id})` : '-'}\nOffline: ${!navigator.onLine}`;
+  if (navigator.share) navigator.share({ title: 'Sangeet problem', text }).catch(() => {});
+  else navigator.clipboard?.writeText(text).then(() => toast('Copied. Paste it in a message.'));
+}
+
 function settingsPage() {
   const langChips = h('div', { class: 'chips' }, ALL_LANGS.map((l) => {
     const b = h('button', { class: 'chip' + (S.langs.includes(l) ? ' on' : '') }, l[0].toUpperCase() + l.slice(1));
@@ -1619,6 +1789,14 @@ function settingsPage() {
     h('div', { class: 'section' }, 'Look'),
     h('div', { class: 'setting' }, h('label', null, 'Theme'), look),
     h('div', { class: 'note' }, 'Liquid Glass: the iOS 26 look, with glass bars floating over the songs.'),
+    h('div', { class: 'setting', style: 'display:block' }, h('label', null, 'Accent color'),
+      h('div', { class: 'swatches' }, ACCENTS.map(([name, c]) => {
+        const b = h('button', { class: 'swatch' + ((S.accent || '#ff5c6b') === c ? ' on' : ''), style: `background:${c}`, 'aria-label': name, onclick: () => {
+          S.accent = c; save(); applyLook();
+          b.parentNode.querySelectorAll('.swatch').forEach((x) => x.classList.toggle('on', x === b));
+        } });
+        return b;
+      }))),
     h('div', { class: 'section' }, 'Languages'), langChips, count,
     h('div', { class: 'section' }, 'Audio'),
     h('div', { class: 'setting' }, h('label', null, 'Streaming quality'), quality),
@@ -1628,6 +1806,11 @@ function settingsPage() {
     h('div', { class: 'section' }, 'Move library'),
     h('button', { class: 'danger', style: 'color:var(--text)', onclick: () => Sync.share() }, 'Send liked songs and playlists to another phone'),
     h('div', { class: 'note' }, 'Open the link on the other phone. On Android, paste it in Library → Import playlist.'),
+    h('div', { class: 'section' }, 'Offline'),
+    toggleRow('Offline mode', 'Play only downloaded songs (saves data). Turns on by itself without internet.', !!S.offlineOnly, (v) => { S.offlineOnly = v; save(); }),
+    h('div', { class: 'section' }, 'Help'),
+    h('button', { class: 'danger', style: 'color:var(--text)', onclick: reportProblem }, 'Report a problem'),
+    h('div', { class: 'note' }, 'Write what went wrong and send it with WhatsApp, email or any app.'),
     h('div', { class: 'section' }, 'Suggestions'),
     h('button', { class: 'danger', onclick: () => { S.seen = []; seenSet.clear(); save(); Feed.reset(); toast('Done'); } }, 'Reset suggestions'),
     h('div', { class: 'note' }, "Songs you've heard are never suggested twice."),
@@ -1643,6 +1826,7 @@ function applyLook() {
   const look = S.look || 'classic';
   const glass = look !== 'classic';
   const light = glass && (look === 'glass-light' || (look === 'glass-auto' && lightQuery.matches));
+  document.documentElement.style.setProperty('--accent', S.accent || '#ff5c6b');
   document.body.classList.toggle('glass', glass);
   document.body.classList.toggle('light', light);
   // Liquid Glass tab bar: For You, Library and Settings in one glass capsule, Search on its own round button.
@@ -1716,6 +1900,21 @@ const UI = {
     const seek = seekBar(), ctr = controls(), err = h('div', { class: 'err' });
     const lyricsBtn = h('button', { class: 'icon-btn', 'aria-label': 'Lyrics' }, icon('lyrics'));
     const queueBtn = h('button', { class: 'icon-btn', 'aria-label': 'Up next' }, icon('queue'));
+    const sleepNote = h('div', { class: 'sleep-note' }, Sleep.label());
+    const shuffleBtn = h('button', { class: 'icon-btn' + (Player.shuffleOn ? ' on' : ''), 'aria-label': 'Shuffle', onclick: () => { Player.toggleShuffle(); shuffleBtn.classList.toggle('on', Player.shuffleOn); } }, icon('shuffle'));
+    const repeatBtn = h('button', { class: 'icon-btn' + (Player.repeat !== 'off' ? ' on' : ''), 'aria-label': 'Repeat', onclick: () => {
+      Player.cycleRepeat();
+      repeatBtn.classList.toggle('on', Player.repeat !== 'off');
+      repeatBtn.replaceChildren(icon(Player.repeat === 'one' ? 'repeatOne' : 'repeat'));
+    } }, icon(Player.repeat === 'one' ? 'repeatOne' : 'repeat'));
+    const speedBtn = h('button', { class: 'icon-btn' + ((S.speed || 1) !== 1 ? ' on' : ''), 'aria-label': 'Playback speed', onclick: () =>
+      menu(`Playback speed (now ${S.speed || 1}x)`, [0.75, 1, 1.25, 1.5, 2].map((v) => [`${v}x${v === 1 ? ' (normal)' : ''}`, () => { Player.setSpeed(v); speedBtn.classList.toggle('on', v !== 1); toast(`Speed ${v}x`); }])) }, icon('speed'));
+    const sleepBtn = h('button', { class: 'icon-btn' + (Sleep.on ? ' on' : ''), 'aria-label': 'Sleep timer', onclick: () =>
+      menu('Sleep timer', [
+        ...[15, 30, 45, 60, 90].map((m) => [`${m} minutes`, () => Sleep.set(m)]),
+        ['End of this song', () => Sleep.set('end')],
+        ...(Sleep.on ? [['Turn off', () => { Sleep.clear(); toast('Sleep timer off'); }]] : []),
+      ].map(([l, f]) => [l, () => { f(); sleepBtn.classList.toggle('on', Sleep.on); sleepNote.textContent = Sleep.label(); }])) }, icon('moon'));
     np.replaceChildren(
       h('div', { class: 'bg', style: t.img ? `background-image:url("${art(t, true)}")` : '' }),
       h('div', { class: 'np-top' },
@@ -1729,7 +1928,8 @@ const UI = {
             h('div', { style: 'color:rgba(255,255,255,.7);white-space:nowrap;overflow:hidden;text-overflow:ellipsis' }, t.artist)),
           likeBtn(t)),
         seek, ctr, err,
-        h('div', { class: 'row-icons' }, lyricsBtn, queueBtn)));
+        h('div', { class: 'row-icons' }, shuffleBtn, repeatBtn, speedBtn, sleepBtn, lyricsBtn, queueBtn),
+        sleepNote));
     const state = { seek, ctr, err, view, lyricsTick: null };
     const show = (v) => {
       state.view = v;
@@ -1782,7 +1982,7 @@ const UI = {
     this.np = null;
   },
 };
-setInterval(() => UI.tick(), 500);
+setInterval(() => { UI.tick(); if (Player.playing) Stats.add(500); Sleep.check(); }, 500);
 
 /* ------------------------------------------------------------------ synced lyrics (LRCLIB, free) */
 const lyricsCache = new Map();
