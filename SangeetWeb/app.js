@@ -1437,8 +1437,16 @@ function settingsPage() {
   const key = h('input', { type: 'text', value: S.ytKey, autocapitalize: 'off', spellcheck: false, style: 'font-family:ui-monospace,monospace;font-size:13px' });
   key.addEventListener('change', () => { S.ytKey = key.value.trim(); save(); });
   const standalone = navigator.standalone || matchMedia('(display-mode: standalone)').matches;
+  const look = h('select', { onchange: (e) => {
+    S.look = e.target.value;
+    save();
+    if (applyLook() && standalone) toast('Close and reopen the app for the top bar (time, battery) colors', 4500);
+  } }, LOOKS.map(([v, l]) => h('option', { value: v, selected: (S.look || 'classic') === v }, l)));
   return h('div', null,
     header('Settings'),
+    h('div', { class: 'section' }, 'Look'),
+    h('div', { class: 'setting' }, h('label', null, 'Theme'), look),
+    h('div', { class: 'note' }, 'Liquid Glass: the iOS 26 look, with glass bars floating over the songs.'),
     h('div', { class: 'section' }, 'Languages'), langChips, count,
     h('div', { class: 'section' }, 'Audio'),
     h('div', { class: 'setting' }, h('label', null, 'Streaming quality'), quality),
@@ -1455,6 +1463,35 @@ function settingsPage() {
       h('div', { class: 'note' }, 'In Safari tap Share, then "Add to Home Screen". Sangeet opens full screen like an app.')),
     h('div', { class: 'note' }, `Version ${window.SANGEET_BUILD}`));
 }
+
+/* ------------------------------------------------------------------ look: Classic or Liquid Glass */
+const LOOKS = [['classic', 'Classic dark'], ['glass-dark', 'Liquid Glass · Dark'], ['glass-light', 'Liquid Glass · Light'], ['glass-auto', 'Liquid Glass · Same as iPhone']];
+const lightQuery = matchMedia('(prefers-color-scheme: light)');
+function applyLook() {
+  const look = S.look || 'classic';
+  const glass = look !== 'classic';
+  const light = glass && (look === 'glass-light' || (look === 'glass-auto' && lightQuery.matches));
+  document.body.classList.toggle('glass', glass);
+  document.body.classList.toggle('light', light);
+  // Liquid Glass tab bar: For You, Library and Settings in one glass capsule, Search on its own round button.
+  const tabs = $('#tabs');
+  const btn = (t) => tabs.querySelector(`button[data-tab="${t}"]`);
+  let cap = tabs.querySelector('.cap');
+  if (glass && !cap) {
+    cap = h('div', { class: 'cap' });
+    ['feed', 'library', 'settings'].forEach((t) => cap.append(btn(t)));
+    tabs.prepend(cap);
+  } else if (!glass && cap) {
+    ['feed', 'search', 'library', 'settings'].forEach((t) => tabs.append(btn(t)));
+    cap.remove();
+  }
+  document.querySelector('meta[name="theme-color"]').setAttribute('content', light ? '#f2f2f7' : glass ? '#000000' : '#0b0b0f');
+  // Status bar text color is read when the app opens (index.html).
+  const before = (() => { try { return localStorage.getItem('sangeet-look'); } catch { return null; } })();
+  try { localStorage.setItem('sangeet-look', light ? 'light' : 'dark'); } catch {}
+  return before != null && before !== (light ? 'light' : 'dark');
+}
+lightQuery.addEventListener?.('change', () => { if (S.look === 'glass-auto') applyLook(); });
 
 /* ------------------------------------------------------------------ mini player + now playing */
 const UI = {
@@ -1638,6 +1675,8 @@ document.querySelectorAll('#tabs button').forEach((b) => {
     UI.update();
   };
 });
+
+applyLook();
 
 (async () => {
   UI.initSwipe();

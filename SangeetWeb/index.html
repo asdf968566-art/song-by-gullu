@@ -9,6 +9,13 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <script>
+    // Liquid Glass light: dark status bar text (time, battery). iPhone reads this when the app opens.
+    try { if (localStorage.getItem('sangeet-look') === 'light') {
+      document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]').setAttribute('content', 'default');
+      document.querySelector('meta[name="theme-color"]').setAttribute('content', '#f2f2f7');
+    } } catch (e) {}
+  </script>
   <meta name="apple-mobile-web-app-title" content="Sangeet">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="icon" href="icon-192.png">
