@@ -20,6 +20,7 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -96,6 +97,8 @@ fun LanguageSheet(onDone: (changed: Boolean) -> Unit) {
     val changed = s.languages.toSet() != before.toSet()
     ModalBottomSheet(
         onDismissRequest = { onDone(changed) },
+        // Open fully: half-open hid the language chips on small screens.
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
         Column(Modifier.navigationBarsPadding()) {

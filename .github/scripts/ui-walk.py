@@ -380,8 +380,14 @@ def main():
     def languages_from_home():
         go_tab("Home")
         return tap("Song languages", wait=3)
-    step("Home: Song languages (outside Music sources)", languages_from_home,
-         lambda: (find("Haryanvi", contains=True) is not None and find("Done") is not None, "language chips shown"))
+    def languages_shown():
+        ok = find("Haryanvi", contains=True, scroll=1) is not None
+        if not ok:
+            print("[languages] on screen: " + ", ".join(sorted({n["text"] or n["desc"] for n in nodes(dump()) if n["text"] or n["desc"]})[:40]))
+            with open("out/languages.png", "wb") as f:
+                subprocess.run(["adb", "exec-out", "screencap", "-p"], stdout=f)
+        return ok, "language chips shown"
+    step("Home: Song languages (outside Music sources)", languages_from_home, languages_shown)
     tap("Done", wait=3)
 
     # ---------------------------------------------------------------- Settings
@@ -415,12 +421,14 @@ def main():
     step("Settings: Music sources is locked (wrong password refused)", wrong_password,
          lambda: (find("Wrong password") is not None, "wrong password refused"))
     back(2)
-    swipe_down()
-    swipe_down()
+    def to_top():
+        # Settings is long (song languages at the top): scroll all the way up before looking.
+        for _ in range(6):
+            swipe_down()
+    to_top()
     for label in ["Theme", "Equalizer & Bass boost", "Open AI DJ"]:
-        step(f"Settings: {label}", open_and_back(label, scroll=8, wait=3))
-        swipe_down()
-        swipe_down()
+        step(f"Settings: {label}", open_and_back(label, scroll=10, wait=3))
+        to_top()
     step("Settings: Move library to another phone", open_and_back("Move library to another phone", scroll=10, wait=4))
     def report_form():
         if not tap("Report a problem", scroll=10, wait=3):
