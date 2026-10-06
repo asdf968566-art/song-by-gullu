@@ -94,6 +94,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Alignment
 import androidx.compose.material3.MaterialTheme
+import android.app.Activity
+import android.content.ContextWrapper
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 
 object Routes {
     const val HOME = "home"
@@ -153,6 +157,21 @@ fun SangeetRoot() {
     UpdateDialog()
 
     BackHandler(enabled = expanded) { expanded = false }
+
+    // Status bar (time, battery, network) and navigation bar icons follow the app's theme, not the phone's:
+    // light icons on dark pages, dark icons on light ones. For You is always dark.
+    val view = LocalView.current
+    val darkTop = Sangeet.spec.isDark || (onDiscover && !expanded)
+    LaunchedEffect(darkTop) {
+        var ctx = view.context
+        while (ctx is ContextWrapper && ctx !is Activity) ctx = ctx.baseContext
+        (ctx as? Activity)?.window?.let { w ->
+            WindowCompat.getInsetsController(w, view).apply {
+                isAppearanceLightStatusBars = !darkTop
+                isAppearanceLightNavigationBars = !darkTop
+            }
+        }
+    }
 
     // Liquid Glass: the pages run under the floating glass bars, which show them through the glass.
     val liquid = Sangeet.spec.style == ThemeStyle.LIQUID_GLASS
@@ -255,7 +274,9 @@ private fun BottomNav(nav: NavHostController) {
     val backStack by nav.currentBackStackEntryAsState()
     val route = backStack?.destination?.route
     val go: (String) -> Unit = { r ->
-        nav.navigate(r) {
+        // Already inside this tab (e.g. Settings opened from Home): back to the tab's own screen.
+        // Otherwise switch tabs, keeping where each tab was.
+        if (!nav.popBackStack(r, inclusive = false)) nav.navigate(r) {
             popUpTo(nav.graph.findStartDestination().id) { saveState = true }
             launchSingleTop = true
             restoreState = true
@@ -315,7 +336,7 @@ private fun LiquidTabBar(tabs: List<Tab>, route: String?, go: (String) -> Unit) 
                         .weight(1f)
                         .fillMaxHeight()
                         .clip(RoundedCornerShape(50))
-                        .background(if (selected) (if (spec.isDark) Color.White.copy(alpha = 0.14f) else Color.Black.copy(alpha = 0.07f)) else Color.Transparent)
+                        .background(if (selected) (if (spec.isDark) Color.White.copy(alpha = 0.14f) else spec.accent.copy(alpha = 0.16f)) else Color.Transparent)
                         .clickable { go(tab.route) },
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,

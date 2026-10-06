@@ -85,6 +85,19 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.ui.text.style.TextOverflow
 import com.sangeet.player.ui.components.Artwork
 import com.sangeet.player.ui.theme.bottomBarPadding
+import com.sangeet.player.data.lyrics.LyricsSearch
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import android.content.Intent
+import android.speech.RecognizerIntent
+import android.widget.Toast
+import android.app.Activity
+import androidx.compose.ui.platform.LocalContext
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.rounded.Mic
+import kotlinx.coroutines.Deferred
 
 /** One entry of "Recent searches": a song you picked from results, or words you searched. */
 @Serializable
@@ -100,6 +113,8 @@ class SearchViewModel(private val c: AppContainer) : ViewModel() {
         /** Likhte waqt suggestions ("kes" -> "kesariya"). */
         val suggestions: List<String> = emptyList(),
         val recent: List<RecentItem> = emptyList(),
+        /** Songs whose lyrics have the typed words (a line from the middle of a song). */
+        val lyricsMatches: List<Track> = emptyList(),
     )
 
     private val _ui = MutableStateFlow(Ui())
@@ -137,7 +152,11 @@ class SearchViewModel(private val c: AppContainer) : ViewModel() {
                             it.artist.lowercase().contains(needle) ||
                             it.album.lowercase().contains(needle)
                     }.take(30)
-                _ui.value = _ui.value.copy(loading = true, local = local)
+                _ui.value = _ui.value.copy(loading = true, local = local, lyricsMatches = emptyList())
+                // A line from the lyrics: find which songs it is from, alongside the normal search.
+                val lyricsJob: Deferred<List<Track>>? = if (LyricsSearch.looksLikeLine(q) && c.online.canGoOnline) {
+                    viewModelScope.async { runCatching { songsFromLyrics(q.trim()) }.getOrDefault(emptyList<Track>()) }
+                } else null
                 // Hindi mein likha ho to Hinglish mein bhi dhoondho ("तुम ही हो" + "tum hi ho")
                 val alt = q.trim().takeIf(Transliterate::hasDevanagari)?.let(Transliterate::toLatin)
                 val online = if (alt.isNullOrBlank()) c.online.search(q.trim()) else {
@@ -148,8 +167,30 @@ class SearchViewModel(private val c: AppContainer) : ViewModel() {
                     }
                 }
                 _ui.value = _ui.value.copy(loading = false, online = online)
+                lyricsJob?.await()?.let { found ->
+                    // Only songs the normal results don't already show at the top.
+                    val shown = online.flatMap { it.tracks.take(5) }.map { it.title.lowercase() }.toSet()
+                    _ui.value = _ui.value.copy(lyricsMatches = found.filterNot { it.title.lowercase() in shown })
+                }
             }
         }
+    }
+
+    /** Lyrics line -> song names (Genius) -> those songs on JioSaavn (else YouTube) to play. */
+    private suspend fun songsFromLyrics(line: String): List<Track> = coroutineScope {
+        LyricsSearch.find(line).map { hit ->
+            async {
+                val q = "${hit.title} ${hit.artist}".trim()
+                runCatching { c.online.saavn.searchPage(q, 1) }.getOrDefault(emptyList()).firstOrNull()
+                    ?: runCatching { c.online.searchAll(q) }.getOrDefault(emptyList()).firstOrNull()
+            }
+        }.awaitAll().filterNotNull().distinctBy { it.id }
+    }
+
+    /** Spoken words from voice search: search them right away and remember them. */
+    fun onVoice(text: String) {
+        onQuery(text)
+        rememberQuery()
     }
 
     fun onQuery(q: String) {
@@ -229,6 +270,12 @@ fun SearchScreen(nav: NavController) {
             // Classic Dark keeps the white Spotify-style box; other themes use their own surface (glass, soft 3D...).
             val classic = spec.style == ThemeStyle.SPOTIFY || spec.style == ThemeStyle.AMOLED
             val focus = LocalFocusManager.current
+            val context = LocalContext.current
+            // Voice search: the phone's own speech recognizer (no extra permission needed).
+            val voice = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
+                val said = r.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+                if (r.resultCode == Activity.RESULT_OK && !said.isNullOrBlank()) { vm.onVoice(said); focus.clearFocus() }
+            }
             val fieldText = if (classic) Color(0xFF121212) else spec.onSurface
             val shape = RoundedCornerShape(if (spec.style == ThemeStyle.LIQUID_GLASS) 24.dp else 8.dp)
             TextField(
@@ -237,8 +284,20 @@ fun SearchScreen(nav: NavController) {
                 placeholder = { Text("What do you want to listen to?", color = if (classic) Color(0xFF535353) else spec.muted) },
                 leadingIcon = { Icon(Icons.Rounded.Search, null, tint = fieldText) },
                 trailingIcon = {
-                    if (ui.query.isNotEmpty()) {
-                        IconButton(onClick = { vm.onQuery("") }) { Icon(Icons.Rounded.Close, "Clear", tint = fieldText) }
+                    Row {
+                        IconButton(onClick = {
+                            val ask = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                                .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                                // Hindi + English (Hinglish song names, singers, lines of lyrics)
+                                .putExtra(RecognizerIntent.EXTRA_LANGUAGE, "hi-IN")
+                                .putExtra(RecognizerIntent.EXTRA_PROMPT, "Say a song, singer or a line of the lyrics")
+                            runCatching { voice.launch(ask) }.onFailure {
+                                Toast.makeText(context, "Voice search isn't available on this phone", Toast.LENGTH_SHORT).show()
+                            }
+                        }) { Icon(Icons.Rounded.Mic, "Voice search", tint = fieldText) }
+                        if (ui.query.isNotEmpty()) {
+                            IconButton(onClick = { vm.onQuery("") }) { Icon(Icons.Rounded.Close, "Clear", tint = fieldText) }
+                        }
                     }
                 },
                 singleLine = true,
@@ -342,6 +401,12 @@ fun SearchScreen(nav: NavController) {
                 }
             }
         } else {
+            if (ui.lyricsMatches.isNotEmpty()) {
+                item { SectionHeader("🎤 Songs with these lyrics") }
+                items(ui.lyricsMatches, key = { "ly_" + it.id }) { t ->
+                    TrackRow(t, onClick = { vm.rememberQuery(t); c.player.startRadio(t) }, onMore = { menuFor = t })
+                }
+            }
             if (ui.local.isNotEmpty()) {
                 item { SectionHeader("On this phone") }
                 items(ui.local, key = { "l_" + it.id }) { t ->

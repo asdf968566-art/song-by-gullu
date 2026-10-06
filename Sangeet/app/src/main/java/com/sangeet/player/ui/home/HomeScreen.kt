@@ -73,6 +73,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import com.sangeet.player.ui.theme.bottomBarPadding
+import androidx.compose.material.icons.rounded.Language
+import com.sangeet.player.ui.settings.LanguageSheet
 
 class HomeViewModel(private val c: AppContainer) : ViewModel() {
     data class Ui(
@@ -168,6 +170,9 @@ fun HomeScreen(nav: NavController) {
     val settings by c.settings.settings.collectAsStateWithLifecycle()
     var filter by rememberSaveable { mutableStateOf(0) } // 0 all, 1 online, 2 offline
     var menuFor by remember { mutableStateOf<Track?>(null) }
+    var showLanguages by remember { mutableStateOf(false) }
+    // Song languages, right from Home: when they change, Home loads songs in the new languages.
+    if (showLanguages) LanguageSheet { changed -> showLanguages = false; if (changed) vm.refresh(force = true) }
     val spec = Sangeet.spec
     val offline = settings.offlineMode || !network.online
     val picks = remember(localSongs) { localSongs.shuffled().take(20) }
@@ -184,6 +189,7 @@ fun HomeScreen(nav: NavController) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(greeting(), style = MaterialTheme.typography.headlineMedium, color = spec.onSurface, modifier = Modifier.weight(1f))
+                IconButton(onClick = { showLanguages = true }) { Icon(Icons.Rounded.Language, "Song languages", tint = spec.onSurface) }
                 IconButton(onClick = { vm.refresh(force = true) }) { Icon(Icons.Rounded.Refresh, "Refresh", tint = spec.onSurface) }
                 IconButton(onClick = { nav.navigate(Routes.DJ) }) { Icon(Icons.Rounded.AutoAwesome, "AI DJ", tint = spec.onSurface) }
                 IconButton(onClick = { nav.navigate(Routes.SETTINGS) }) { Icon(Icons.Rounded.Settings, "Settings", tint = spec.onSurface) }

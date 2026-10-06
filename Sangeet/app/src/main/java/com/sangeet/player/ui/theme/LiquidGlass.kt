@@ -103,7 +103,13 @@ fun Modifier.liquidGlass(
     var pos by remember { mutableStateOf(Offset.Zero) }
     val cache = remember { EffectCache() }
     this
-        .shadow(10.dp, shape, ambientColor = Color.Black.copy(alpha = 0.18f), spotColor = Color.Black.copy(alpha = 0.22f))
+        // Light mode needs a clearer shadow: white glass on a light page otherwise disappears.
+        .shadow(
+            if (spec.isDark) 10.dp else 14.dp,
+            shape,
+            ambientColor = Color.Black.copy(alpha = if (spec.isDark) 0.18f else 0.22f),
+            spotColor = Color.Black.copy(alpha = if (spec.isDark) 0.22f else 0.30f),
+        )
         .onGloballyPositioned { pos = it.positionInRoot() }
         .drawWithContent {
             val outline = shape.createOutline(size, layoutDirection, this)
@@ -122,22 +128,31 @@ fun Modifier.liquidGlass(
             // Tint: keeps text readable; stronger where the content can't be blurred.
             val tintAlpha = when {
                 content == null || !effects -> if (spec.isDark) 0.72f else 0.78f
-                clear -> if (spec.isDark) 0.12f else 0.18f
-                else -> if (spec.isDark) 0.28f else 0.42f
+                clear -> if (spec.isDark) 0.12f else 0.30f
+                else -> if (spec.isDark) 0.28f else 0.55f
             }
-            drawOutline(outline, (if (spec.isDark) Color(0xFF1C1C1E) else Color.White).copy(alpha = tintAlpha))
+            // Light glass is slightly cool (like iOS), so it reads as glass and not as a white card.
+            drawOutline(outline, (if (spec.isDark) Color(0xFF1C1C1E) else Color(0xFFF7F9FC)).copy(alpha = tintAlpha))
+            if (!spec.isDark) {
+                // A soft darker band along the bottom edge gives the light glass its thickness.
+                drawOutline(outline, Brush.verticalGradient(0.55f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.06f)))
+            }
             // Sheen across the top, and the bright rim where light catches the edge.
-            drawOutline(outline, Brush.verticalGradient(0f to Color.White.copy(alpha = if (spec.isDark) 0.10f else 0.30f), 0.5f to Color.Transparent))
+            drawOutline(outline, Brush.verticalGradient(0f to Color.White.copy(alpha = if (spec.isDark) 0.10f else 0.65f), 0.5f to Color.Transparent))
+            if (!spec.isDark) {
+                // White rim can't be seen on a light page: a thin dark hairline outlines the glass first.
+                drawOutline(outline, Color.Black.copy(alpha = 0.10f), style = Stroke(1.dp.toPx()))
+            }
             drawOutline(
                 outline,
                 Brush.linearGradient(
-                    0f to Color.White.copy(alpha = if (spec.isDark) 0.55f else 0.95f),
-                    0.45f to Color.White.copy(alpha = 0.04f),
-                    1f to Color.White.copy(alpha = if (spec.isDark) 0.28f else 0.6f),
+                    0f to Color.White.copy(alpha = if (spec.isDark) 0.55f else 1f),
+                    0.45f to Color.White.copy(alpha = if (spec.isDark) 0.04f else 0.25f),
+                    1f to Color.White.copy(alpha = if (spec.isDark) 0.28f else 0.9f),
                     start = Offset.Zero,
                     end = Offset(size.width, size.height),
                 ),
-                style = Stroke(1.2.dp.toPx()),
+                style = Stroke(if (spec.isDark) 1.2.dp.toPx() else 1.6.dp.toPx()),
             )
             drawContent()
         }
