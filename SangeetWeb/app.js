@@ -30,6 +30,7 @@ const ICONS = {
   plus: 'M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z',
   chart: 'M5 9.2h3V19H5zM10.6 5h2.8v14h-2.8zm5.6 8H19v6h-2.8z',
   download: 'M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z',
+  car: 'M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z',
   repeat: 'M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z',
   repeatOne: 'M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4zm-4-2V9h-1l-2 1v1h1.5v4H13z',
   speed: 'M20.38 8.57l-1.23 1.85a8 8 0 01-.22 7.58H5.07A8 8 0 0115.58 6.85l1.85-1.23A10 10 0 003.35 19a2 2 0 001.72 1h13.85a2 2 0 001.74-1 10 10 0 00-.27-10.44zm-9.79 6.84a2 2 0 002.83 0l5.66-8.49-8.49 5.66a2 2 0 000 2.83z',
@@ -371,6 +372,8 @@ function suggestions(count = 25, exclude = new Set()) {
   for (const s of [...S.liked.slice(0, 25), ...recent().slice(0, 40)]) {
     for (const pi of Catalog.trackPl.get(s.id) || []) plScore.set(pi, (plScore.get(pi) || 0) + 1);
   }
+  // New songs (this year) by singers you like come up first.
+  const now = new Date(), since = now.getMonth() < 3 ? now.getFullYear() - 1 : now.getFullYear();
   const scored = [];
   for (const t of Catalog.tracks) {
     if (seenSet.has(t.id) || exclude.has(t.id)) continue;
@@ -381,7 +384,7 @@ function suggestions(count = 25, exclude = new Set()) {
       p += plScore.get(pi) || 0;
       if (Catalog.playlists[pi].chart) chart = 0.8;
     }
-    scored.push([t, Math.log1p(a) + Math.log1p(p) * 0.8 + chart + Math.random() * 2.5]);
+    scored.push([t, Math.log1p(a) + Math.log1p(p) * 0.8 + chart + (a > 0 && t.year >= since ? 1.5 : 0) + Math.random() * 2.5]);
   }
   scored.sort((x, y) => y[1] - x[1]);
   const top = scored.slice(0, count * 4).map((x) => x[0]);
@@ -1368,6 +1371,7 @@ function libraryPage() {
       navigator.onLine ? 'Offline mode is on: only downloaded songs play.' : "You're offline. Your downloaded songs still play →") : null,
     link('download', 'Downloads', Offline.ids.size || null, () => pushPage(downloadsPage)),
     link('chart', 'Your Stats', null, () => pushPage(statsPage)),
+    link('heartFill', 'Blend with a friend', null, () => pushPage(blendPage)),
     link('plus', 'Import playlist', null, () => pushPage(importPage)),
     h('div', { class: 'section' }, 'Your playlists'),
     S.playlists.map((p) => link('list', p.name, p.tracks.length, () => pushPage(() => songsPage(p.name, p.tracks, p)))),
@@ -1394,6 +1398,8 @@ function madeForYou() {
     Object.values(S.history).forEach((r) => add(r.t, r.c));
     S.liked.forEach((t) => add(t, 3));
     const top = [...favs.entries()].sort((a, b) => b[1] - a[1]).map((x) => x[0]).slice(0, 3);
+    const fresh = newFromYourSingers(30);
+    if (fresh.length >= 5) mixes.push({ title: '🆕 New from your singers', tracks: fresh });
     const daily = suggestions(30);
     if (daily.length >= 10) mixes.push({ title: 'Daily Mix', tracks: daily });
     for (const a of top) {
@@ -1508,6 +1514,7 @@ function statsPage() {
   const topSingers = [...singers.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
   const topSongs = plays.slice(0, 20).map((r) => r.t);
   return h('div', null, header('Your Stats', true),
+    h('div', { class: 'actions' }, h('button', { class: 'pill primary', onclick: shareWrapped }, '🎁 Share my Wrapped')),
     h('div', { class: 'stats-hero' },
       h('div', { class: 'small' }, 'You listened for'),
       h('div', { class: 'big' }, dur(st.ms)),
@@ -1883,6 +1890,7 @@ const UI = {
       mini.onclick = () => this.openNowPlaying();
     }
     mini.querySelector('.toggle').replaceChildren(icon(Player.playing ? 'pause' : 'play'));
+    CarMode.render();
   },
   tick() {
     const d = Player.duration(), p = d ? (Player.time() / d) * 100 : 0;
@@ -1919,7 +1927,9 @@ const UI = {
       h('div', { class: 'bg', style: t.img ? `background-image:url("${art(t, true)}")` : '' }),
       h('div', { class: 'np-top' },
         h('button', { class: 'icon-btn', 'aria-label': 'Close', onclick: () => this.closeNowPlaying() }, icon('down')),
-        h('button', { class: 'icon-btn', 'aria-label': 'More', onclick: () => trackMenu(t) }, icon('more'))),
+        h('div', { style: 'display:flex' },
+          h('button', { class: 'icon-btn', 'aria-label': 'Car mode', onclick: () => CarMode.open() }, icon('car')),
+          h('button', { class: 'icon-btn', 'aria-label': 'More', onclick: () => trackMenu(t) }, icon('more')))),
       body,
       h('div', { class: 'np-bottom' },
         h('div', { class: 'info', style: 'display:flex;align-items:center;gap:12px' },
@@ -2015,8 +2025,17 @@ async function showLyrics(t, body, state) {
   const lines = await getLyrics(t);
   if (state.view !== 'lyrics' || Player.current?.id !== t.id) return;
   if (!lines.length) return body.replaceChildren(h('div', { class: 'empty' }, 'No lyrics found'));
-  const box = h('div', { class: 'lyrics' }, lines.map((l) => h('p', { onclick: () => Player.seek(l.time) }, l.text || '♪')));
-  body.replaceChildren(box);
+  let picking = false;
+  const pick = h('button', { class: 'chip lyric-pick', onclick: () => {
+    picking = !picking;
+    pick.classList.toggle('on', picking);
+    pick.textContent = picking ? 'Tap a line to share it' : '🖼 Share a line';
+  } }, '🖼 Share a line');
+  const box = h('div', { class: 'lyrics' }, lines.map((l) => h('p', { onclick: () => {
+    if (picking && l.text) { picking = false; pick.classList.remove('on'); pick.textContent = '🖼 Share a line'; return shareLyric(t, l.text); }
+    Player.seek(l.time);
+  } }, l.text || '♪')));
+  body.replaceChildren(h('div', { class: 'lyrics-wrap' }, pick, box));
   let last = -1;
   state.lyricsTick = () => {
     const now = Player.time() + 0.3;
@@ -2029,6 +2048,213 @@ async function showLyrics(t, body, state) {
     if (el) { el.classList.add('on'); el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
   };
   state.lyricsTick();
+}
+
+/* ------------------------------------------------------------------ picture cards (Wrapped, lyrics) shared to Instagram / WhatsApp */
+const Card = {
+  img(src) {
+    return new Promise((ok) => {
+      if (!src) return ok(null);
+      const i = new Image();
+      i.crossOrigin = 'anonymous'; // so the card can still be saved as a picture
+      i.onload = () => ok(i);
+      i.onerror = () => ok(null);
+      i.src = src;
+    });
+  },
+  canvas() {
+    const c = document.createElement('canvas');
+    c.width = 1080; c.height = 1350;
+    return c;
+  },
+  bg(ctx, accent) {
+    const g = ctx.createLinearGradient(0, 0, 1080, 1350);
+    g.addColorStop(0, accent);
+    g.addColorStop(1, '#0b0b0f');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 1080, 1350);
+  },
+  /** Writes text over several lines; returns the y below it. */
+  text(ctx, text, x, y, maxW, size, weight, color, maxLines = 3, align = 'left') {
+    ctx.font = `${weight} ${size}px -apple-system, "SF Pro Display", Roboto, sans-serif`;
+    ctx.fillStyle = color;
+    ctx.textAlign = align;
+    const words = String(text).split(/\s+/);
+    let line = '', lines = [];
+    for (const w of words) {
+      const tryLine = line ? line + ' ' + w : w;
+      if (ctx.measureText(tryLine).width > maxW && line) { lines.push(line); line = w; } else line = tryLine;
+    }
+    if (line) lines.push(line);
+    if (lines.length > maxLines) { lines = lines.slice(0, maxLines); lines[maxLines - 1] += '…'; }
+    for (const l of lines) { ctx.fillText(l, x, y); y += size * 1.25; }
+    return y;
+  },
+  /** Shows the finished card with a Share button (the iPhone share sheet must open right on a tap). */
+  async preview(draw, name, text) {
+    const m = $('#menu');
+    const box = h('div', { class: 'box card-preview', onclick: (e) => e.stopPropagation() }, h('div', { class: 'spinner' }));
+    m.replaceChildren(box);
+    m.onclick = () => (m.hidden = true);
+    m.hidden = false;
+    let blob = null;
+    for (const withImages of [true, false]) {
+      const c = Card.canvas();
+      await draw(c.getContext('2d'), withImages);
+      try { blob = await new Promise((ok, no) => { try { c.toBlob((b) => (b ? ok(b) : no()), 'image/png'); } catch (e) { no(e); } }); break; } catch {}
+    }
+    if (!blob) { m.hidden = true; return toast("Couldn't make the picture"); }
+    const file = new File([blob], name, { type: 'image/png' });
+    const url = URL.createObjectURL(blob);
+    fill(box,
+      h('img', { src: url, class: 'card-img', alt: '' }),
+      h('div', { class: 'actions' },
+        h('button', { class: 'pill primary', onclick: () => {
+          if (navigator.canShare?.({ files: [file] })) navigator.share({ files: [file], text }).catch(() => {});
+          else { const a = h('a', { href: url, download: name }); document.body.append(a); a.click(); a.remove(); }
+        } }, 'Share'),
+        h('button', { class: 'pill', onclick: () => (m.hidden = true) }, 'Close')));
+  },
+};
+
+/** "My Sangeet Wrapped": minutes, top songs, top singers and streak on one picture. */
+function shareWrapped() {
+  const st = S.stats || { ms: 0, days: {}, hours: Array(24).fill(0) };
+  const plays = Object.values(S.history).sort((a, b) => b.c - a.c);
+  const singers = new Map();
+  for (const r of plays) { const a = splitArtists(r.t.artist)[0]; if (a) singers.set(a, (singers.get(a) || 0) + r.c); }
+  const top = [...singers.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map((x) => x[0]);
+  const songs = plays.slice(0, 5).map((r) => r.t);
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#ff5c6b';
+  Card.preview(async (ctx, withImages) => {
+    Card.bg(ctx, accent);
+    Card.text(ctx, 'MY SANGEET WRAPPED', 80, 130, 560, 40, 800, 'rgba(255,255,255,.85)', 1);
+    let y = Card.text(ctx, String(new Date().getFullYear()), 80, 270, 560, 120, 900, '#fff', 1);
+    y = Card.text(ctx, `${Math.round(st.ms / 60000).toLocaleString()} minutes of music`, 80, Math.max(y + 30, 470), 920, 58, 800, '#fff', 1);
+    const cover = withImages && songs[0] ? await Card.img(art(songs[0], true)) : null;
+    if (cover) { ctx.save(); ctx.beginPath(); ctx.roundRect(700, 90, 300, 300, 28); ctx.clip(); ctx.drawImage(cover, 700, 90, 300, 300); ctx.restore(); }
+    y += 40;
+    Card.text(ctx, 'Top songs', 80, y, 440, 40, 700, 'rgba(255,255,255,.7)', 1);
+    Card.text(ctx, 'Top singers', 580, y, 440, 40, 700, 'rgba(255,255,255,.7)', 1);
+    let ys = y + 64, ya = y + 64;
+    songs.forEach((t, k) => { ys = Card.text(ctx, `${k + 1}. ${t.title}`, 80, ys, 460, 38, 600, '#fff', 2) + 10; });
+    top.forEach((a, k) => { ya = Card.text(ctx, `${k + 1}. ${a}`, 580, ya, 440, 38, 600, '#fff', 2) + 10; });
+    let streak = 0;
+    for (let k = (st.days[dayKey(new Date())] || 0) >= 60000 ? 0 : 1; (st.days[dayKey(new Date(Date.now() - k * 864e5))] || 0) >= 60000; k++) streak++;
+    if (streak) Card.text(ctx, `🔥 ${streak}-day listening streak`, 80, 1180, 920, 44, 700, '#fff', 1);
+    Card.text(ctx, 'Sangeet 🎵', 1000, 1280, 600, 36, 700, 'rgba(255,255,255,.75)', 1, 'right');
+  }, 'sangeet-wrapped.png', 'My Sangeet Wrapped 🎵');
+}
+
+/** A line of lyrics on the song's cover, as a picture. */
+function shareLyric(t, line) {
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#ff5c6b';
+  Card.preview(async (ctx, withImages) => {
+    Card.bg(ctx, accent);
+    const cover = withImages ? await Card.img(art(t, true)) : null;
+    if (cover) { ctx.save(); ctx.beginPath(); ctx.roundRect(80, 90, 400, 400, 28); ctx.clip(); ctx.drawImage(cover, 80, 90, 400, 400); ctx.restore(); }
+    let y = Card.text(ctx, `“${line}”`, 80, 640, 920, 76, 800, '#fff', 6);
+    y = Card.text(ctx, t.title, 80, y + 50, 920, 46, 700, '#fff', 2);
+    Card.text(ctx, t.artist, 80, y, 920, 38, 500, 'rgba(255,255,255,.75)', 2);
+    Card.text(ctx, 'Sangeet 🎵', 1000, 1280, 600, 36, 700, 'rgba(255,255,255,.75)', 1, 'right');
+  }, 'sangeet-lyrics.png', `${t.title} · ${t.artist} 🎵`);
+}
+
+/* ------------------------------------------------------------------ Blend: one playlist from your and a friend's taste */
+const Blend = {
+  /** Your taste: most played and liked songs, and favourite singers. Same song format as the library link. */
+  taste() {
+    const plays = Object.values(S.history).sort((a, b) => b.c - a.c).map((r) => r.t);
+    const songs = [...plays.slice(0, 30), ...S.liked.slice(0, 20)];
+    const seen = new Set();
+    return songs.filter((t) => !seen.has(t.id) && seen.add(t.id)).slice(0, 40);
+  },
+  async link(name) {
+    const data = { v: 1, n: name, s: this.taste().map((t) => Sync.encode(t)).filter(Boolean) };
+    return location.origin + location.pathname + '#blend=' + (await Sync.pack(JSON.stringify(data)));
+  },
+  /** Opened a friend's Blend link: mix their songs with yours (and songs like both), save it as a playlist. */
+  async fromHash() {
+    const m = location.hash.match(/blend=([\w-]+)/);
+    if (!m) return;
+    history.replaceState(null, '', location.pathname);
+    try {
+      const d = JSON.parse(await Sync.unpack(m[1]));
+      const friend = (d.n || 'Friend').slice(0, 30);
+      const theirs = (d.s || []).map((o) => Sync.decode(o)).filter(Boolean);
+      const mine = this.taste();
+      if (!theirs.length) return toast("That Blend link didn't work");
+      const out = [], ids = new Set();
+      const add = (t) => { if (t && !ids.has(t.id)) { ids.add(t.id); out.push(t); } };
+      for (let k = 0; k < Math.max(mine.length, theirs.length) && out.length < 40; k++) { add(theirs[k]); add(mine[k]); }
+      // A few songs like the ones you both have.
+      const seed = theirs.find((t) => t.src === 'js') || mine[0];
+      if (seed) radio(seed, 10, ids).forEach(add);
+      const name = `Blend: You + ${friend}`;
+      S.playlists.unshift({ id: String(Date.now()), name, tracks: out.map(slim) });
+      save();
+      toast(`${name} saved in your playlists`);
+      if (tab !== 'library') document.querySelector('#tabs button[data-tab="library"]').click();
+      pushPage(() => songsPage(name, out, S.playlists[0]));
+    } catch {
+      toast("That Blend link didn't work");
+    }
+  },
+};
+function blendPage() {
+  const nameIn = h('input', { type: 'text', placeholder: 'Your name', value: S.name || '' });
+  const share = h('button', { class: 'pill primary' }, 'Send my Blend link');
+  let url = null;
+  const prepare = async () => { url = await Blend.link((S.name = nameIn.value.trim() || 'Friend')); save(); };
+  nameIn.addEventListener('change', prepare);
+  prepare();
+  share.onclick = () => {
+    if (!url) return;
+    if (navigator.share) navigator.share({ title: 'Blend with me on Sangeet', text: 'Open this to make a playlist from both our tastes 🎵', url }).catch(() => {});
+    else navigator.clipboard?.writeText(url).then(() => toast('Link copied'));
+  };
+  return h('div', null, header('Blend', true),
+    h('div', { class: 'note' }, 'Make one playlist from your taste and a friend\'s: send them your link. When they open it, Sangeet mixes your songs with theirs (and songs like both) and saves it for them. Ask them for theirs too.'),
+    h('div', { class: 'setting', style: 'display:block' }, nameIn),
+    h('div', { class: 'actions' }, share),
+    Blend.taste().length < 5 ? h('div', { class: 'note' }, 'Play or like a few more songs first, so your Blend has your taste in it.') : null);
+}
+
+/* ------------------------------------------------------------------ Car mode: big buttons, easy to hit while driving */
+const CarMode = {
+  el: null,
+  open() {
+    this.el = h('div', { id: 'car' });
+    document.body.append(this.el);
+    this.render();
+  },
+  close() { this.el?.remove(); this.el = null; },
+  render() {
+    if (!this.el) return;
+    const t = Player.current;
+    fill(this.el,
+      h('button', { class: 'car-close', 'aria-label': 'Close car mode', onclick: () => this.close() }, icon('down')),
+      h('div', { class: 'car-title' }, t ? t.title : 'Nothing playing'),
+      h('div', { class: 'car-artist' }, t ? t.artist : ''),
+      h('div', { class: 'car-controls' },
+        h('button', { 'aria-label': 'Previous', onclick: () => Player.prev() }, icon('prev')),
+        h('button', { class: 'big', 'aria-label': 'Play/Pause', onclick: () => Player.toggle() }, icon(Player.playing ? 'pause' : 'play')),
+        h('button', { 'aria-label': 'Next', onclick: () => Player.next() }, icon('next'))),
+      t ? h('button', { class: 'car-like' + (isLiked(t) ? ' on' : ''), onclick: () => { toggleLike(t); this.render(); } }, icon(isLiked(t) ? 'heartFill' : 'heart')) : null);
+  },
+};
+
+/* ------------------------------------------------------------------ new songs from your singers */
+/** Recent songs (this year; also last year early in the year) by the singers you play and like most. */
+function newFromYourSingers(limit = 30) {
+  const fav = new Map();
+  for (const r of Object.values(S.history)) for (const a of splitArtists(r.t.artist)) fav.set(norm(a), (fav.get(norm(a)) || 0) + r.c);
+  for (const t of S.liked) for (const a of splitArtists(t.artist)) fav.set(norm(a), (fav.get(norm(a)) || 0) + 3);
+  const d = new Date(), since = d.getMonth() < 3 ? d.getFullYear() - 1 : d.getFullYear();
+  return Catalog.tracks
+    .filter((t) => t.year >= since && splitArtists(t.artist).some((a) => fav.has(norm(a))))
+    .sort((a, b) => b.year - a.year || Math.max(...splitArtists(b.artist).map((x) => fav.get(norm(x)) || 0)) - Math.max(...splitArtists(a.artist).map((x) => fav.get(norm(x)) || 0)))
+    .slice(0, limit);
 }
 
 /* ------------------------------------------------------------------ tabs + start */
@@ -2057,6 +2283,7 @@ applyLook();
   Feed.reset();
   UI.update();
   Sync.importFromHash();
-  window.addEventListener('hashchange', () => Sync.importFromHash());
+  Blend.fromHash();
+  window.addEventListener('hashchange', () => { Sync.importFromHash(); Blend.fromHash(); });
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
