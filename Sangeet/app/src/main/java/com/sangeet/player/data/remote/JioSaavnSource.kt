@@ -60,6 +60,24 @@ class JioSaavnSource : OnlineSource {
     suspend fun featuredPlaylists(s: AppSettings, page: Int): List<OnlinePlaylist> =
         playlistsFrom(call("content.getFeaturedPlaylists", "fetch_from_serialized_files" to "true", "p" to page.toString(), "n" to "50", langs = s.languages))
 
+    /** Newest songs of a singer (their JioSaavn page, latest first), from [sinceYear] on. */
+    suspend fun newSongsBy(artist: String, sinceYear: Int, limit: Int = 10): List<Track> {
+        val found = (call("search.getArtistResults", "q" to artist, "n" to "3", "p" to "1") as? JsonObject)
+            ?.get("results") as? JsonArray ?: return emptyList()
+        val people = found.mapNotNull { it as? JsonObject }
+        val id = (people.firstOrNull { (it.str("name") ?: it.str("title")).equals(artist, ignoreCase = true) } ?: people.firstOrNull())
+            ?.str("id") ?: return emptyList()
+        val page = call(
+            "artist.getArtistPageDetails",
+            "artistId" to id, "n_song" to "30", "n_album" to "0", "page" to "0", "category" to "latest", "sort_order" to "desc",
+        ) as? JsonObject ?: return emptyList()
+        val songs = (page["topSongs"] as? JsonArray) ?: ((page["topSongs"] as? JsonObject)?.get("songs") as? JsonArray) ?: return emptyList()
+        return songs.mapNotNull { it as? JsonObject }
+            .filter { (it.str("year")?.toIntOrNull() ?: 0) >= sinceYear }
+            .mapNotNull(::toTrack)
+            .take(limit)
+    }
+
     suspend fun playlistTracks(id: String): List<Track> =
         songsFrom(call("playlist.getDetails", "listid" to id, "n" to "300", "p" to "1"))
 

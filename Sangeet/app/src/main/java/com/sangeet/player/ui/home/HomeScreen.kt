@@ -87,6 +87,8 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
         val playlists: List<OnlinePlaylist> = emptyList(),
         /** Aaj chal rahe tyohaar ke gaane (Navratri, Diwali...). */
         val festivals: List<Pair<com.sangeet.player.data.Festival, List<Track>>> = emptyList(),
+        /** New songs (this year) by the singers you listen to most. */
+        val newFromSingers: List<Track> = emptyList(),
     )
 
     private val _ui = MutableStateFlow(Ui())
@@ -131,6 +133,19 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
                     async { f to runCatching { c.online.saavn.searchPage(f.query, 1).filter { it.inLanguages(c.settings.current.languages) }.take(20) }.getOrDefault(emptyList()) }
                 }.awaitAll().filter { it.second.isNotEmpty() }
                 _ui.value = _ui.value.copy(festivals = fest)
+            }
+            launch {
+                delay(1200)
+                // The singers you listen to most, and their newest songs on JioSaavn.
+                val now = java.util.Calendar.getInstance()
+                val since = now.get(java.util.Calendar.YEAR) - if (now.get(java.util.Calendar.MONTH) < 3) 1 else 0
+                val singers = runCatching { c.database.listenDao().topArtists(0L, 6) }.getOrDefault(emptyList())
+                    .map { it.artist.substringBefore(",").trim() }.filter { it.isNotBlank() && !it.equals("Unknown", true) }.distinct().take(4)
+                val fresh = singers.map { a -> async { runCatching { c.online.saavn.newSongsBy(a, since, 8) }.getOrDefault(emptyList()) } }
+                    .awaitAll()
+                // Take turns between singers, newest first for each.
+                val mixed = (0 until (fresh.maxOfOrNull { it.size } ?: 0)).flatMap { i -> fresh.mapNotNull { it.getOrNull(i) } }.distinctBy { it.id }
+                _ui.value = _ui.value.copy(newFromSingers = mixed.take(20))
             }
             launch {
                 delay(800)
@@ -299,6 +314,12 @@ fun HomeScreen(nav: NavController) {
                         ShelfCard(p.title, p.subtitle, p.artworkUrl, onClick = { nav.navigate(Routes.onlinePlaylist(p.id, p.title)) })
                     }
                 }
+            }
+        }
+        if (!offline && ui.newFromSingers.isNotEmpty()) {
+            item(key = "new_h") { SectionHeader("🆕 New from your singers") }
+            item(key = "new_row") {
+                TrackShelf(ui.newFromSingers, onPlay = { c.player.play(ui.newFromSingers, it) }, onMore = { menuFor = it })
             }
         }
         if (!offline) {

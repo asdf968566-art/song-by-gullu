@@ -28,6 +28,43 @@ object LibrarySync {
 
     fun isSyncLink(text: String) = "sync=" in text
 
+    fun isBlendLink(text: String) = "blend=" in text
+
+    // ------------------------------------------------------------ Blend: one playlist from two people's taste
+
+    /** Your taste for a Blend: most played and liked songs (same link format as the web app). */
+    private suspend fun taste(lib: LibraryRepository): List<Track> {
+        val played = lib.playedHistory(300).sortedByDescending { it.playCount }.map { it.track }
+        return (played.take(30) + lib.favoritesOnce().take(20)).distinctBy { it.id }.filter { encode(it) != null }.take(40)
+    }
+
+    suspend fun blendLink(lib: LibraryRepository, name: String): String {
+        val json = buildJsonObject {
+            put("v", 1)
+            put("n", name)
+            put("s", JsonArray(taste(lib).mapNotNull(::encode)))
+        }.toString()
+        return site + "#blend=" + pack(json)
+    }
+
+    /**
+     * A friend's Blend link: their songs and yours, taking turns, saved as "Blend: You + <name>".
+     * Returns the playlist name and its songs (empty if the link didn't work).
+     */
+    suspend fun importBlend(lib: LibraryRepository, text: String): Pair<String, List<Track>> {
+        val data = text.substringAfter("blend=").trim().takeWhile { it.isLetterOrDigit() || it == '-' || it == '_' }
+        val root = Http.json.parseToJsonElement(unpack(data)).jsonObject
+        val friend = ((root["n"] as? JsonPrimitive)?.contentOrNull ?: "Friend").take(30)
+        val theirs = (root["s"] as? JsonArray).orEmpty().mapNotNull { (it as? JsonObject)?.let(::decode) }
+        if (theirs.isEmpty()) return "" to emptyList()
+        val mine = taste(lib)
+        val mixed = (0 until maxOf(mine.size, theirs.size)).flatMap { i -> listOfNotNull(theirs.getOrNull(i), mine.getOrNull(i)) }
+            .distinctBy { it.id }.take(50)
+        val name = "Blend: You + $friend"
+        lib.createPlaylist(name, mixed)
+        return name to mixed
+    }
+
     suspend fun exportLink(lib: LibraryRepository): String {
         val liked = lib.favoritesOnce().mapNotNull(::encode)
         val playlists = lib.playlists.first()

@@ -281,6 +281,25 @@ def main():
     back()
 
     # ---------------------------------------------------------------- Library
+    def wrapped_button():
+        fresh()
+        go_tab("Your Library")
+        if not tap("Your Stats", scroll=3, wait=4):
+            return False
+        # The Wrapped button shows once there is at least a minute of listening.
+        ok = find("Share my Wrapped", contains=True, scroll=1) is not None or find("No stats yet", contains=True) is not None
+        back()
+        return ok
+    step("Library: Your Stats has Share my Wrapped", wrapped_button)
+    def blend_dialog():
+        fresh()
+        go_tab("Your Library")
+        if not tap("Blend with a friend", scroll=3, wait=2):
+            return False
+        ok = find("Send link") is not None
+        tap("Cancel", wait=1)
+        return ok
+    step("Library: Blend with a friend", blend_dialog)
     for label in ["Online Library", "Your Stats", "Liked Songs", "Downloads", "On this phone"]:
         fresh()
         go_tab("Your Library")
@@ -314,6 +333,9 @@ def main():
          lambda: (speed_is("1.0"), "player speed is 1.0"))
     step("Now Playing: Sleep timer", lambda: tap("Sleep timer", wait=2) and (back() or True))
     step("Now Playing: Queue", lambda: tap("Queue", scroll=2, wait=2) and (back() or True))
+    step("Now Playing: Car mode", lambda: tap("Car mode", wait=2),
+         lambda: (find("Close car mode") is not None and find("Play/Pause") is not None, "big buttons shown"))
+    tap("Close car mode", wait=2)
     step("Now Playing: Pause", lambda: tap("Pause", contains=True, wait=2) or tap("Play/Pause", wait=2),
          lambda: (not playing(), "paused"))
     step("Now Playing: Play", lambda: tap("Play", wait=4) or tap("Play/Pause", wait=4), lambda: (playing(), "playing again"))

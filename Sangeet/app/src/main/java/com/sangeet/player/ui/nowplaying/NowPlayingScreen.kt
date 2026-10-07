@@ -88,6 +88,8 @@ import androidx.compose.ui.graphics.lerp
 import com.sangeet.player.data.settings.ThemeStyle
 import com.sangeet.player.ui.theme.ThemedBackground
 import com.sangeet.player.ui.theme.themedCard
+import androidx.compose.material.icons.rounded.DirectionsCar
+import com.sangeet.player.ui.components.ShareCard
 
 /** Poori screen ka player (Spotify jaisa): cover ke rang ka gradient, seek bar, lyrics card. */
 @Composable
@@ -113,6 +115,9 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
     var showSpeed by remember { mutableStateOf(false) }
     var showOptions by remember { mutableStateOf(false) }
     var showLyricsMenu by remember { mutableStateOf(false) }
+    var carMode by remember { mutableStateOf(false) }
+    // Long-press a lyrics line: share it on the song's cover as a picture.
+    val shareLine: (String) -> Unit = { line -> c.scope.launch { runCatching { ShareCard.share(context, track, line) } } }
     var dominant by remember(track.id) { mutableStateOf(spec.accent) }
     var dragging by remember { mutableStateOf(false) }
     var dragValue by remember { mutableFloatStateOf(0f) }
@@ -188,6 +193,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
+                IconButton(onClick = { carMode = true }) { Icon(Icons.Rounded.DirectionsCar, "Car mode", tint = textColor) }
                 IconButton(onClick = { showOptions = true }) { Icon(Icons.Rounded.MoreVert, "Options", tint = textColor) }
             }
 
@@ -198,6 +204,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                     onSeek = c.player::seekTo,
                     textColor = textColor,
                     modifier = Modifier.weight(1f),
+                    onShareLine = shareLine,
                 )
             } else {
                 Spacer(Modifier.height(24.dp))
@@ -390,7 +397,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                     }
                     if (lyrics != null) {
                         Text(
-                            "Tap to see full lyrics",
+                            "Tap to see full lyrics · long-press a line to share it",
                             color = muted,
                             style = MaterialTheme.typography.labelSmall,
                             textAlign = TextAlign.Center,
@@ -401,6 +408,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                 Spacer(Modifier.height(24.dp))
             }
         }
+        if (carMode) CarModeScreen { carMode = false }
     }
 }
 
