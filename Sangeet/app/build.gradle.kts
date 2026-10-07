@@ -43,6 +43,17 @@ android {
             keyAlias = "sangeet"
             keyPassword = "sangeet123"
         }
+        // Play Store upload key: a private keystore from the GitHub secrets (see build-apk.yml). Without it the
+        // .aab is signed with the key above, which Play also accepts (its password is public, though).
+        // CI sets UPLOAD_KEYSTORE only for the .aab step, so the APK always keeps the key above (updates install).
+        System.getenv("UPLOAD_KEYSTORE")?.takeIf { file(it).exists() }?.let { path ->
+            create("upload") {
+                storeFile = file(path)
+                storePassword = System.getenv("UPLOAD_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("UPLOAD_KEY_ALIAS") ?: "upload"
+                keyPassword = System.getenv("UPLOAD_KEY_PASSWORD") ?: System.getenv("UPLOAD_KEYSTORE_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
@@ -55,7 +66,7 @@ android {
             )
             // Debug key se sign hota hai taaki release APK seedha install ho sake.
             // Play Store ke liye apni keystore lagayein.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("upload") ?: signingConfigs.getByName("debug")
         }
     }
 

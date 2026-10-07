@@ -43,10 +43,39 @@ jobs:
           # The baseline profile must be inside the APK.
           unzip -l app/build/outputs/apk/release/app-release.apk | grep -E "baseline.prof" || { echo "baseline profile missing"; exit 1; }
 
+      # The same app as an Android App Bundle (.aab), the file Google Play wants.
+      - name: Build release bundle for Play Store (.aab)
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          REPORT_TOKEN: ${{ secrets.REPORT_TOKEN }}
+          UPLOAD_KEYSTORE_B64: ${{ secrets.UPLOAD_KEYSTORE_B64 }}
+          UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.UPLOAD_KEYSTORE_PASSWORD }}
+          UPLOAD_KEY_ALIAS: ${{ secrets.UPLOAD_KEY_ALIAS }}
+          UPLOAD_KEY_PASSWORD: ${{ secrets.UPLOAD_KEY_PASSWORD }}
+        run: |
+          if [ -n "$UPLOAD_KEYSTORE_B64" ]; then
+            echo "$UPLOAD_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+            export UPLOAD_KEYSTORE="$RUNNER_TEMP/upload.jks"
+            echo "AAB: signed with the private upload key"
+          else
+            echo "::notice::AAB signed with the app's built-in key (add UPLOAD_KEYSTORE_B64 for a private Play upload key)"
+          fi
+          ./gradlew --no-daemon bundleRelease
+          AAB=app/build/outputs/bundle/release/app-release.aab
+          ls -l "$AAB"
+          unzip -l "$AAB" | grep -q "base/manifest/AndroidManifest.xml" || { echo "bundle looks broken"; exit 1; }
+          jarsigner -verify "$AAB" | tail -1
+
       - uses: actions/upload-artifact@v4
         with:
           name: Sangeet-apk
           path: Sangeet/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Sangeet-aab
+          path: Sangeet/app/build/outputs/bundle/release/*.aab
           if-no-files-found: error
 
       - name: Publish APK to "latest" release
@@ -54,11 +83,12 @@ jobs:
         working-directory: .
         run: |
           cp Sangeet/app/build/outputs/apk/release/app-release.apk Sangeet.apk
+          cp Sangeet/app/build/outputs/bundle/release/app-release.aab Sangeet.aab
           gh release delete latest --yes --cleanup-tag || true
-          # App ka updater title se "build N" padhta hai.
-          gh release create latest Sangeet.apk \
+          # App ka updater title se "build N" padhta hai (and only picks the .apk).
+          gh release create latest Sangeet.apk Sangeet.aab \
             --title "Sangeet build ${{ github.run_number }}" \
-            --notes "Version 1.0.${{ github.run_number }} (build ${{ github.run_number }}) — commit ${GITHUB_SHA::7}. Sangeet.apk download karke install karo, ya app mein Settings → App update."
+            --notes "Version 1.0.${{ github.run_number }} (build ${{ github.run_number }}) — commit ${GITHUB_SHA::7}. Sangeet.apk download karke install karo, ya app mein Settings → App update. Sangeet.aab is for the Google Play Console."
         env:
           GH_TOKEN: ${{ github.token }}
 
