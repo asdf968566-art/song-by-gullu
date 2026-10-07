@@ -372,7 +372,10 @@ def main():
         if m:
             return True, m.group(0)
         # Explain why: the worker's log lines and what the menu showed.
-        why = [l for l in log.splitlines() if re.search(r"Sangeet|WM-|DownloadWorker|already", l, re.I)][-12:]
+        # Only the app's own lines and WorkManager's (Android's Bluetooth service also logs "com.sangeet.player"
+        # every 3 s, which used to push the useful lines out).
+        why = [l for l in log.splitlines()
+               if re.search(r"\s[VDIWEF] (Sangeet|WM-\S+|DownloadWorker)\s*:", l) or "already downloaded" in l.lower()][-20:]
         return False, "not finished in 2 min; now playing: " + now_title() + "\n" + "\n".join(why)
     step("Song menu: Download", download, download_check)
     for item in ["Like", "Play next", "Add to queue", "Add to playlist", "Start radio", "Share"]:
