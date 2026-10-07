@@ -86,6 +86,12 @@ request the owner made, in order.
   `.github/scripts/emulator-test.sh` plays Audius/JioSaavn/YouTube songs, checks downloads, memory, startup, then
   `ui-walk.py` taps every tab/button/option, ~88 steps, with screenshots) → on `main` publishes `Sangeet.apk` to
   release `latest`. Daily 02:41 UTC run opens an issue if it fails.
+  It also builds **`Sangeet.aab`** (Android App Bundle for the Google Play Console) and puts it in the same
+  `latest` release: https://github.com/asdf968566-art/song-by-gullu/releases/download/latest/Sangeet.aab
+  The .aab is signed with a private upload key when the secrets `UPLOAD_KEYSTORE_B64` (base64 .jks),
+  `UPLOAD_KEYSTORE_PASSWORD`, `UPLOAD_KEY_ALIAS`, `UPLOAD_KEY_PASSWORD` exist; otherwise with the repo key. The APK
+  always keeps the repo key (so updates install over the old app). Play policy risk: YouTube playback/downloads
+  (NewPipe) are likely to be rejected by Play review — told to the owner.
 - **Web App** (`web.yml`): `build-web-catalog.py` crawls JioSaavn (state kept in actions/cache; 150 min on the
   3 daily crons 21:17/05:17/13:17 UTC, 10 min on push to main, 8 on branches) → `yt-servers.py` → publishes
   `catalog` release (gz files for Android) → pushes `gh-pages` → deploy Pages → check-site prints SITE LIVE.
