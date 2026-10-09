@@ -100,29 +100,39 @@ def test(label, url, model, key):
         time.sleep(5)
 
 
-GH = "https://models.github.ai"
-tok = os.environ.get("REPORT_TOKEN", "")  # the app's own token: what the app would use
-hdr = {"Authorization": f"Bearer {tok}", "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}
-s, body, _, _ = go(GH + "/catalog/models", headers=hdr)
-print("### GitHub Models catalog:", s, len(body))
-ids = []
+rt = os.environ.get("REPORT_TOKEN", "")
+gt = os.environ.get("GH_MODELS_TOKEN", "")
+AZ = "https://models.inference.ai.azure.com"
+for label, tok in (("report-token", rt), ("actions-token", gt)):
+    s, body, secs, h = go(AZ + "/models", headers={"Authorization": f"Bearer {tok}"})
+    print(f"### GitHub Models (azure) list with {label}: {s} {body[:200]!r}")
+    s, body, secs, h = chat(AZ + "/chat/completions", "gpt-4o-mini", "say ok", tok)
+    print(f"### GitHub Models (azure) chat with {label}: {s} {body[:200]!r}")
+    if s == 200:
+        print("  limits:", {k: v for k, v in h.items() if "ratelimit" in k.lower()})
+        for mid in ["DeepSeek-V3-0324", "gpt-4.1", "gpt-4o", "Llama-4-Maverick-17B-128E-Instruct-FP8"]:
+            test(f"azure-{label}", AZ + "/chat/completions", mid, tok)
+        break
+
+# LLM7 without a key: which models answer at all, then how well they know songs.
+s, body, _, _ = go("https://api.llm7.io/v1/models")
+llm7 = []
 try:
-    for m in json.loads(body):
-        ids.append(m["id"])
-        print(f"  {m['id']}  tier={m.get('rate_limit_tier')}")
+    data = json.loads(body)
+    llm7 = [m.get("id") for m in (data.get("data") if isinstance(data, dict) else data)]
 except Exception:
-    print(body[:300])
-want = ["deepseek/deepseek-v3", "openai/gpt-4.1", "openai/gpt-5-chat", "openai/gpt-4o", "meta/llama-4-maverick",
-        "xai/grok-3", "openai/gpt-5-mini", "deepseek/deepseek-r1", "microsoft/mai-ds-r1", "openai/gpt-4.1-mini"]
-picked = []
-for w in want:
-    hit = next((i for i in ids if i.lower().startswith(w) and i not in picked), None)
-    if hit:
-        picked.append(hit)
-if not ids:
-    picked = ["deepseek/DeepSeek-V3-0324", "openai/gpt-4.1", "openai/gpt-4.1-mini", "meta/Llama-4-Maverick-17B-128E-Instruct-FP8"]
-for mid in picked[:9]:
-    test("github-models", GH + "/inference/chat/completions", mid, tok)
+    pass
+print("### llm7:", len(llm7), "models")
+answering = []
+for mid in llm7[:60]:
+    s, content, secs, h = chat("https://api.llm7.io/v1/chat/completions", mid, "Reply with the word ok", "unused")
+    print(f"  {mid}: HTTP {s} {secs:.1f}s {content[:80]!r}")
+    if s == 200:
+        answering.append(mid)
+    time.sleep(1)
+order = sorted(answering, key=lambda m: (0 if "deepseek" in m.lower() else 1 if "gemini" in m.lower() else 2 if "gpt" in m.lower() else 3))
+for mid in order[:5]:
+    test("llm7", "https://api.llm7.io/v1/chat/completions", mid, "unused")
 
 print("\n### TOTAL real songs per model")
 for k, (a, b) in sorted(totals.items(), key=lambda kv: -(kv[1][0] / max(1, kv[1][1]))):
