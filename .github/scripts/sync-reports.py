@@ -29,6 +29,8 @@ def main():
         print("REPORTS: no REPORT_TOKEN")
         return
     _, repos = call("GET", "/user/repos?affiliation=owner&per_page=100", rt)
+    for r in repos or []:
+        print(f"REPORTS: {r['full_name']} is {'private' if r.get('private') else 'PUBLIC'}")
     repos = [r["full_name"] for r in (repos or []) if r.get("has_issues") and r["full_name"] != here]
     # Where can the app send reports? (An issue without a title: 422 = allowed, nothing is created.)
     for repo in ["vivekyadav200405-cpu/day1"] + [r for r in repos if r != "vivekyadav200405-cpu/day1"]:
