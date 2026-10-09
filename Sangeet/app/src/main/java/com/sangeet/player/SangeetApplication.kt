@@ -80,10 +80,29 @@ class AppContainer(private val app: Application) {
     }
 
     init {
+        // The AI DJ uses the app's radio, For You and the listener's taste.
+        aiDj.radio = { seed -> recommendations.radio(seed, setOf(seed.id), 40) }
+        aiDj.forYou = { recommendations.suggestions(limit = 40).map { it.track } }
+        aiDj.taste = {
+            val top = database.listenDao().topArtists(0L, 8).map { it.artist.substringBefore(",").trim() }.filter { it.isNotBlank() }.distinct()
+            if (top.isEmpty()) "" else "The listener plays these singers most: ${top.joinToString(", ")}."
+        }
         // Home screen widget ko player ke saath update rakho
         scope.launch {
             player.state.map { Triple(it.current?.id, it.isPlaying, it.current?.artworkUrl) }.distinctUntilChanged().collect {
                 runCatching { com.sangeet.player.ui.widget.SangeetWidget.update(app, player.state.value) }
+            }
+        }
+        // Listening data for everyone's suggestions: now and then when online (Settings can turn it off).
+        scope.launch {
+            settings.settings.map { it.shareListening }.distinctUntilChanged().collect {
+                runCatching { com.sangeet.player.data.community.Community.schedule(app, it) }
+            }
+        }
+        // Updates on its own whenever there's internet (Settings → App update → Update automatically).
+        scope.launch {
+            settings.settings.map { it.autoUpdate }.distinctUntilChanged().collect {
+                runCatching { com.sangeet.player.data.update.AutoUpdate.schedule(app, it) }
             }
         }
         // Smart downloads on/off ke hisaab se roz ka kaam lagao / hatao

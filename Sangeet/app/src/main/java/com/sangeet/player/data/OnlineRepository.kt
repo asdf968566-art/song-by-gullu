@@ -1,6 +1,7 @@
 package com.sangeet.player.data
 
 import com.sangeet.player.data.model.AudioQuality
+import com.sangeet.player.data.model.OnlinePlaylist
 import com.sangeet.player.data.model.inLanguages
 import com.sangeet.player.data.model.SourceType
 import com.sangeet.player.data.model.Track
@@ -35,6 +36,9 @@ class OnlineRepository(
         if (s.offlineMode) return emptyList()
         return sources.filter { it.isEnabled(s) }
     }
+
+    /** The YouTube Data API key (Settings, or the built-in one). */
+    val youtubeKey: String get() = settings.current.youtubeApiKey.trim()
 
     val canGoOnline: Boolean
         get() = !settings.current.offlineMode && network.status.value.online
@@ -85,6 +89,102 @@ class OnlineRepository(
         val seen = HashSet<String>()
         mixed.filter { seen.add(it.title.lowercase().substringBefore(" (").trim()) }
             .ifEmpty { searchAll(cat.query) }
+    }
+
+    private val playlistSearches = java.util.concurrent.ConcurrentHashMap<String, List<OnlinePlaylist>>()
+    private val playlistSongs = java.util.concurrent.ConcurrentHashMap<String, List<Track>>()
+
+    /**
+     * Songs for a mood, category or festival, taken from JioSaavn playlists made for it ("Feel Good Hindi",
+     * "Bollywood Party Hits"). A song search for "hindi happy songs" only finds songs with the word in their name or
+     * singer (Happy Raikoti, "Happy Birthday"), so it is used only when no fitting playlist is found, and then
+     * without such songs. [page] picks other playlists for an endless feed.
+     */
+    suspend fun topicTracks(topic: Topic, page: Int = 0, limit: Int = 60): List<Track> = coroutineScope {
+        if (!canGoOnline || !settings.current.jiosaavnEnabled) return@coroutineScope emptyList()
+        val generic = Categories.languages.toSet() + setOf("hits", "hit", "top", "best", "new", "latest", "bollywood", "old", "playlist")
+        fun has(text: String, w: String) = Regex("\\b${Regex.escape(w)}\\b", RegexOption.IGNORE_CASE).containsMatchIn(text)
+        val words = topic.words.map { it.lowercase() }.distinct()
+        val needed = words.filter { it !in generic }.ifEmpty { words }
+        val found = topic.searches.map { q ->
+            async {
+                playlistSearches[q] ?: runCatching { saavn.searchPlaylists(q) }.getOrDefault(emptyList())
+                    .also { if (it.isNotEmpty()) playlistSearches[q] = it }
+            }
+        }.awaitAll()
+        // Playlists whose name fits, the best fits first (taking turns between the searches).
+        val lists = (0 until (found.maxOfOrNull { it.size } ?: 0)).flatMap { i -> found.mapNotNull { it.getOrNull(i) } }
+            .distinctBy { it.id }
+            .filter { p -> needed.any { has(p.title, it) } }
+            .sortedByDescending { p -> words.count { has(p.title, it) } }
+        val picked = if (lists.isEmpty()) emptyList() else List(minOf(4, lists.size)) { lists[(page * 4 + it) % lists.size] }.distinctBy { it.id }
+        val noisy = { t: Track -> topic.noise.any { has(t.artist, it) } }
+        val songs = picked.map { p ->
+            async {
+                (playlistSongs[p.id] ?: runCatching { saavn.playlistTracks(p.id) }.getOrDefault(emptyList())
+                    .also { if (it.isNotEmpty()) playlistSongs[p.id] = it })
+                    .filter { it.inLanguages(topic.languages) && !noisy(it) }
+                    .shuffled()
+            }
+        }.awaitAll()
+        val mixed = (0 until (songs.maxOfOrNull { it.size } ?: 0)).flatMap { i -> songs.mapNotNull { it.getOrNull(i) } }
+            .distinctBy { it.id }
+        if (mixed.size >= 15) return@coroutineScope mixed.take(limit)
+        // Hardly any playlists: a song search, minus songs that only match by their name or singer.
+        val searched = topic.searches.map { q -> async { runCatching { saavn.searchPage("$q songs", page + 1) }.getOrDefault(emptyList()) } }
+            .awaitAll().flatten()
+            .filter { t -> t.inLanguages(topic.languages) && !noisy(t) && topic.noise.none { has(t.title, it) } }
+        (mixed + searched).distinctBy { it.id }.take(limit)
+    }
+
+    /**
+     * A category whose songs are mostly on YouTube (Pahadi): YouTube and JioSaavn searches, taking turns,
+     * only songs that really are in its language, same song once.
+     */
+    suspend fun youtubeCategory(cat: Category): List<Track> = coroutineScope {
+        if (!canGoOnline) return@coroutineScope emptyList()
+        val s = settings.current
+        val found = cat.youtube.flatMap { q ->
+            listOf(
+                async { if (youtube.isEnabled(s)) runCatching { youtube.search(q, s) }.getOrDefault(emptyList()) else emptyList() },
+                async { if (saavn.isEnabled(s)) runCatching { saavn.searchPage(q, 1) }.getOrDefault(emptyList()) else emptyList() },
+            )
+        }.awaitAll().map { list -> list.filter { it.inLanguages(listOf(cat.language)) }.map { it.copy(language = cat.language) } }
+        val seen = HashSet<String>()
+        (0 until (found.maxOfOrNull { it.size } ?: 0)).flatMap { i -> found.mapNotNull { it.getOrNull(i) } }
+            .filter { seen.add(it.title.lowercase().substringBefore(" (").substringBefore(" |").trim()) }
+    }
+
+    /**
+     * A movie's songs in the film's order: its JioSaavn album ([albumId] when known, else the album with the film's
+     * name and year), else songs from that album found by a search, else YouTube.
+     */
+    suspend fun movieSongs(title: String, year: Int, albumId: String = ""): List<Track> = coroutineScope {
+        if (!canGoOnline) return@coroutineScope emptyList()
+        if (albumId.isNotBlank()) runCatching { saavn.albumTracks(albumId) }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { return@coroutineScope it }
+        fun words(s: String) = s.lowercase().replace(Regex("""\(.*?\)|\[.*?]"""), " ")
+            .replace(Regex("[^\\p{L}\\p{N}]+"), " ").split(" ").filter { it.isNotBlank() }
+        val want = words(title)
+        val album = runCatching { saavn.searchAlbums(title) }.getOrDefault(emptyList())
+            .filter { words(it.title).containsAll(want) && (year == 0 || it.year == 0 || kotlin.math.abs(it.year - year) <= 1) }
+            .sortedWith(compareBy({ if (words(it.title) == want) 0 else 1 }, { if (year > 0 && it.year > 0) kotlin.math.abs(it.year - year) else 2 }))
+            .firstOrNull()
+        album?.let { a -> runCatching { saavn.albumTracks(a.id) }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { return@coroutineScope it } }
+        val searched = runCatching { saavn.searchPage("$title ${if (year > 0) year else ""} songs".trim(), 1) }.getOrDefault(emptyList())
+            .filter { words(it.album).containsAll(want) }
+        if (searched.size >= 3) return@coroutineScope searched
+        val s = settings.current
+        if (youtube.isEnabled(s)) runCatching { youtube.search("$title ${if (year > 0) year else ""} movie songs".trim(), s) }.getOrDefault(emptyList())
+        else searched
+    }
+
+    /** A feed mood's songs in these languages. */
+    suspend fun moodTracks(mood: Mood, languages: List<String>, page: Int = 0, limit: Int = 60): List<Track> {
+        val own = topicTracks(Topic(Moods.searches(mood, languages), mood.words, mood.words, languages), page, limit)
+        if (own.size >= 15 || mood.close.isEmpty()) return own
+        val closeMood = Mood(mood.emoji, mood.name, mood.close, mood.close)
+        val near = topicTracks(Topic(Moods.searches(closeMood, languages), mood.close, mood.words, languages), page, limit)
+        return (own + near).distinctBy { it.id }.take(limit)
     }
 
     /** Is waqt ke network ke hisaab se kaunsi quality chahiye. */

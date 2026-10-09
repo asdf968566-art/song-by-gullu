@@ -159,9 +159,9 @@ def play_song(q="kesariya", source="jiosaavn"):
     return False
 
 
-def toggle_twice(label):
+def toggle_twice(label, scroll=8):
     """Flip a switch and flip it back (settings stay as they were)."""
-    return lambda: tap(label, scroll=8, wait=1.5) and tap(label, scroll=0, wait=1.5)
+    return lambda: tap(label, scroll=scroll, wait=1.5) and tap(label, scroll=0, wait=1.5)
 
 
 def open_and_back(label, contains=False, scroll=0, wait=3):
@@ -420,10 +420,12 @@ def main():
     go_tab("Home")
     step("Settings: open", lambda: tap("Settings", wait=3))
     for label in ["Normalize volume", "Skip silence", "Hook preview in For You", "Resume on headphones", "Smart downloads",
-                  "Autoplay", "Auto playlists", "Fetch lyrics automatically", "Offline mode", "Download on Wi-Fi only"]:
-        step(f"Settings switch: {label}", toggle_twice(label))
-        swipe_down()  # back to the top for the next search
-        swipe_down()
+                  "Autoplay", "Auto playlists", "Fetch lyrics automatically", "Offline mode", "Download on Wi-Fi only",
+                  "Free online AI", "Update automatically"]:
+        far = label in ("Free online AI", "Update automatically")  # further down (AI DJ, App update)
+        step(f"Settings switch: {label}", toggle_twice(label, 14 if far else 8))
+        for _ in range(6 if far else 2):
+            swipe_down()  # back to the top for the next search
     def phone_copy():
         out = sh("content query --uri content://media/external/audio/media --projection _display_name:relative_path")
         hits = [l for l in out.splitlines() if "Music/Sangeet" in l]
@@ -444,6 +446,23 @@ def main():
         tap("Unlock", wait=4)
         return True
     step("Settings: Music sources is locked (wrong password refused)", wrong_password,
+         lambda: (find("Wrong password") is not None, "wrong password refused"))
+    back(2)
+    swipe_down()
+    swipe_down()
+
+    def owner_locked():
+        if not tap("Owner dashboard", scroll=12, wait=3):
+            return False
+        n = find("Password")
+        if not n:
+            return False
+        sh(f"input tap {n['x']} {n['y']}")
+        sh("input text 1111")
+        time.sleep(1)
+        tap("Unlock", wait=4)
+        return True
+    step("Settings: Owner dashboard is locked (wrong password refused)", owner_locked,
          lambda: (find("Wrong password") is not None, "wrong password refused"))
     back(2)
     def to_top():

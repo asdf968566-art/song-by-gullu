@@ -61,8 +61,10 @@ class YouTubeSource : OnlineSource {
         return musicSearch("${s.languages.firstOrNull() ?: "hindi"} top songs this week")
     }
 
-    override suspend fun byLanguage(language: String, s: AppSettings): List<Track> =
-        search("latest $language songs", s).map { if (it.language.isBlank()) it.copy(language = language.lowercase()) else it }
+    override suspend fun byLanguage(language: String, s: AppSettings): List<Track> {
+        val q = if (language.equals("pahadi", true)) "latest garhwali kumaoni pahadi songs" else "latest $language songs"
+        return search(q, s).map { if (it.language.isBlank()) it.copy(language = language.lowercase()) else it }
+    }
 
     /** Player ke loader thread pe chalta hai (blocking theek hai). Link ~ghante bhar cache rehta hai. */
     override fun streamUrl(track: Track, quality: AudioQuality, s: AppSettings): String = try {
@@ -98,9 +100,23 @@ class YouTubeSource : OnlineSource {
         info.relatedItems.filterIsInstance<StreamInfoItem>().mapNotNull { toTrack(it) }.filter { it.sourceId != videoId }
     }
 
-    /** A public YouTube / YouTube Music playlist link -> (name, songs), up to ~2000 songs. */
-    suspend fun playlist(link: String): Pair<String, List<Track>>? = withContext(Dispatchers.IO) {
+    /**
+     * A public YouTube / YouTube Music playlist link -> (name, songs), up to ~2000 songs. With an API key the
+     * official API reads it (1 quota unit per 50 songs, never blocked); otherwise, or if that fails, NewPipe.
+     */
+    suspend fun playlist(link: String, key: String = ""): Pair<String, List<Track>>? = withContext(Dispatchers.IO) {
         val id = Regex("[?&]list=([\\w-]+)").find(link)?.groupValues?.get(1) ?: return@withContext null
+        if (key.isNotBlank()) {
+            runCatching { DataApi.playlist(id, key) }
+                .onFailure { android.util.Log.w("Sangeet", "YouTube API playlist $id: ${it.message}") }
+                .getOrNull()?.takeIf { it.second.isNotEmpty() }?.let { return@withContext it }
+        }
+        runCatching { newPipePlaylist(id) }
+            .onFailure { android.util.Log.w("Sangeet", "NewPipe playlist $id: ${it.javaClass.simpleName}: ${it.message}") }
+            .getOrNull()?.takeIf { it.second.isNotEmpty() }
+    }
+
+    private fun newPipePlaylist(id: String): Pair<String, List<Track>> {
         ensureInit()
         val url = "https://www.youtube.com/playlist?list=$id"
         val info = PlaylistInfo.getInfo(ServiceList.YouTube, url)
@@ -113,7 +129,7 @@ class YouTubeSource : OnlineSource {
             page = more.nextPage
             n++
         }
-        (info.name ?: "YouTube playlist") to out.distinctBy { it.id }
+        return (info.name ?: "YouTube playlist") to out.distinctBy { it.id }
     }
 
     /** First YouTube Music result for "title artist" (to start a YouTube radio from any song). */
@@ -191,6 +207,57 @@ class YouTubeSource : OnlineSource {
             return items(url) { it.str("id") }
         }
 
+        /** A playlist's name and songs, 50 per page (deleted and private videos left out). */
+        suspend fun playlist(id: String, key: String): Pair<String, List<Track>> {
+            val meta = "$BASE/playlists".toHttpUrl().newBuilder()
+                .addQueryParameter("part", "snippet").addQueryParameter("id", id).addQueryParameter("key", key).build()
+            val name = runCatching {
+                val root = Http.json.parseToJsonElement(Http.getText(meta.toString()) ?: "{}") as? JsonObject
+                ((root?.get("items") as? JsonArray)?.firstOrNull() as? JsonObject)?.let { (it["snippet"] as? JsonObject)?.str("title") }
+            }.getOrNull() ?: "YouTube playlist"
+            val out = ArrayList<Track>()
+            var token: String? = null
+            for (page in 0 until 40) {
+                val url = "$BASE/playlistItems".toHttpUrl().newBuilder()
+                    .addQueryParameter("part", "snippet")
+                    .addQueryParameter("maxResults", "50")
+                    .addQueryParameter("playlistId", id)
+                    .addQueryParameter("key", key)
+                    .apply { token?.let { addQueryParameter("pageToken", it) } }
+                    .build()
+                val body = Http.getText(url.toString()) ?: break
+                val root = Http.json.parseToJsonElement(body) as? JsonObject ?: break
+                (root["error"] as? JsonObject)?.let { throw IOException(it.str("message") ?: "YouTube API error") }
+                (root["items"] as? JsonArray).orEmpty().forEach { el ->
+                    val sn = (el as? JsonObject)?.get("snippet") as? JsonObject ?: return@forEach
+                    val vid = (sn["resourceId"] as? JsonObject)?.str("videoId") ?: return@forEach
+                    val raw = sn.str("title") ?: return@forEach
+                    if (raw == "Deleted video" || raw == "Private video") return@forEach
+                    // The video's own channel (snippet.channelTitle is whoever made the playlist).
+                    track(vid, raw, sn.str("videoOwnerChannelTitle") ?: "", sn["thumbnails"] as? JsonObject, null)?.let(out::add)
+                }
+                token = (root["nextPageToken"] as? JsonPrimitive)?.contentOrNull ?: break
+            }
+            return name to out.distinctBy { it.id }
+        }
+
+        private fun track(id: String, rawTitle: String, channel: String, thumbs: JsonObject?, duration: String?): Track? {
+            val art = listOf("maxres", "standard", "high", "medium", "default")
+                .firstNotNullOfOrNull { (thumbs?.get(it) as? JsonObject)?.str("url") }
+            val (artist, title) = splitTitle(JioSaavnSource.unescape(rawTitle), cleanArtist(channel.removeSuffix(" - Topic")))
+            return Track(
+                id = Track.makeId(SourceType.YOUTUBE, id),
+                source = SourceType.YOUTUBE,
+                sourceId = id,
+                title = title,
+                artist = artist,
+                album = "YouTube",
+                durationMs = isoDurationMs(duration),
+                artworkUrl = art,
+                language = LanguageGuess.guess(rawTitle, channel),
+            )
+        }
+
         private suspend fun items(url: HttpUrl, idOf: (JsonObject) -> String?): List<Track> {
             val body = Http.getText(url.toString()) ?: return emptyList()
             val root = Http.json.parseToJsonElement(body) as? JsonObject ?: return emptyList()
@@ -200,22 +267,7 @@ class YouTubeSource : OnlineSource {
                 val id = idOf(o) ?: return@mapNotNull null
                 val sn = o["snippet"] as? JsonObject ?: return@mapNotNull null
                 val rawTitle = sn.str("title") ?: return@mapNotNull null
-                val channel = sn.str("channelTitle") ?: ""
-                val thumbs = sn["thumbnails"] as? JsonObject
-                val art = listOf("maxres", "standard", "high", "medium", "default")
-                    .firstNotNullOfOrNull { (thumbs?.get(it) as? JsonObject)?.str("url") }
-                val (artist, title) = splitTitle(JioSaavnSource.unescape(rawTitle), cleanArtist(channel))
-                Track(
-                    id = Track.makeId(SourceType.YOUTUBE, id),
-                    source = SourceType.YOUTUBE,
-                    sourceId = id,
-                    title = title,
-                    artist = artist,
-                    album = "YouTube",
-                    durationMs = isoDurationMs((o["contentDetails"] as? JsonObject)?.str("duration")),
-                    artworkUrl = art,
-                    language = LanguageGuess.guess(rawTitle, channel),
-                )
+                track(id, rawTitle, sn.str("channelTitle") ?: "", sn["thumbnails"] as? JsonObject, (o["contentDetails"] as? JsonObject)?.str("duration"))
             }.distinctBy { it.id }
         }
 
@@ -339,8 +391,20 @@ private object NewPipeDownloader : Downloader() {
 
 /** Title / artist se bhasha ka andaza (Gurmukhi = Punjabi, Devanagari = Hindi, keywords). */
 object LanguageGuess {
+    /** Garhwali, Kumaoni, Jaunsari and Himachali songs (also written in Devanagari). */
+    private val PAHADI = Regex(
+        "garhwali|garwali|gadwali|kumaoni|kumauni|kumaon|jaunsari|himachali|pahadi|pahari|uttarakhand|\\bnati\\b|" +
+            "गढ़वाली|गढवाली|कुमाऊँनी|कुमाउनी|जौनसारी|पहाड़ी|पहाडी|हिमाचली|" +
+            "narendra singh negi|gajendra rana|meena rana|pritam bhartwan|kishan mahipal|inder arya|saurav maithani|" +
+            "anisha ranghar|rohit chauhan|kuldeep sharma|thakur das rathi|vicky chauhan|basanti bisht",
+        RegexOption.IGNORE_CASE,
+    )
+
+    fun isPahadi(title: String, artist: String): Boolean = PAHADI.containsMatchIn("$title $artist")
+
     fun guess(title: String, artist: String): String {
         val text = "$title $artist"
+        if (isPahadi(title, artist)) return "pahadi"
         if (text.any { it in '਀'..'੿' }) return "punjabi"
         if (text.any { it in 'ऀ'..'ॿ' }) return "hindi"
         val t = text.lowercase()

@@ -88,7 +88,16 @@ fun ReportScreen(nav: NavController) {
                         scope.launch {
                             runCatching { CrashReporter.submit(context, text, logs) }
                                 .onSuccess { sent = it }
-                                .onFailure { error = "Couldn't send (${it.message}). Check your internet, or share it instead." }
+                                .onFailure { e ->
+                                    val keyRefused = e.message.orEmpty().let { it.startsWith("GitHub said 401") || it.startsWith("GitHub said 403") }
+                                    if (keyRefused) {
+                                        // The app's GitHub key can't create reports: hand the report to WhatsApp / email instead.
+                                        error = "Sending from the app isn't working right now, so it opens Share instead."
+                                        CrashReporter.share(context, text, logs)
+                                    } else {
+                                        error = "Couldn't send (${e.message}). Check your internet, or share it instead."
+                                    }
+                                }
                             sending = false
                         }
                     },

@@ -12,6 +12,8 @@
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <!-- App ke andar se naya version install karne ke liye -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Android 13+: lets the app update itself without a tap (AutoUpdate). -->
+    <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
@@ -101,6 +103,18 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_info" />
+        </receiver>
+
+        <!-- Auto update: what the installer did, and "updated" after a new version. -->
+        <receiver
+            android:name=".data.update.AutoUpdate$StatusReceiver"
+            android:exported="false" />
+        <receiver
+            android:name=".data.update.AutoUpdate$UpdatedReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
         </receiver>
 
         <provider

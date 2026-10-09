@@ -30,6 +30,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -62,28 +63,51 @@ import kotlinx.coroutines.launch
 import com.sangeet.player.ui.theme.bottomBarPadding
 
 class AiDjViewModel(private val c: AppContainer) : ViewModel() {
-    data class Ui(val working: Boolean = false, val result: DjResult? = null, val error: String? = null)
+    /** One message of the chat: what the listener said and the DJ's answer. */
+    data class Turn(val said: String, val answer: String)
+    data class Ui(
+        val working: Boolean = false,
+        val result: DjResult? = null,
+        val error: String? = null,
+        val chat: List<Turn> = emptyList(),
+    )
 
     private val _ui = MutableStateFlow(Ui())
     val ui: StateFlow<Ui> = _ui.asStateFlow()
+    // The chat so far: a follow-up ("aur", "sirf Arijit", "no remix") changes the last mix.
+    private var intent: com.sangeet.player.data.ai.DjIntent? = null
+    private val shown = LinkedHashSet<String>()
+    private val history = ArrayList<String>()
 
     fun ask(request: String) {
         val q = request.trim()
         if (q.isEmpty() || _ui.value.working) return
-        _ui.value = Ui(working = true)
+        _ui.value = _ui.value.copy(working = true, error = null)
         viewModelScope.launch {
             _ui.value = try {
-                val r = c.aiDj.make(q)
-                if (r.tracks.isEmpty()) Ui(error = "No songs found for that. Try different words.")
+                val r = c.aiDj.make(q, intent, shown.toSet(), history.toList())
+                val chat = (_ui.value.chat + Turn(q, r.plan.reply.ifBlank { r.plan.title })).takeLast(12)
+                if (r.tracks.isEmpty()) _ui.value.copy(working = false, error = "No songs found for that. Try different words.", chat = chat)
                 else {
+                    intent = r.intent
+                    history += q
+                    shown += r.tracks.map { it.id }
                     // Start playing right away, like a real DJ.
                     c.player.play(r.tracks)
-                    Ui(result = r)
+                    Ui(result = r, chat = chat)
                 }
             } catch (e: Exception) {
-                Ui(error = e.message ?: "Something went wrong.")
+                _ui.value.copy(working = false, error = e.message ?: "Something went wrong.")
             }
         }
+    }
+
+    /** Start over: the next message is a new request. */
+    fun newChat() {
+        intent = null
+        shown.clear()
+        history.clear()
+        _ui.value = Ui()
     }
 }
 
@@ -122,13 +146,13 @@ fun AiDjScreen(nav: NavController) {
             OutlinedTextField(
                 value = text,
                 onValueChange = { text = it },
-                placeholder = { Text("What do you want to hear?") },
+                placeholder = { Text(if (ui.chat.isEmpty()) "What do you want to hear?" else "Change it: \"only Arijit\", \"no remix\", \"more\"…") },
                 singleLine = true,
                 shape = RoundedCornerShape(16.dp),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                keyboardActions = KeyboardActions(onSend = { vm.ask(text) }),
+                keyboardActions = KeyboardActions(onSend = { vm.ask(text); text = "" }),
                 trailingIcon = {
-                    IconButton(onClick = { vm.ask(text) }, enabled = text.isNotBlank() && !ui.working) {
+                    IconButton(onClick = { vm.ask(text); text = "" }, enabled = text.isNotBlank() && !ui.working) {
                         Icon(Icons.AutoMirrored.Rounded.Send, "Ask", tint = spec.accent)
                     }
                 },
@@ -137,6 +161,19 @@ fun AiDjScreen(nav: NavController) {
                     .padding(horizontal = 16.dp),
             )
         }
+        // The chat: what was said and the DJ's answers.
+        if (ui.chat.isNotEmpty()) {
+            items(ui.chat.size, key = { "turn_$it" }) { n ->
+                val turn = ui.chat[n]
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                    Text("You: ${turn.said}", style = MaterialTheme.typography.bodyMedium, color = spec.onSurface)
+                    Text("DJ: ${turn.answer}", style = MaterialTheme.typography.bodyMedium, color = spec.muted)
+                }
+            }
+            item {
+                TextButton(onClick = { vm.newChat() }, modifier = Modifier.padding(horizontal = 8.dp)) { Text("New chat") }
+            }
+        }
         item {
             Row(
                 Modifier
@@ -144,9 +181,9 @@ fun AiDjScreen(nav: NavController) {
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                examples.forEach { e ->
+                (ui.result?.followUps?.takeIf { it.isNotEmpty() } ?: examples).forEach { e ->
                     AssistChip(
-                        onClick = { text = e; vm.ask(e) },
+                        onClick = { vm.ask(e); text = "" },
                         label = { Text(e) },
                         colors = AssistChipDefaults.assistChipColors(labelColor = spec.onSurface),
                     )

@@ -96,13 +96,20 @@ object CrashReporter {
             put("body", body)
         }.toString()
         val req = Request.Builder()
-            .url("https://api.github.com/repos/${BuildConfig.UPDATE_REPO}/issues")
+            .url("https://api.github.com/repos/${BuildConfig.REPORT_REPO}/issues")
             .header("Authorization", "Bearer ${BuildConfig.REPORT_TOKEN}")
             .header("Accept", "application/vnd.github+json")
             .post(json.toRequestBody("application/json".toMediaType()))
             .build()
         Http.client.newCall(req).execute().use { res ->
-            if (!res.isSuccessful) throw IOException("GitHub said ${res.code}")
+            if (!res.isSuccessful) {
+                // e.g. 403 "Resource not accessible by personal access token": the token can't create issues.
+                val why = runCatching {
+                    (Http.json.parseToJsonElement(res.body?.string().orEmpty()).jsonObject["message"] as? JsonPrimitive)?.contentOrNull
+                }.getOrNull()
+                android.util.Log.w("Sangeet", "report: GitHub ${res.code} ${why.orEmpty()}")
+                throw IOException("GitHub said ${res.code}${why?.let { ": $it" } ?: ""}")
+            }
             val number = Http.json.parseToJsonElement(res.body?.string().orEmpty()).jsonObject["number"]
             clear(context)
             (number as? JsonPrimitive)?.contentOrNull?.toIntOrNull() ?: 0

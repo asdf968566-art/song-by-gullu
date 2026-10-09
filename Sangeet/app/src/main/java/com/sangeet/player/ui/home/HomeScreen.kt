@@ -47,6 +47,7 @@ import androidx.navigation.NavController
 import com.sangeet.player.AppContainer
 import com.sangeet.player.data.Categories
 import com.sangeet.player.data.Festivals
+import com.sangeet.player.data.topicOf
 import com.sangeet.player.data.model.inLanguages
 import com.sangeet.player.data.Category
 import com.sangeet.player.data.model.OnlinePlaylist
@@ -130,7 +131,7 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
             launch {
                 delay(800)
                 val fest = Festivals.active().take(2).map { f ->
-                    async { f to runCatching { c.online.saavn.searchPage(f.query, 1).filter { it.inLanguages(c.settings.current.languages) }.take(20) }.getOrDefault(emptyList()) }
+                    async { f to runCatching { c.online.topicTracks(topicOf(f.query, c.settings.current.languages), limit = 20) }.getOrDefault(emptyList()) }
                 }.awaitAll().filter { it.second.isNotEmpty() }
                 _ui.value = _ui.value.copy(festivals = fest)
             }
@@ -152,9 +153,17 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
                 val langs = c.settings.current.languages
                 // Special categories (Haryanvi Badmashi) always get a row when their language is chosen.
                 val cats = (Categories.ordered(langs).filter { it.language in langs }.take(4) +
-                    Categories.all.filter { it.more.isNotEmpty() && it.language in langs }).distinct()
+                    Categories.all.filter { (it.more.isNotEmpty() || it.youtube.isNotEmpty()) && it.language in langs }).distinct()
                 val rows = cats.map { cat ->
-                    async { cat to runCatching { c.online.saavn.searchPage(cat.query, 1).filter { it.inLanguages(langs) }.take(20) }.getOrDefault(emptyList()) }
+                    async {
+                        cat to runCatching {
+                            when {
+                                cat.youtube.isNotEmpty() -> c.online.youtubeCategory(cat).take(20)
+                                cat.more.isNotEmpty() -> c.online.saavn.searchPage(cat.query, 1).filter { it.inLanguages(langs) }.take(20)
+                                else -> c.online.topicTracks(topicOf(cat.query, langs, cat.singer), limit = 20)
+                            }
+                        }.getOrDefault(emptyList())
+                    }
                 }.awaitAll().filter { it.second.isNotEmpty() }
                 _ui.value = _ui.value.copy(categories = rows)
             }

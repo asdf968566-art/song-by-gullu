@@ -31,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -52,6 +53,8 @@ import com.sangeet.player.ui.components.MiniPlayer
 import com.sangeet.player.ui.components.UpdateDialog
 import com.sangeet.player.ui.discover.DiscoverScreen
 import com.sangeet.player.ui.library.MixScreen
+import com.sangeet.player.ui.library.MovieScreen
+import com.sangeet.player.ui.library.MoviesScreen
 import com.sangeet.player.ui.library.ArtistScreen
 import com.sangeet.player.ui.library.StatsScreen
 import com.sangeet.player.ui.dj.AiDjScreen
@@ -117,14 +120,20 @@ object Routes {
     const val IMPORT = "import"
     const val DOWNLOADS = "downloads"
     const val REPORT = "report"
+    const val OWNER = "settings/owner"
     const val PLAYLIST = "playlist/{id}"
     const val LIST = "list/{kind}?arg={arg}"
+    const val MOVIES = "movies?q={q}"
+    const val MOVIE = "movie?title={title}&year={year}&album={album}"
 
     fun playlist(id: Long) = "playlist/$id"
     fun mix(id: String) = "mix/$id"
     fun artist(name: String) = "artist/${android.net.Uri.encode(name.substringBefore(",").trim())}"
     fun onlinePlaylist(id: String, title: String) = "online/$id?title=${android.net.Uri.encode(title)}"
     fun list(kind: ListKind, arg: String = "") = "list/${kind.name}?arg=${android.net.Uri.encode(arg)}"
+    fun movies(q: String = "") = "movies?q=${android.net.Uri.encode(q)}"
+    fun movie(title: String, year: Int, albumId: String = "") =
+        "movie?title=${android.net.Uri.encode(title)}&year=$year&album=${android.net.Uri.encode(albumId)}"
 }
 
 val audioPermission: String
@@ -155,6 +164,15 @@ fun SangeetRoot() {
         container.openRoute.collect { route -> if (route != null) { nav.navigate(route); container.openRoute.value = null } }
     }
     UpdateDialog()
+    // After an update: what's new in it (once).
+    val appContext = LocalContext.current
+    var whatsNew by remember { mutableStateOf(com.sangeet.player.data.WhatsNew.unseen(appContext)) }
+    if (whatsNew.isNotEmpty()) {
+        com.sangeet.player.ui.components.WhatsNewDialog(whatsNew) {
+            com.sangeet.player.data.WhatsNew.markSeen(appContext)
+            whatsNew = emptyList()
+        }
+    }
 
     BackHandler(enabled = expanded) { expanded = false }
 
@@ -216,6 +234,19 @@ fun SangeetRoot() {
                 ) { entry ->
                     OnlinePlaylistScreen(nav, entry.arguments?.getString("id") ?: "", entry.arguments?.getString("title") ?: "Playlist")
                 }
+                composable(Routes.MOVIES, arguments = listOf(navArgument("q") { type = NavType.StringType; defaultValue = "" })) { entry ->
+                    MoviesScreen(nav, entry.arguments?.getString("q") ?: "")
+                }
+                composable(
+                    Routes.MOVIE,
+                    arguments = listOf(
+                        navArgument("title") { type = NavType.StringType; defaultValue = "" },
+                        navArgument("year") { type = NavType.IntType; defaultValue = 0 },
+                        navArgument("album") { type = NavType.StringType; defaultValue = "" },
+                    ),
+                ) { entry ->
+                    MovieScreen(nav, entry.arguments?.getString("title") ?: "", entry.arguments?.getInt("year") ?: 0, entry.arguments?.getString("album") ?: "")
+                }
                 composable(Routes.MIX, arguments = listOf(navArgument("id") { type = NavType.StringType })) { entry ->
                     MixScreen(nav, entry.arguments?.getString("id") ?: "")
                 }
@@ -225,6 +256,7 @@ fun SangeetRoot() {
                 composable(Routes.THEMES) { ThemePickerScreen(nav) }
                 composable(Routes.SOURCES) { com.sangeet.player.ui.settings.LockedSourcesScreen(nav) }
                 composable(Routes.REPORT) { com.sangeet.player.ui.settings.ReportScreen(nav) }
+                composable(Routes.OWNER) { com.sangeet.player.ui.settings.OwnerDashboard(nav) }
                 composable(Routes.EQUALIZER) { EqualizerScreen(nav) }
                 composable(Routes.IMPORT) { ImportPlaylistScreen(nav) }
                 composable(Routes.DOWNLOADS) { com.sangeet.player.ui.library.DownloadsScreen(nav) }

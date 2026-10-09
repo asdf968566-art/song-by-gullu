@@ -64,7 +64,7 @@ class PlaylistImporter(
         return when {
             "spotify" in l -> spotify(l)
             "list=" in l && ("youtube" in l || "youtu.be" in l) ->
-                online.youtube.playlist(l)?.let { (n, t) -> LinkImport(n, t, emptyList()) }
+                online.youtube.playlist(l, online.youtubeKey)?.let { (n, t) -> LinkImport(n, t, emptyList()) }
                     ?: throw IllegalArgumentException("Couldn't open that YouTube playlist. Is it public?")
             "saavn" in l ->
                 online.saavn.fromLink(l)?.let { (n, t) -> LinkImport(n, t, emptyList()) }

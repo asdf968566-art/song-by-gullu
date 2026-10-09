@@ -38,6 +38,40 @@ jobs:
           REPORT_TOKEN: ${{ secrets.REPORT_TOKEN }}
         run: |
           if [ -n "$REPORT_TOKEN" ]; then echo "REPORT_TOKEN: set (in-app reports on)"; else echo "::warning::REPORT_TOKEN missing: in-app reports fall back to sharing"; fi
+          # Can the token create issues? An issue without a title is refused with 422 when it can (nothing is
+          # created), and with 401/403 when it can't.
+          if [ -n "$REPORT_TOKEN" ]; then
+            # Which token is it (a short fingerprint, not the token), whose account, and until when.
+            echo "REPORT_TOKEN fingerprint: $(printf %s "$REPORT_TOKEN" | sha256sum | cut -c1-12)"
+            curl -s -D /tmp/rt.h -o /tmp/rt.u -H "Authorization: Bearer $REPORT_TOKEN" https://api.github.com/user
+            echo "REPORT_TOKEN account: $(grep -o '"login": *"[^"]*"' /tmp/rt.u | head -1)  $(grep -i '^github-authentication-token-expiration' /tmp/rt.h | tr -d '\r')"
+            can() {  # 422 = allowed (an issue without a title is refused, nothing is created); 401/403 = not allowed
+              curl -s -o /tmp/rt.json -w '%{http_code}' -X POST -H "Authorization: Bearer $REPORT_TOKEN" \
+                -H "Accept: application/vnd.github+json" -H "Content-Type: application/json" -d '{}' "https://api.github.com/repos/$1/issues"
+            }
+            # Reports go to this repo, or else to a repo of the token's own account (e.g. Vivek's): a fine-grained
+            # token can't create issues in another account's repo, even for a collaborator.
+            # The owner picked Vivek's "day1" repo for reports (Oct 9).
+            PREFERRED=vivekyadav200405-cpu/day1
+            if [ "$(can "${{ github.repository }}")" = 422 ]; then REPORT_REPO="${{ github.repository }}"
+            elif [ "$(can "$PREFERRED")" = 422 ]; then REPORT_REPO="$PREFERRED"
+            else
+              echo "REPORT_TOKEN can't create issues in $PREFERRED: $(grep -o '"message": *"[^"]*"' /tmp/rt.json | head -1)"
+              echo "REPORT_TOKEN can't create issues here: $(grep -o '"message": *"[^"]*"' /tmp/rt.json | head -1)"
+              for R in $(curl -s -H "Authorization: Bearer $REPORT_TOKEN" "https://api.github.com/user/repos?affiliation=owner&per_page=100" \
+                  | python3 -c 'import json,sys; d=json.load(sys.stdin); d=d if isinstance(d,list) else []; d.sort(key=lambda r: 0 if any(w in r["name"].lower() for w in ("sangeet","song","report")) else 1); print(" ".join(r["full_name"] for r in d if r.get("has_issues")))'); do
+                if [ "$(can "$R")" = 422 ]; then REPORT_REPO="$R"; break; fi
+              done
+            fi
+            if [ -n "$REPORT_REPO" ]; then echo "REPORT_TOKEN: reports go to $REPORT_REPO ✅"; export REPORT_REPO
+            else echo "::warning::REPORT_TOKEN can't create issues in any repo. Give it Issues: Read and write on one of its account's repos (see CLAUDE.md)"; fi
+            echo "REPORT_REPO=$REPORT_REPO" >> "$GITHUB_ENV"
+            # Listening data (Community) goes only to a PRIVATE repo of the token's account.
+            DATA_REPO=$(python3 ../.github/scripts/data-repo.py)  # (this step runs inside Sangeet/)
+            if [ -n "$DATA_REPO" ]; then export DATA_REPO; echo "DATA_REPO: listening data goes to $DATA_REPO (private) ✅"
+            else echo "::warning::DATA_REPO: no private repo the token can write to, so the app won't send listening data"; fi
+            echo "DATA_REPO=$DATA_REPO" >> "$GITHUB_ENV"
+          fi
           chmod +x gradlew
           ./gradlew --no-daemon assembleRelease
           # The baseline profile must be inside the APK.
@@ -84,11 +118,37 @@ jobs:
         run: |
           cp Sangeet/app/build/outputs/apk/release/app-release.apk Sangeet.apk
           cp Sangeet/app/build/outputs/bundle/release/app-release.aab Sangeet.aab
+          # Downloads of the APK being replaced join the running total (release "stats", read by the admin page).
+          OLD=$(gh api "repos/${{ github.repository }}/releases/tags/latest" --jq '[.assets[] | select(.name=="Sangeet.apk") | .download_count] | add // 0' 2>/dev/null || echo 0)
+          mkdir -p st && (gh release download stats -p downloads.json -D st 2>/dev/null || true)
+          python3 - "$OLD" "${{ github.run_number }}" <<'PY'
+          import json, sys, time
+          try: d = json.load(open("st/downloads.json"))
+          except Exception: d = {"total": 0, "builds": []}
+          old = int(sys.argv[1] or 0)
+          d["total"] = d.get("total", 0) + old
+          d["builds"] = (d.get("builds", []) + [{"replaced_at": int(time.time()), "downloads": old, "next_build": int(sys.argv[2])}])[-200:]
+          json.dump(d, open("st/downloads.json", "w"))
+          print("APK downloads so far:", d["total"], "(+", old, "from the build being replaced)")
+          PY
+          gh release view stats >/dev/null 2>&1 || gh release create stats --prerelease --title "App stats" --notes "How many times the APK was downloaded, kept across builds (the admin page reads it)."
+          gh release upload stats st/downloads.json --clobber
           gh release delete latest --yes --cleanup-tag || true
           # App ka updater title se "build N" padhta hai (and only picks the .apk).
+          # Release notes: the newest "What's new" entry (the app's update dialog shows it).
+          python3 - > notes.md <<'PY'
+          import json
+          e = json.load(open("Sangeet/app/src/main/assets/whats-new.json"))[0]
+          print("Version 1.0.${{ github.run_number }} (build ${{ github.run_number }}) — commit ${{ github.sha }}"[:80])
+          print("Sangeet.apk download karke install karo, ya app mein Settings → App update. Sangeet.aab is for the Google Play Console.")
+          print(f"\nWhat's new\n{e['title']} ({e['date']})")
+          for it in e["items"]:
+              if it.get("on") != "iphone":
+                  print(f"• {it['text']}")
+          PY
           gh release create latest Sangeet.apk Sangeet.aab \
             --title "Sangeet build ${{ github.run_number }}" \
-            --notes "Version 1.0.${{ github.run_number }} (build ${{ github.run_number }}) — commit ${GITHUB_SHA::7}. Sangeet.apk download karke install karo, ya app mein Settings → App update. Sangeet.aab is for the Google Play Console."
+            --notes-file notes.md
         env:
           GH_TOKEN: ${{ github.token }}
 

@@ -2,7 +2,6 @@ package com.sangeet.player.data.ai
 
 import com.anthropic.client.AnthropicClient
 import com.anthropic.client.okhttp.AnthropicOkHttpClient
-import com.anthropic.core.JsonValue
 import com.anthropic.errors.AnthropicServiceException
 import com.anthropic.errors.RateLimitException
 import com.anthropic.errors.UnauthorizedException
@@ -10,6 +9,7 @@ import com.anthropic.models.messages.MessageCreateParams
 import com.anthropic.models.messages.OutputConfig
 import com.fasterxml.jackson.annotation.JsonPropertyDescription
 import com.sangeet.player.data.Categories
+import com.sangeet.player.data.Moods
 import com.sangeet.player.data.OnlineRepository
 import com.sangeet.player.data.model.SourceType
 import com.sangeet.player.data.model.Track
@@ -21,6 +21,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Plan the DJ follows. Public mutable fields + no-arg constructor so the Anthropic SDK (Jackson)
@@ -48,7 +49,15 @@ class DjPlan {
     var songs: List<String> = emptyList()
 }
 
-data class DjResult(val plan: DjPlan, val tracks: List<Track>, val usedAi: Boolean)
+data class DjResult(
+    val plan: DjPlan,
+    val tracks: List<Track>,
+    val usedAi: Boolean,
+    /** What the built-in DJ understood (kept for the chat's next message). */
+    val intent: DjIntent? = null,
+    /** Things the listener can say next ("More like this", "No remix"). */
+    val followUps: List<String> = emptyList(),
+)
 
 /**
  * In-app AI DJ: "sad punjabi songs for a night drive" -> a fresh playlist.
@@ -62,26 +71,218 @@ class AiDj(
     @Volatile private var client: AnthropicClient? = null
     @Volatile private var clientKey: String? = null
 
-    suspend fun make(request: String): DjResult = coroutineScope {
-        val key = settings.current.anthropicApiKey.trim()
-        val (plan, usedAi) = if (key.isNotEmpty()) {
-            runCatching { askClaude(key, request) to true }.getOrElse { e ->
-                localPlan(request).apply { reply = "${aiErrorText(e)} Using the built-in DJ instead." } to false
-            }
-        } else {
-            localPlan(request) to false
-        }
-        if (plan.languages.isEmpty()) plan.languages = settings.current.languages
+    /** Songs like this one (the app's radio), for "Kesariya jaise gaane". Set by the app. */
+    var radio: (suspend (Track) -> List<Track>)? = null
+    /** The listener's own taste (For You), for "kuch bhi" / "surprise me". Set by the app. */
+    var forYou: (suspend () -> List<Track>)? = null
+    /** A line about the listener's taste for Claude ("Often plays: Arijit Singh, Diljit..."). Set by the app. */
+    var taste: (suspend () -> String)? = null
 
+    /**
+     * A mix for [request]. [previous] is what the chat asked before, so a follow-up ("aur", "sirf Arijit",
+     * "naye wale", "remix hata do") changes that mix; [shown] are songs already given (for "more").
+     * [history]: the earlier requests of this chat (for Claude).
+     */
+    suspend fun make(
+        request: String,
+        previous: DjIntent? = null,
+        shown: Set<String> = emptySet(),
+        history: List<String> = emptyList(),
+    ): DjResult = coroutineScope {
+        val intent = DjBrain.understand(request, previous, settings.current.languages)
+        val followUps = DjBrain.followUps(intent)
+        val key = settings.current.anthropicApiKey.trim()
+        var note = ""
+        if (key.isNotEmpty()) {
+            val ai = runCatching { askClaude(key, request, history) }
+            ai.getOrNull()?.let { plan ->
+                if (plan.languages.isEmpty()) plan.languages = settings.current.languages
+                val tracks = fromPlan(plan, request, usedAi = true).filter { it.id !in shown }
+                if (tracks.isNotEmpty()) return@coroutineScope DjResult(plan, tracks.take(60), true, intent, followUps)
+            }
+            ai.exceptionOrNull()?.let { note = "${aiErrorText(it)} Using the built-in DJ instead. " }
+        }
+        // The free online AI (no key needed) thinks of songs while the built-in DJ works; only songs the catalogue
+        // really has are kept.
+        val free: kotlinx.coroutines.Deferred<List<Track>>? = if (key.isEmpty() && settings.current.freeAi) async {
+            runCatching { withTimeoutOrNull(FREE_AI_WAIT_MS) { freeAi(request, intent, shown, history) } }.getOrNull().orEmpty()
+        } else null
+        // The built-in DJ: playlists made for the mood, the singers' songs, a song's radio, a film's album.
+        val local = runCatching { buildLocal(intent, shown) }.getOrDefault(emptyList())
+        val ai = free?.await().orEmpty()
+        val built = if (local.size + ai.size >= 10) local else {
+            val plan = localPlan(request).apply { if (intent.languages.isNotEmpty()) languages = intent.languages }
+            (local + fromPlan(plan, request, usedAi = false))
+                .distinctBy { it.id }
+                .filter { it.id !in shown && !DjBrain.excluded(intent, it.title, it.artist) }
+        }
+        // The AI's picks and the built-in DJ's, taking turns.
+        val tracks = (0 until maxOf(ai.size, built.size)).flatMap { n -> listOfNotNull(ai.getOrNull(n), built.getOrNull(n)) }
+            .distinctBy { it.id }
+        val title = DjBrain.describe(intent)
+        val picked = tracks.take(intent.count).count { t -> ai.any { it.id == t.id } }
+        val plan = DjPlan().apply {
+            this.title = title.take(48)
+            languages = intent.languages
+            reply = note + when {
+                tracks.isEmpty() -> "I couldn't find songs for that. Try other words."
+                intent.page > 0 -> "Here are ${tracks.size.coerceAtMost(intent.count)} more."
+                else -> "${title.replaceFirstChar(Char::uppercase)}: ${tracks.size.coerceAtMost(intent.count)} songs, starting now."
+            } + if (picked > 0) " ($picked picked by the online AI.)" else ""
+        }
+        DjResult(plan, tracks.take(intent.count), picked > 0, intent, followUps)
+    }
+
+    /**
+     * Songs the free online AI names for [request], each kept only when the catalogue has that very song by that
+     * singer (so nothing made-up plays), in the asked languages and without the "no X" words.
+     */
+    private suspend fun freeAi(request: String, i: DjIntent, shown: Set<String>, history: List<String>): List<Track> = coroutineScope {
+        val about = buildString {
+            append("Listener's languages: ${settings.current.languages.joinToString()}. ")
+            runCatching { taste?.invoke() }.getOrNull()?.takeIf { it.isNotBlank() }?.let { append(it).append(' ') }
+            com.sangeet.player.data.community.Community.cached()?.popular()?.take(6)?.takeIf { it.isNotEmpty() }?.let { top ->
+                append("Popular with Sangeet listeners now: ")
+                append(top.joinToString(", ") { "${it.title} - ${it.artist.substringBefore(",")}" }).append(". ")
+            }
+        }
+        val plan = FreeAi.plan(request, about, history) ?: return@coroutineScope emptyList()
+        val langs = i.languages.ifEmpty { plan.languages }.ifEmpty { DjBrain.languagesFor(i) }
+        val anyLanguage = i.like.isNotBlank() || i.movie.isNotBlank() || i.artists.isNotEmpty()
+        val found = plan.songs.take(18).map { s ->
+            async {
+                val (name, singer) = FreeAi.split(s)
+                val want = FreeAi.norm(name)
+                if (want.length < 2) return@async null
+                val q = "$name $singer".trim()
+                fun real(list: List<Track>) = list.take(8).firstOrNull { t ->
+                    val got = FreeAi.norm(t.title)
+                    val same = got == want || got.startsWith("$want ") || (want.length >= 6 && got.contains(want))
+                    same && (singer.isBlank() || artistMatch(t.artist, singer))
+                }
+                // JioSaavn first (plays in the background, has the singers); then all sources.
+                real(runCatching { online.saavn.searchPage(q, 1) }.getOrDefault(emptyList()))
+                    ?: real(runCatching { online.searchAll(q) }.getOrDefault(emptyList()))
+            }
+        }.awaitAll().filterNotNull()
+        val kept = found.distinctBy { it.id }
+            .filter { it.id !in shown && !DjBrain.excluded(i, it.title, it.artist) }
+            .filter { anyLanguage || it.inLanguages(langs) }
+        android.util.Log.i("Sangeet", "free AI: ${plan.songs.size} named, ${found.size} real, ${kept.size} kept")
+        kept
+    }
+
+    /** The built-in DJ's songs for an [i]ntent, best sources first, taking turns between them. */
+    private suspend fun buildLocal(i: DjIntent, shown: Set<String>): List<Track> = coroutineScope {
+        val langs = DjBrain.languagesFor(i)
+        val era = when (i.era) { "old" -> "old"; "new" -> "new"; else -> i.era }
+        val mood = i.mood
+        val parts = ArrayList<kotlinx.coroutines.Deferred<List<Track>>>()
+        // A song to start from: it, then its radio (songs like it).
+        if (i.like.isNotBlank()) parts += async {
+            val seed = runCatching { online.searchAll(i.like).firstOrNull() }.getOrNull()
+            if (seed == null) emptyList() else listOf(seed) + runCatching { radio?.invoke(seed) }.getOrNull().orEmpty()
+        }
+        // A film's album ("Aashiqui 2 ke gaane"), also when the words are just a name.
+        val albumName = i.movie.ifBlank {
+            if (mood == null && i.artists.isEmpty() && i.like.isBlank() && i.words.isNotEmpty()) i.words.joinToString(" ") else ""
+        }
+        if (albumName.isNotBlank()) parts += async { runCatching { movieAlbum(albumName) }.getOrDefault(emptyList()) }
+        // A mood (with its era) from playlists made for it; with singers, their songs in that mood instead.
+        if (mood != null && i.artists.isEmpty()) parts += async {
+            val withEra = if (era.isEmpty()) emptyList() else runCatching {
+                online.topicTracks(
+                    com.sangeet.player.data.Topic(langs.flatMap { l -> mood.searches.take(2).map { "$l $era $it" } }, listOf(era), mood.words, langs),
+                    i.page,
+                )
+            }.getOrDefault(emptyList())
+            withEra.ifEmpty { runCatching { online.moodTracks(mood, langs, i.page) }.getOrDefault(emptyList()) }
+        }
+        // Singers: their songs (with the mood / era when asked).
+        i.artists.forEach { a ->
+            parts += async {
+                val q = listOfNotNull(a, mood?.searches?.firstOrNull(), era.ifEmpty { null }).joinToString(" ")
+                val pages = listOf(q, a).distinct().map { query -> async { runCatching { online.saavn.searchPage(query, i.page + 1) }.getOrDefault(emptyList()) } }
+                pages.awaitAll().flatten().filter { artistMatch(it.artist, a) }
+            }
+        }
+        // An era or other words without a mood: playlists named so ("90s Hindi Hits", "Wedding Songs").
+        if (mood == null && i.artists.isEmpty() && i.like.isBlank() && (era.isNotEmpty() || i.words.isNotEmpty())) parts += async {
+            val w = (listOf(era) + i.words).filter { it.isNotBlank() }
+            runCatching {
+                online.topicTracks(com.sangeet.player.data.Topic(langs.map { "$it ${w.joinToString(" ")}" }, w, emptyList(), langs), i.page)
+            }.getOrDefault(emptyList())
+        }
+        // Words other listeners use for their playlists ("gym", "drive", "sad"): what the DJ learned from them.
+        com.sangeet.player.data.community.Community.cached()?.let { shared ->
+            val keys = (i.words + listOfNotNull(mood?.name?.lowercase()) + mood?.searches.orEmpty()).distinct()
+            val learned = keys.flatMap { shared.learned(it) }
+            if (learned.isNotEmpty()) parts += async { learned }
+        }
+        // "Kuch bhi", "surprise me", or nothing specific: the listener's own taste.
+        val nothingSaid = mood == null && i.artists.isEmpty() && i.like.isBlank() && i.movie.isBlank() && i.words.isEmpty() && era.isEmpty()
+        if (i.forMe || nothingSaid) parts += async { runCatching { forYou?.invoke() }.getOrNull().orEmpty() }
+
+        val lists = parts.awaitAll()
+        // A song's radio, a film or a singer: in whatever language their songs are.
+        val anyLanguage = i.like.isNotBlank() || i.movie.isNotBlank() || albumName.isNotBlank() || i.artists.isNotEmpty()
+        var tracks = (0 until (lists.maxOfOrNull { it.size } ?: 0)).flatMap { n -> lists.mapNotNull { it.getOrNull(n) } }
+            .distinctBy { it.id }
+            .filter { it.id !in shown && !DjBrain.excluded(i, it.title, it.artist) }
+            .filter { anyLanguage || it.inLanguages(i.languages.ifEmpty { langs }) }
+        // What other Sangeet listeners play with these songs.
+        com.sangeet.player.data.community.Community.cached()?.let { shared ->
+            val near = shared.near(tracks.take(20).map { it.id })
+                .filter { it.id !in shown && !DjBrain.excluded(i, it.title, it.artist) && (anyLanguage || it.inLanguages(i.languages.ifEmpty { langs })) }
+            tracks = (tracks + near.take(15)).distinctBy { it.id }
+        }
+        tracks
+    }
+
+    /** All songs of the film / album named [name], when one is named exactly so. */
+    private suspend fun movieAlbum(name: String): List<Track> {
+        fun words(s: String) = s.lowercase().replace(Regex("""\(.*?\)|\[.*?]"""), " ")
+            .replace(Regex("[^\\p{L}\\p{N}]+"), " ").split(" ").filter { it.isNotBlank() }
+        val want = words(name)
+        if (want.isEmpty()) return emptyList()
+        val album = online.saavn.searchAlbums(name).firstOrNull { a ->
+            val w = words(a.title)
+            w == want || (want.size >= 2 && w.containsAll(want))
+        } ?: return emptyList()
+        return online.saavn.albumTracks(album.id)
+    }
+
+    private fun artistMatch(artist: String, wanted: String): Boolean {
+        val a = artist.lowercase()
+        val w = wanted.lowercase()
+        return a.contains(w) || (w.length >= 4 && w.split(" ").first().let { it.length >= 4 && a.contains(it) })
+    }
+
+    /** Songs for a plan of searches (Claude's, or the simple built-in one). */
+    private suspend fun fromPlan(plan: DjPlan, request: String, usedAi: Boolean): List<Track> = coroutineScope {
         val queries = (plan.songs + plan.searchQueries).map { it.trim() }.filter { it.isNotEmpty() }.distinct().take(16)
+        // A mood ("happy punjabi songs"): songs from playlists made for it come first.
+        val mood = Moods.find(request)
+        val moodSongs = mood?.let { m -> async { runCatching { online.moodTracks(m, plan.languages, limit = 30) }.getOrDefault(emptyList()) } }
         val found = queries.map { q -> async { runCatching { online.searchAll(q).take(12) }.getOrDefault(emptyList()) } }
             .awaitAll()
         // Exact song picks first, then the rest interleaved for variety.
         val merged = ArrayList<Track>()
         val maxLen = found.maxOfOrNull { it.size } ?: 0
         for (i in 0 until maxLen) found.forEach { list -> list.getOrNull(i)?.let(merged::add) }
-        var tracks = merged.distinctBy { it.id }.filter { it.inLanguages(plan.languages) || plan.languages.isEmpty() }
+        // The built-in DJ searches "hindi happy songs", which also finds songs that only have the word in their
+        // name or singer (Happy Raikoti): leave those out when there is a mood.
+        val noisy = { t: Track ->
+            !usedAi && mood != null && mood.words.any { w -> Regex("\\b${Regex.escape(w)}\\b", RegexOption.IGNORE_CASE).containsMatchIn("${t.title} ${t.artist}") }
+        }
+        var tracks = (moodSongs?.await().orEmpty() + merged.filterNot(noisy)).distinctBy { it.id }
+            .filter { it.inLanguages(plan.languages) || plan.languages.isEmpty() }
 
+        // What other Sangeet listeners play with these songs.
+        com.sangeet.player.data.community.Community.cached()?.let { shared ->
+            val near = shared.near(tracks.take(20).map { it.id }).filter { it.inLanguages(plan.languages) || plan.languages.isEmpty() }
+            tracks = (tracks + near.take(15)).distinctBy { it.id }
+        }
         // Grow the list with YouTube Music radio (and a little JioSaavn) for a longer, varied mix.
         if (tracks.size < 50) {
             val yt = tracks.filter { it.source == SourceType.YOUTUBE }.take(3)
@@ -91,28 +292,32 @@ class AiDj(
             val more = (yt + saavn).awaitAll().flatten().filter { it.inLanguages(plan.languages) }
             tracks = (tracks + more).distinctBy { it.id }
         }
-        DjResult(plan, tracks.take(60), usedAi)
+        tracks
     }
 
     // ------------------------------------------------------------ Claude
 
-    private suspend fun askClaude(key: String, request: String): DjPlan = withContext(Dispatchers.IO) {
+    private suspend fun askClaude(key: String, request: String, history: List<String>): DjPlan = withContext(Dispatchers.IO) {
         val c = clientFor(key)
+        val about = runCatching { taste?.invoke() }.getOrNull().orEmpty()
+        val earlier = if (history.isEmpty()) "" else
+            "Earlier in this chat the listener asked, in order: " + history.takeLast(6).joinToString(" | ") { "\"$it\"" } +
+                ". Treat the new message as a change to that mix when it reads like one (\"more\", \"only Arijit\", \"no remix\").\n"
         val params = MessageCreateParams.builder()
             .model(MODEL)
             .maxTokens(16000L)
             .system(SYSTEM_PROMPT)
             .outputConfig(OutputConfig.builder().effort(OutputConfig.Effort.LOW).build())
-            // Server-side fallback if the request is refused by a safety classifier.
-            .putAdditionalHeader("anthropic-beta", "server-side-fallback-2026-07-01")
-            .putAdditionalBodyProperty("fallbacks", JsonValue.from("default"))
             .addUserMessage(
                 "Listener's preferred languages: ${settings.current.languages.joinToString()}.\n" +
+                    (if (about.isNotBlank()) "$about\n" else "") +
+                    earlier +
                     "Request: $request"
             )
             .outputConfig(DjPlan::class.java)
             .build()
         val response = c.messages().create(params)
+        // No text (e.g. the request was declined): the built-in DJ takes over.
         response.content().stream()
             .flatMap { it.text().stream() }
             .map { it.text() }
@@ -169,7 +374,10 @@ class AiDj(
     }
 
     companion object {
-        private const val MODEL = "claude-opus-5-5"
+        // Fast and low-cost for picking songs (owner's choice, Oct 9). No server-side refusal fallback on this model.
+        private const val MODEL = "claude-haiku-5-5"
+        /** How long the DJ waits for the free online AI before playing the built-in mix alone. */
+        private const val FREE_AI_WAIT_MS = 25_000L
 
         private val SYSTEM_PROMPT = """
             You are the DJ inside Sangeet, an Indian music app with JioSaavn and YouTube catalogues.

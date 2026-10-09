@@ -46,10 +46,24 @@ class AppUpdater(private val context: Context, private val settings: SettingsRep
     val currentBuild: Int get() = BuildConfig.VERSION_CODE
     private val prefs = context.getSharedPreferences("updater", Context.MODE_PRIVATE)
 
-    /** App khulne par din mein ek-do baar chupchaap check. */
+    /** App khulne par din mein ek-do baar chupchaap check. With "Update automatically" on, the background updater does it. */
     suspend fun checkIfDue() {
+        if (settings.current.autoUpdate) {
+            AutoUpdate.soon(context, 1)
+            return
+        }
         if (System.currentTimeMillis() - prefs.getLong("last_check", 0L) < 6 * 3_600_000L) return
         check(silent = true)
+    }
+
+    /** The newest release (for the background updater), or null. */
+    suspend fun latest(): AppUpdate? = fetchLatest().also { prefs.edit().putLong("last_check", System.currentTimeMillis()).apply() }
+
+    /** The APK of [update], downloaded quietly (kept if it's already there). */
+    suspend fun apkFor(update: AppUpdate): File {
+        val have = File(File(context.cacheDir, "updates"), "Sangeet-${update.build}.apk")
+        if (have.exists() && (update.sizeBytes <= 0 || have.length() == update.sizeBytes)) return have
+        return fetchApk(update, quiet = true)
     }
 
     suspend fun check(silent: Boolean = false) {
@@ -142,10 +156,11 @@ class AppUpdater(private val context: Context, private val settings: SettingsRep
         }
     }
 
-    private suspend fun fetchApk(update: AppUpdate): File = withContext(Dispatchers.IO) {
+    private suspend fun fetchApk(update: AppUpdate, quiet: Boolean = false): File = withContext(Dispatchers.IO) {
         val dir = File(context.cacheDir, "updates").apply { mkdirs() }
         dir.listFiles()?.forEach { it.delete() }
         val out = File(dir, "Sangeet-${update.build}.apk")
+        val part = File(dir, "Sangeet-${update.build}.part")
         // Asset API url -> GitHub storage pe redirect hota hai (OkHttp token wahan nahi bhejta).
         val req = authed(Request.Builder()).url(update.assetApiUrl).header("Accept", "application/octet-stream").build()
         Http.client.newCall(req).execute().use { res ->
@@ -155,7 +170,7 @@ class AppUpdater(private val context: Context, private val settings: SettingsRep
             var done = 0L
             var last = -1
             body.byteStream().use { input ->
-                out.outputStream().use { output ->
+                part.outputStream().use { output ->
                     val buf = ByteArray(64 * 1024)
                     while (true) {
                         val n = input.read(buf)
@@ -164,12 +179,13 @@ class AppUpdater(private val context: Context, private val settings: SettingsRep
                         done += n
                         if (total > 0) {
                             val pct = (done * 100 / total).toInt()
-                            if (pct != last) { last = pct; _state.value = State.Downloading(update, pct) }
+                            if (pct != last && !quiet) { last = pct; _state.value = State.Downloading(update, pct) }
                         }
                     }
                 }
             }
         }
+        if (!part.renameTo(out)) throw IOException("Couldn't save the update")
         out
     }
 }

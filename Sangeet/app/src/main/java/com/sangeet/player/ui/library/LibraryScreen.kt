@@ -28,6 +28,7 @@ import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FileOpen
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Public
+import androidx.compose.material.icons.rounded.Movie
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material3.Button
@@ -161,6 +162,14 @@ fun LibraryScreen(nav: NavController) {
                         gradient = listOf(Color(0xFFE13300), Color(0xFFF59B23)),
                         icon = Icons.Rounded.Public,
                     ) { nav.navigate(Routes.ONLINE_LIBRARY) }
+                }
+                item {
+                    LibraryRow(
+                        title = "Movies",
+                        subtitle = "Every film's songs: by year, music director, producer, actor",
+                        gradient = listOf(Color(0xFFB45309), Color(0xFFF59E0B)),
+                        icon = Icons.Rounded.Movie,
+                    ) { nav.navigate(Routes.movies()) }
                 }
                 item {
                     LibraryRow(

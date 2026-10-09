@@ -42,7 +42,7 @@ data class Mix(val id: String, val title: String, val subtitle: String, val trac
  *  - radio (queue khatam ho to milte-julte gaane)
  */
 class RecommendationRepository(
-    context: Context,
+    private val context: Context,
     private val library: LibraryRepository,
     private val local: LocalMusicRepository,
     private val online: OnlineRepository,
@@ -293,6 +293,16 @@ class RecommendationRepository(
         byPlaylists?.orSkip()?.forEach { (name, t) -> out += Suggestion(t, "From $name") }
         trending?.orSkip()?.forEach { out += Suggestion(it, "Trending now") }
         fromCatalog.forEach { out += Suggestion(it, "New for you") }
+        // Other Sangeet listeners: songs played and liked together with yours, and what most of them play.
+        com.sangeet.player.data.community.Community.current(context)?.let { shared ->
+            val mine = buildList {
+                seed?.let { add(it.id) }
+                addAll(p.liked.take(30).map { it.id })
+                addAll(p.played.take(30).map { it.track.id })
+            }.distinct()
+            shared.near(mine).take(50).forEach { out += Suggestion(it, "Listeners like you play this") }
+            shared.popular().take(30).forEach { out += Suggestion(it, "Popular with Sangeet listeners") }
+        }
         // Thoda naya-pan: phone ke kuch random gaane
         songs.shuffled().take(20).forEach { out += Suggestion(it, "From your phone") }
         // Pehle se liked gaane bhi (radio / mix mein kaam aate hain)
@@ -321,10 +331,12 @@ class RecommendationRepository(
         val seedArtist = seed?.artist?.let(::norm)
         val topLangs = p.languages.take(2).toSet()
         val disliked = dislikedIds()
-        val langs = settings.current.languages
+        // Strict bhasha: Hindi chuna hai to sirf Hindi (phone ke gaane chhod ke). A radio also keeps its song's own
+        // language: a searched Pahadi or Tamil song is followed by more like it, chosen or not.
+        val seedLang = seed?.let { it.language.ifBlank { com.sangeet.player.data.remote.LanguageGuess.guess(it.title, it.artist) } }.orEmpty()
+        val langs = (settings.current.languages + listOfNotNull(seedLang.takeIf { it.isNotBlank() })).distinct()
         return list
             .filter { it.track.id !in exclude && it.track.id != seed?.id && it.track.id !in disliked }
-            // Strict bhasha: Hindi chuna hai to sirf Hindi (phone ke gaane chhod ke)
             .filter { it.track.inLanguages(langs) }
             .map { s ->
                 val a = norm(s.track.artist)

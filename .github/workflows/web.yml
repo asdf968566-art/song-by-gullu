@@ -5,7 +5,7 @@ name: Web App
 on:
   push:
     branches: ["main", "claude/**"]
-    paths: ["SangeetWeb/**", ".github/workflows/web.yml", ".github/scripts/build-web-catalog.py", ".github/scripts/yt-servers.py"]
+    paths: ["SangeetWeb/**", ".github/workflows/web.yml", ".github/scripts/build-web-catalog.py", ".github/scripts/yt-servers.py", ".github/scripts/build-movies.py", ".github/scripts/community.py", ".github/scripts/data-repo.py", "Sangeet/app/src/main/assets/whats-new.json"]
   schedule:
     # Three crawls a day (2.5 h each) so the catalog grows faster and fewer songs need YouTube.
     - cron: "17 21 * * *"
@@ -52,6 +52,31 @@ jobs:
           python .github/scripts/build-web-catalog.py SangeetWeb/data catalog-state/state.json.gz "$MIN" | tee build.log
           grep -E "state:|core |crawl|songs in catalog|TOTAL" build.log >> summary.txt
           du -sh SangeetWeb/data catalog-state | tee -a summary.txt
+      # Indian films with release year, music directors, producers, directors and cast (Wikidata), once a week.
+      - name: Movie details
+        run: |
+          M=catalog-state/movies.json
+          if [ ! -s "$M" ] || [ $(( $(date +%s) - $(stat -c %Y "$M") )) -gt 604800 ]; then
+            timeout 1800 python3 .github/scripts/build-movies.py catalog-state/movies.new.json | tee movies.log \
+              && mv catalog-state/movies.new.json "$M" || echo "MOVIES: kept the old list" | tee -a movies.log
+          else
+            echo "MOVIES: list is less than a week old" | tee movies.log
+          fi
+          if [ -s "$M" ]; then cp "$M" SangeetWeb/data/movies.json; else echo '[]' > SangeetWeb/data/movies.json; fi
+          grep "MOVIES" movies.log >> summary.txt || true
+      # Listening data from the apps (Community): what listeners share, for everyone's suggestions.
+      - name: Community listening data
+        env:
+          REPORT_TOKEN: ${{ secrets.REPORT_TOKEN }}
+          # Optional: a second token (only here in CI, never in the app) that may write files in the data repo.
+          DATA_TOKEN: ${{ secrets.DATA_TOKEN }}
+        run: |
+          export DATA_REPO=$(python3 .github/scripts/data-repo.py)
+          echo "COMMUNITY: data repo ${DATA_REPO:-none}" | tee community.log
+          python3 .github/scripts/community.py catalog-state/community.json.gz SangeetWeb/data/community.json \
+            catalog-state/community-searches.json | tee -a community.log || true
+          [ -s SangeetWeb/data/community.json ] || echo '{"tracks":[],"together":{},"top":[]}' > SangeetWeb/data/community.json
+          grep -E "COMMUNITY" community.log >> summary.txt || true
       - uses: actions/cache/save@v4
         if: always()
         with:
@@ -64,7 +89,10 @@ jobs:
           [ -s SangeetWeb/data/yt-servers.json ] || echo '[]' > SangeetWeb/data/yt-servers.json
           grep "YT SERVERS" yt.log >> summary.txt || echo "YT SERVERS: none (timed out)" >> summary.txt
       - name: Stamp version
-        run: sed -i "s/__BUILD__/${{ github.run_number }}/g" SangeetWeb/sw.js SangeetWeb/index.html
+        run: |
+          # The update log, shared with the Android app.
+          cp Sangeet/app/src/main/assets/whats-new.json SangeetWeb/whats-new.json
+          sed -i "s/__BUILD__/${{ github.run_number }}/g" SangeetWeb/sw.js SangeetWeb/index.html
       - uses: actions/upload-pages-artifact@v3
         with:
           path: SangeetWeb

@@ -51,7 +51,10 @@ fun TrackListScreen(nav: NavController, kind: ListKind, arg: String) {
         value = if (kind == ListKind.GENRE) {
             val q = Categories.queryFor(arg)
             val cat = Categories.find(arg)
+            val topic = Categories.topicFor(arg, c.settings.current.languages)
             if (cat != null && cat.more.isNotEmpty()) c.online.categoryTracks(cat)
+            else if (cat != null && cat.youtube.isNotEmpty()) c.online.youtubeCategory(cat)
+            else if (topic != null) c.online.topicTracks(topic).ifEmpty { if (q != null) c.online.searchAll(q) else emptyList() }
             else if (q != null) c.online.searchAll(q) else c.online.trending(arg).flatMap { it.tracks }.distinctBy { it.id }
         } else emptyList()
     }

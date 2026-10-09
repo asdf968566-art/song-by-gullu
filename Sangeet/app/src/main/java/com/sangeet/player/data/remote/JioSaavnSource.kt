@@ -78,6 +78,34 @@ class JioSaavnSource : OnlineSource {
             .take(limit)
     }
 
+    /** Albums and movies for a search ("aashiqui 2" -> the film's album, all its songs). */
+    suspend fun searchAlbums(query: String): List<OnlinePlaylist> {
+        val root = call("search.getAlbumResults", "q" to query, "n" to "10", "p" to "1")
+        val items = ((root as? JsonObject)?.get("results") as? JsonArray) ?: (root as? JsonArray) ?: return emptyList()
+        return items.mapNotNull { el ->
+            val o = el as? JsonObject ?: return@mapNotNull null
+            if (o.str("type").let { it != null && it != "album" }) return@mapNotNull null
+            val id = o.str("id") ?: o.str("albumid") ?: return@mapNotNull null
+            val info = o["more_info"] as? JsonObject
+            val year = o.str("year") ?: info?.str("year")
+            OnlinePlaylist(
+                id = id,
+                title = unescape(o.str("title") ?: o.str("album") ?: return@mapNotNull null),
+                subtitle = unescape(listOfNotNull((info?.str("music") ?: o.str("subtitle"))?.takeIf { it.isNotBlank() }, year).joinToString(" · ")),
+                artworkUrl = o.str("image")?.replace("150x150", "500x500"),
+                songCount = (info?.str("song_count") ?: o.str("song_count"))?.toIntOrNull() ?: 0,
+                year = year?.toIntOrNull() ?: 0,
+            )
+        }.distinctBy { it.id }
+    }
+
+    /** All songs of an album / movie, in its order. */
+    suspend fun albumTracks(id: String): List<Track> = songsFrom(call("content.getAlbumDetails", "albumid" to id))
+
+    /** Playlists for a search, like "hindi feel good" -> "Feel Good Hindi", "Happy Bollywood Hits". */
+    suspend fun searchPlaylists(query: String, page: Int = 1): List<OnlinePlaylist> =
+        playlistsFrom(call("search.getPlaylistResults", "q" to query, "n" to "20", "p" to page.toString()))
+
     suspend fun playlistTracks(id: String): List<Track> =
         songsFrom(call("playlist.getDetails", "listid" to id, "n" to "300", "p" to "1"))
 

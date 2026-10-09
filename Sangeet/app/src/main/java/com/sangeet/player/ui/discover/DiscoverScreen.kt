@@ -148,18 +148,11 @@ class DiscoverViewModel(private val c: AppContainer) : ViewModel() {
     /** Left swipe: ye gaana / artist kam dikhao. */
     fun dislike(t: Track) = c.recommendations.dislike(t)
 
-    /** Mood ke gaane: pasandida bhasha + mood, har page pe thodi alag query (endless feed). */
-    private suspend fun moodBatch(mood: Mood, have: Set<String>): List<Suggestion> = kotlinx.coroutines.coroutineScope {
-        val variants = listOf("", "new", "best", "hits", "2024", "90s", "latest", "top")
-        val v = variants[moodPage % variants.size]
-        moodPage++
-        Moods.queries(mood, c.settings.current.languages)
-            .map { q -> async { runCatching { c.online.searchAll("$q $v".trim()) }.getOrDefault(emptyList()) } }
-            .awaitAll()
-            .flatten()
-            .distinctBy { it.id }
-            .filter { it.id !in have && it.inLanguages(c.settings.current.languages) }
-            .shuffled()
+    /** Mood ke gaane: from playlists made for the mood, other playlists on each page (endless feed). */
+    private suspend fun moodBatch(mood: Mood, have: Set<String>): List<Suggestion> {
+        val page = moodPage++
+        return c.online.moodTracks(mood, c.settings.current.languages, page)
+            .filter { it.id !in have }
             .take(25)
             .map { Suggestion(it, "${mood.emoji} ${mood.name} mood") }
     }

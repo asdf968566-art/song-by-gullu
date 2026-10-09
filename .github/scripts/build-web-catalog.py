@@ -49,7 +49,13 @@ CORE_CAP = {"hindi": 60000, "punjabi": 30000, "haryanvi": 15000, "english": 1000
 SMALL = {"bhojpuri": 2500, "tamil": 1500, "telugu": 1500, "marathi": 1500, "bengali": 1500, "gujarati": 1200}
 LANGS = list(DEEP) + list(SMALL)
 MOODS = ["hits", "romantic", "sad", "party", "90s", "latest", "lofi", "workout", "devotional", "wedding",
-         "old", "love", "chill", "dance", "top 50", "new", "retro", "drive", "rap", "unplugged"]
+         "old", "love", "chill", "dance", "top 50", "new", "retro", "drive", "rap", "unplugged",
+         "happy", "feel good", "good vibes", "heartbreak", "sleep", "calm", "road trip", "travel", "rain", "gym",
+         "motivation", "bhakti", "acoustic"]
+# The app's moods are made from playlists with these words in their names, so such playlists are always kept.
+MOOD_WORDS = {"romantic", "sad", "party", "lofi", "workout", "devotional", "wedding", "love", "chill", "dance", "drive",
+              "unplugged", "happy", "feel good", "good vibes", "heartbreak", "sleep", "calm", "road trip", "travel",
+              "rain", "gym", "motivation", "bhakti", "acoustic"}
 
 
 # ------------------------------------------------------------------ http
@@ -222,11 +228,17 @@ def core(lang, n_playlists):
     jobs = [("content.getFeaturedPlaylists", {"fetch_from_serialized_files": "true", "p": str(p), "n": "50"}) for p in range(1, 25)]
     jobs += [("search.getPlaylistResults", {"q": f"{lang} {m}", "p": "1", "n": "50"}) for m in MOODS]
     with cf.ThreadPoolExecutor(16) as ex:
-        for res in ex.map(lambda j: call(j[0], j[1], lang), jobs):
+        for (_, params), res in zip(jobs, ex.map(lambda j: call(j[0], j[1], lang), jobs)):
+            term = params["q"][len(lang) + 1:] if "q" in params else None
+            kept = 0
             for p in playlists_of(res):
-                found.setdefault(p["id"], p)
-    chosen = [p for p in found.values() if p.get("chart")]
-    rest = [p for p in found.values() if not p.get("chart")]
+                p = found.setdefault(p["id"], p)
+                # The best few playlists named after a mood ("Feel Good Hindi") are always kept.
+                if term in MOOD_WORDS and kept < 6 and re.search(rf"\b{re.escape(term)}\b", p["title"], re.I):
+                    p["mood"] = 1
+                    kept += 1
+    chosen = [p for p in found.values() if p.get("chart") or p.get("mood")]
+    rest = [p for p in found.values() if not (p.get("chart") or p.get("mood"))]
     random.shuffle(rest)
     chosen += rest[: max(0, n_playlists - len(chosen))]
 
@@ -394,6 +406,18 @@ def main():
         n = {"hindi": 1500, "punjabi": 1000, "haryanvi": 500, "english": 400}.get(lang, 120)
         playlists[lang] = core(lang, n)
         print(f"core {lang}: {len(playlists[lang])} playlists, total {len(C.order)}", flush=True)
+    # Words the app's listeners searched (Community): their songs join the catalog.
+    try:
+        with open(os.path.join(os.path.dirname(STATE), "community-searches.json"), encoding="utf-8") as f:
+            wanted = json.load(f)[:300]
+    except Exception:
+        wanted = []
+    if wanted:
+        with cf.ThreadPoolExecutor(8) as ex:
+            for res in ex.map(lambda q: call("search.getResults", {"q": q, "n": "30", "p": "1"}), wanted):
+                for o in items(res, ["results"]):
+                    C.add(o, pop=2)
+        print(f"community searches: {len(wanted)} looked up, total {len(C.order)}", flush=True)
     C.save(STATE)
     deep_crawl(t0 + MINUTES * 60)
     C.save(STATE)

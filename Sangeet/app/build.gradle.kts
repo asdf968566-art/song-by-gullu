@@ -20,11 +20,16 @@ android {
         versionName = "1.0.$build"
         vectorDrawables { useSupportLibrary = true }
         buildConfigField("String", "UPDATE_REPO", "\"asdf968566-art/song-by-gullu\"")
+        // Private repo for the shared listening data (Community); empty = nothing is sent. CI picks it.
+        buildConfigField("String", "DATA_REPO", "\"${System.getenv("DATA_REPO") ?: ""}\"")
+        // Where "Report a problem" creates issues: CI picks a repo the report token can write to.
+        buildConfigField("String", "REPORT_REPO", "\"${System.getenv("REPORT_REPO")?.takeIf { it.isNotBlank() } ?: "asdf968566-art/song-by-gullu"}\"")
         buildConfigField(
             "String",
             "YOUTUBE_API_KEY",
             // Key repo mein nahi rakhi: GitHub Secret YOUTUBE_API_KEY se aati hai (ya local.properties / -P se).
-            "\"${System.getenv("YOUTUBE_API_KEY") ?: project.findProperty("sangeet.youtubeApiKey") ?: ""}\"",
+            // An empty secret (not set) must not hide the key in gradle.properties.
+            "\"${System.getenv("YOUTUBE_API_KEY")?.takeIf { it.isNotBlank() } ?: project.findProperty("sangeet.youtubeApiKey") ?: ""}\"",
         )
         // Lets "Report a problem" create a GitHub issue from inside the app. A fine-grained token with only
         // "Issues: Read and write" on this repo, stored as the GitHub secret REPORT_TOKEN (never in the repo).

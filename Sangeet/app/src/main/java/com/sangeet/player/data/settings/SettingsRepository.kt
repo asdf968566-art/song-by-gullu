@@ -65,6 +65,10 @@ data class AppSettings(
     /** Wi-Fi + charging pe liked aur Daily Mix apne aap download. */
     val smartDownloads: Boolean = true,
     val autoPlaylists: Boolean = true,
+    /** Send anonymous listening data once a day, so suggestions learn from all listeners (Community). */
+    val shareListening: Boolean = true,
+    /** Download and install new versions by itself (AutoUpdate). */
+    val autoUpdate: Boolean = true,
     val audiusEnabled: Boolean = true,
     val jiosaavnEnabled: Boolean = true,
     val youtubeEnabled: Boolean = true,
@@ -76,6 +80,8 @@ data class AppSettings(
     val githubToken: String = "",
     /** Optional Anthropic API key for the AI DJ (Claude). Empty = built-in DJ. */
     val anthropicApiKey: String = "",
+    /** Without a key, the AI DJ also asks a free online AI for song ideas (FreeAi). */
+    val freeAi: Boolean = true,
     val jamendoClientId: String = "",
     val subsonicUrl: String = "",
     val subsonicUser: String = "",
@@ -109,6 +115,8 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val headphoneResume = booleanPreferencesKey("headphone_resume")
         val smartDownloads = booleanPreferencesKey("smart_downloads")
         val autoPlaylists = booleanPreferencesKey("auto_playlists")
+        val shareListening = booleanPreferencesKey("share_listening")
+        val autoUpdate = booleanPreferencesKey("auto_update")
         val audiusEnabled = booleanPreferencesKey("audius_enabled")
         val jiosaavnEnabled = booleanPreferencesKey("jiosaavn_enabled")
         val youtubeEnabled = booleanPreferencesKey("youtube_enabled")
@@ -116,6 +124,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val languages = stringPreferencesKey("languages")
         val githubToken = stringPreferencesKey("github_token")
         val anthropicApiKey = stringPreferencesKey("anthropic_api_key")
+        val freeAi = booleanPreferencesKey("free_ai")
         val jamendoClientId = stringPreferencesKey("jamendo_client_id")
         val subsonicUrl = stringPreferencesKey("subsonic_url")
         val subsonicUser = stringPreferencesKey("subsonic_user")
@@ -147,6 +156,8 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             headphoneResume = p[Keys.headphoneResume] ?: d.headphoneResume,
             smartDownloads = p[Keys.smartDownloads] ?: d.smartDownloads,
             autoPlaylists = p[Keys.autoPlaylists] ?: d.autoPlaylists,
+            shareListening = p[Keys.shareListening] ?: d.shareListening,
+            autoUpdate = p[Keys.autoUpdate] ?: d.autoUpdate,
             audiusEnabled = p[Keys.audiusEnabled] ?: d.audiusEnabled,
             jiosaavnEnabled = p[Keys.jiosaavnEnabled] ?: d.jiosaavnEnabled,
             youtubeEnabled = p[Keys.youtubeEnabled] ?: d.youtubeEnabled,
@@ -155,6 +166,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 ?.takeIf { it.isNotEmpty() } ?: d.languages,
             githubToken = p[Keys.githubToken] ?: d.githubToken,
             anthropicApiKey = p[Keys.anthropicApiKey] ?: d.anthropicApiKey,
+            freeAi = p[Keys.freeAi] ?: d.freeAi,
             jamendoClientId = p[Keys.jamendoClientId] ?: d.jamendoClientId,
             subsonicUrl = p[Keys.subsonicUrl] ?: d.subsonicUrl,
             subsonicUser = p[Keys.subsonicUser] ?: d.subsonicUser,
@@ -184,12 +196,15 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     suspend fun setSmartDownloads(v: Boolean) = context.dataStore.edit { it[Keys.smartDownloads] = v }
     suspend fun setAutoplay(v: Boolean) = context.dataStore.edit { it[Keys.autoplay] = v }
     suspend fun setAutoPlaylists(v: Boolean) = context.dataStore.edit { it[Keys.autoPlaylists] = v }
+    suspend fun setShareListening(v: Boolean) = context.dataStore.edit { it[Keys.shareListening] = v }
+    suspend fun setAutoUpdate(v: Boolean) = context.dataStore.edit { it[Keys.autoUpdate] = v }
     suspend fun setAudiusEnabled(v: Boolean) = context.dataStore.edit { it[Keys.audiusEnabled] = v }
     suspend fun setJioSaavnEnabled(v: Boolean) = context.dataStore.edit { it[Keys.jiosaavnEnabled] = v }
     suspend fun setYouTubeEnabled(v: Boolean) = context.dataStore.edit { it[Keys.youtubeEnabled] = v }
     suspend fun setYouTubeApiKey(v: String) = context.dataStore.edit { it[Keys.youtubeApiKey] = v.trim() }
     suspend fun setLanguages(v: List<String>) = context.dataStore.edit { it[Keys.languages] = v.joinToString(",") }
     suspend fun setAnthropicApiKey(v: String) = context.dataStore.edit { it[Keys.anthropicApiKey] = v.trim() }
+    suspend fun setFreeAi(v: Boolean) = context.dataStore.edit { it[Keys.freeAi] = v }
     suspend fun setGithubToken(v: String) = context.dataStore.edit { it[Keys.githubToken] = v.trim() }
     suspend fun setJamendoClientId(v: String) = context.dataStore.edit { it[Keys.jamendoClientId] = v.trim() }
 

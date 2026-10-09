@@ -1,5 +1,7 @@
 package com.sangeet.player.ui.settings
 
+import androidx.compose.material.icons.rounded.Autorenew
+import androidx.compose.material.icons.rounded.Psychology
 import androidx.compose.material.icons.rounded.SdStorage
 import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.SyncAlt
@@ -27,6 +29,9 @@ import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.SystemUpdate
+import androidx.compose.material.icons.rounded.Insights
+import androidx.compose.material.icons.rounded.Groups
+import androidx.compose.material.icons.rounded.NewReleases
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -121,6 +126,12 @@ fun SettingsScreen(nav: NavController) {
                     if (it) runCatching { c.recommendations.syncAutoPlaylists(force = true) }
                 }
             }
+            SettingsSwitch(
+                Icons.Rounded.Groups,
+                "Help improve suggestions",
+                "Now and then, sends what you search, like, play and put in playlists, without your name, number or phone files, so suggestions learn from all listeners",
+                s.shareListening,
+            ) { scope.launch { c.settings.setShareListening(it) } }
             SettingsSwitch(Icons.Rounded.Subtitles, "Fetch lyrics automatically", "Get lyrics from LRCLIB and save them for offline", s.autoLyrics) {
                 scope.launch { c.settings.setAutoLyrics(it) }
             }
@@ -167,8 +178,8 @@ fun SettingsScreen(nav: NavController) {
             var aiKey by remember(s.anthropicApiKey) { mutableStateOf(s.anthropicApiKey) }
             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                 Text(
-                    "The AI DJ works without a key using the built-in smart parser. " +
-                        "Optionally add an Anthropic API key (console.anthropic.com) to let Claude plan your mixes. API usage is billed to your Anthropic account.",
+                    "The AI DJ works without a key: the built-in DJ, plus a free online AI when that's on. " +
+                        "Optionally add an Anthropic API key (console.anthropic.com) to let Claude (Haiku 5.5) plan your mixes. API usage is billed to your Anthropic account.",
                     style = MaterialTheme.typography.bodySmall,
                     color = Sangeet.spec.muted,
                 )
@@ -188,6 +199,12 @@ fun SettingsScreen(nav: NavController) {
                     }
                 }) { Text("Save") }
             }
+            SettingsSwitch(
+                Icons.Rounded.Psychology,
+                "Free online AI",
+                "Without a key, the DJ also asks a free online AI, ${com.sangeet.player.data.ai.FreeAi.NAME}, for songs. Only songs that really exist are played. It gets your request and the singers you play most",
+                s.freeAi,
+            ) { scope.launch { c.settings.setFreeAi(it) } }
             SettingsItem(Icons.Rounded.AutoAwesome, "Open AI DJ", "Describe a vibe, get a playlist", onClick = { nav.navigate(Routes.DJ) })
             SettingsItem(
                 Icons.Rounded.DeleteSweep,
@@ -207,6 +224,18 @@ fun SettingsScreen(nav: NavController) {
                 "Current: version ${com.sangeet.player.BuildConfig.VERSION_NAME} (build ${c.updater.currentBuild})",
                 onClick = { scope.launch { c.updater.check() } },
             )
+            SettingsSwitch(
+                Icons.Rounded.Autorenew,
+                "Update automatically",
+                "When there's internet, new versions download and install by themselves while you're not using the app",
+                s.autoUpdate,
+            ) { scope.launch { c.settings.setAutoUpdate(it) } }
+            var showLog by remember { mutableStateOf(false) }
+            SettingsItem(Icons.Rounded.NewReleases, "What's new", "What changed in each update", onClick = { showLog = true })
+            if (showLog) {
+                val log = remember { com.sangeet.player.data.WhatsNew.all(context) }
+                com.sangeet.player.ui.components.WhatsNewDialog(log) { showLog = false }
+            }
             var token by remember(s.githubToken) { mutableStateOf(s.githubToken) }
             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                 Text(
@@ -255,6 +284,9 @@ fun SettingsScreen(nav: NavController) {
 
         SettingsGroup("About") {
             SettingsItem(Icons.Rounded.Info, "Sangeet ${com.sangeet.player.BuildConfig.VERSION_NAME}", "Kotlin + Jetpack Compose + Media3 • Lyrics: LRCLIB")
+            SettingsItem(Icons.Rounded.Insights, "Owner dashboard", "Downloads, listeners and what they play (password)", onClick = {
+                nav.navigate(Routes.OWNER)
+            })
         }
         Spacer(Modifier.height(32.dp))
     }

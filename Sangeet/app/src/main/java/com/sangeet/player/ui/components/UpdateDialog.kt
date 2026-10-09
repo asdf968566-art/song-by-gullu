@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -31,10 +33,18 @@ fun UpdateDialog() {
             onDismissRequest = { updater.dismiss() },
             title = { Text("New version available 🎉") },
             text = {
-                Text(
-                    "Build ${s.update.build} (you have ${updater.currentBuild}).\n" +
-                        "Size: ${s.update.sizeBytes / 1_048_576} MB. Your data will be kept.",
-                )
+                androidx.compose.foundation.layout.Column(
+                    androidx.compose.ui.Modifier.heightIn(max = 380.dp).verticalScroll(androidx.compose.foundation.rememberScrollState()),
+                ) {
+                    Text(
+                        "Build ${s.update.build} (you have ${updater.currentBuild}).\n" +
+                            "Size: ${s.update.sizeBytes / 1_048_576} MB. Your data will be kept.",
+                    )
+                    // The release notes: what's new in this version (from whats-new.json).
+                    s.update.notes.substringAfter("What's new", "").trim().takeIf { it.isNotBlank() }?.let {
+                        Text("\nWhat's new\n$it", style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
+                    }
+                }
             },
             confirmButton = { TextButton(onClick = { scope.launch { updater.download(s.update) } }) { Text("Update") } },
             dismissButton = { TextButton(onClick = { updater.skip(s.update) }) { Text("Later") } },

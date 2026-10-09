@@ -247,3 +247,19 @@ body.np-open #toast { bottom: auto; top: calc(env(safe-area-inset-top) + 56px); 
 #car .car-like { width: 72px; height: 72px; display: grid; place-items: center; margin-top: 16px; }
 #car .car-like svg { width: 44px; height: 44px; }
 #car .car-like.on { color: var(--accent); }
+
+/* Movies */
+.movie-row { padding: 10px 16px; border-bottom: 1px solid var(--line, rgba(255,255,255,.06)); cursor: pointer; }
+.movie-row .t { font-weight: 600; font-size: 16px; }
+.movie-row .y { color: var(--muted); font-weight: 400; }
+.movie-details { padding: 4px 16px 8px; }
+.movie-details .detail { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }
+.movie-details .detail b { font-size: 13px; color: var(--muted); font-weight: 600; min-width: 74px; }
+.movie-details .chip { padding: 4px 10px; font-size: 13px; }
+
+/* What's new */
+.menu .box.whats-new { padding: 8px 0 calc(env(safe-area-inset-bottom) + 8px); }
+.whats-new h2 { margin: 12px 20px 4px; font-size: 22px; }
+.whats-new .wn-title { padding: 12px 20px 2px; font-weight: 700; }
+.whats-new ul { margin: 4px 0; padding: 0 20px 0 38px; }
+.whats-new li { margin: 6px 0; line-height: 1.35; color: var(--text); }
