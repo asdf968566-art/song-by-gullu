@@ -146,6 +146,9 @@ request the owner made, in order.
     able to would also put CMS's code at risk, because that token ships inside the public APK. So community.py
     uses the optional CI-only secret **`DATA_TOKEN`** (fine-grained, CMS only, Contents: Read and write). Until the
     owner adds it, the log says `can't read … add the secret DATA_TOKEN` and the data stays in the issues.
+  - The CI emulator never uploads (`Community.emulator()`), and only main's Web App reads and closes uploads
+    (branch runs keep a separate cache). Build 159's CI emulator had uploaded; community.py's one-time reset
+    (state `v` 2) dropped those test phones.
   - Used by the Android feed (`Recommendations.candidates`), the AI DJ, and the web suggestions/radio
     (`Community.scores`). The web app can't upload (a public site can't hold a token).
 - **Owner dashboard** (Oct 9): Android Settings → "Owner dashboard", behind the same password as Music sources

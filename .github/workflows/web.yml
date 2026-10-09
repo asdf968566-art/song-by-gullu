@@ -72,6 +72,8 @@ jobs:
           DATA_TOKEN: ${{ secrets.DATA_TOKEN }}
         run: |
           export DATA_REPO=$(python3 .github/scripts/data-repo.py)
+          # Only main reads (and closes) the uploads: a branch run keeps its state apart and would lose them.
+          if [ "${{ github.ref }}" != "refs/heads/main" ]; then DATA_REPO=""; echo "COMMUNITY: branch run, uploads left for main"; fi
           echo "COMMUNITY: data repo ${DATA_REPO:-none}" | tee community.log
           python3 .github/scripts/community.py catalog-state/community.json.gz SangeetWeb/data/community.json \
             catalog-state/community-searches.json | tee -a community.log || true
