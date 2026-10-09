@@ -125,7 +125,7 @@ request the owner made, in order.
   lines): the token belongs to the owner's **other** account, `vivekyadav200405-cpu`, and a fine-grained token can't
   create issues in another account's repo (even as a collaborator). The owner chose: send reports to a repo of
   the Vivek account. CI now picks the report repo itself (`REPORT_REPO`, BuildConfig.REPORT_REPO): this repo if
-  the token can create issues here, else the first repo of the token's own account where it can (names with
+  the token can create issues here, else `vivekyadav200405-cpu/day1` (the owner's pick), else the first repo of the token's own account where it can (names with
   sangeet/song/report first). Log line: `REPORT_TOKEN: reports go to <repo> ✅` or a warning. If no repo works, the
   owner edits the token on the Vivek account: Repository access → that repo, Issues: Read and write. Until then
   the app opens Share instead. **Reports still end up here:** the `App reports` workflow (hourly,

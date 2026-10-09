@@ -51,8 +51,12 @@ jobs:
             }
             # Reports go to this repo, or else to a repo of the token's own account (e.g. Vivek's): a fine-grained
             # token can't create issues in another account's repo, even for a collaborator.
+            # The owner picked Vivek's "day1" repo for reports (Oct 9).
+            PREFERRED=vivekyadav200405-cpu/day1
             if [ "$(can "${{ github.repository }}")" = 422 ]; then REPORT_REPO="${{ github.repository }}"
+            elif [ "$(can "$PREFERRED")" = 422 ]; then REPORT_REPO="$PREFERRED"
             else
+              echo "REPORT_TOKEN can't create issues in $PREFERRED: $(grep -o '"message": *"[^"]*"' /tmp/rt.json | head -1)"
               echo "REPORT_TOKEN can't create issues here: $(grep -o '"message": *"[^"]*"' /tmp/rt.json | head -1)"
               for R in $(curl -s -H "Authorization: Bearer $REPORT_TOKEN" "https://api.github.com/user/repos?affiliation=owner&per_page=100" \
                   | python3 -c 'import json,sys; d=json.load(sys.stdin); d=d if isinstance(d,list) else []; d.sort(key=lambda r: 0 if any(w in r["name"].lower() for w in ("sangeet","song","report")) else 1); print(" ".join(r["full_name"] for r in d if r.get("has_issues")))'); do
