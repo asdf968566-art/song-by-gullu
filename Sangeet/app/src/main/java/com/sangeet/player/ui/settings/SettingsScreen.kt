@@ -32,7 +32,6 @@ import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.SystemUpdate
-import androidx.compose.material.icons.rounded.Insights
 import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.NewReleases
 import androidx.compose.material.icons.rounded.Key
@@ -167,7 +166,7 @@ fun SettingsScreen(nav: NavController) {
             SettingsSwitch(Icons.Rounded.Wifi, "Download on Wi-Fi only", "Downloads pause on mobile data", s.downloadOnWifiOnly) {
                 scope.launch { c.settings.setDownloadOnWifiOnly(it) }
             }
-            SettingsItem(Icons.Rounded.Public, "Music sources", "JioSaavn, YouTube, Audius, Jamendo, your server • Languages", onClick = {
+            SettingsItem(Icons.Rounded.Public, "Music sources", "JioSaavn, YouTube, Audius, Jamendo, your server • Owner dashboard", onClick = {
                 nav.navigate(Routes.SOURCES)
             })
         }
@@ -318,9 +317,6 @@ fun SettingsScreen(nav: NavController) {
 
         SettingsGroup("About") {
             SettingsItem(Icons.Rounded.Info, "Sangeet ${com.sangeet.player.BuildConfig.VERSION_NAME}", "Kotlin + Jetpack Compose + Media3 • Lyrics: LRCLIB")
-            SettingsItem(Icons.Rounded.Insights, "Owner dashboard", "Downloads, listeners and what they play (password)", onClick = {
-                nav.navigate(Routes.OWNER)
-            })
         }
         Spacer(Modifier.height(32.dp))
     }

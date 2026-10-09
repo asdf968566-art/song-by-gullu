@@ -156,8 +156,8 @@ request the owner made, in order.
     (state `v` 2) dropped those test phones.
   - Used by the Android feed (`Recommendations.candidates`), the AI DJ, and the web suggestions/radio
     (`Community.scores`). The web app can't upload (a public site can't hold a token).
-- **Owner dashboard** (Oct 9): Android Settings → "Owner dashboard", behind the same password as Music sources
-  (`PasswordGate` in `SourcesLock.kt`). `ui/settings/OwnerDashboard.kt` shows:
+- **Owner dashboard** (Oct 9): Android Settings → Music sources (password) → "Owner dashboard" (moved inside Music
+  sources on the owner's ask; the screen itself is also behind `PasswordGate` in `SourcesLock.kt`, same password). `ui/settings/OwnerDashboard.kt` shows:
   - APK downloads: the count kept across builds in the `stats` release `downloads.json` (build-apk.yml adds the old
     `latest` asset's `download_count` before replacing it) plus the current build's count;
   - the "sangeet-stats" issue, read with REPORT_TOKEN.

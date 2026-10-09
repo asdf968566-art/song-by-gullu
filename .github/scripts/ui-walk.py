@@ -448,23 +448,7 @@ def main():
     step("Settings: Music sources is locked (wrong password refused)", wrong_password,
          lambda: (find("Wrong password") is not None, "wrong password refused"))
     back(2)
-    swipe_down()
-    swipe_down()
 
-    def owner_locked():
-        if not tap("Owner dashboard", scroll=12, wait=3):
-            return False
-        n = find("Password")
-        if not n:
-            return False
-        sh(f"input tap {n['x']} {n['y']}")
-        sh("input text 1111")
-        time.sleep(1)
-        tap("Unlock", wait=4)
-        return True
-    step("Settings: Owner dashboard is locked (wrong password refused)", owner_locked,
-         lambda: (find("Wrong password") is not None, "wrong password refused"))
-    back(2)
     def to_top():
         # Settings is long (song languages at the top): scroll all the way up before looking.
         for _ in range(6):

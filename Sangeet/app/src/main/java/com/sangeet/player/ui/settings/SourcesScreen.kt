@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Insights
 import androidx.compose.material.icons.rounded.Radio
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.SmartDisplay
@@ -70,6 +71,13 @@ fun SourcesScreen(nav: NavController) {
             color = spec.muted,
             modifier = Modifier.padding(horizontal = 20.dp),
         )
+
+        // The owner's numbers live here, behind the same password (owner, Oct 9: "music source wale tab ke andar").
+        SettingsGroup("Owner") {
+            SettingsItem(Icons.Rounded.Insights, "Owner dashboard", "Downloads, users, crashes and what listeners play", onClick = {
+                nav.navigate(com.sangeet.player.ui.Routes.OWNER)
+            })
+        }
 
         // Song languages are in Settings and on Home (anyone can change them, no password).
 
