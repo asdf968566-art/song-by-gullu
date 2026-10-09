@@ -66,6 +66,14 @@ jobs:
             if [ -n "$REPORT_REPO" ]; then echo "REPORT_TOKEN: reports go to $REPORT_REPO ✅"; export REPORT_REPO
             else echo "::warning::REPORT_TOKEN can't create issues in any repo. Give it Issues: Read and write on one of its account's repos (see CLAUDE.md)"; fi
             echo "REPORT_REPO=$REPORT_REPO" >> "$GITHUB_ENV"
+            # Listening data (Community) goes only to a PRIVATE repo of the token's account.
+            D=vivekyadav200405-cpu/sangeet-data
+            if curl -s -H "Authorization: Bearer $REPORT_TOKEN" "https://api.github.com/repos/$D" | grep -q '"private": *true' && [ "$(can "$D")" = 422 ]; then
+              export DATA_REPO=$D; echo "DATA_REPO: listening data goes to $D (private) ✅"
+            else
+              echo "::warning::DATA_REPO: no private repo $D the token can write to, so the app won't send listening data"
+            fi
+            echo "DATA_REPO=$DATA_REPO" >> "$GITHUB_ENV"
           fi
           chmod +x gradlew
           ./gradlew --no-daemon assembleRelease

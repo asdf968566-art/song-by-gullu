@@ -406,6 +406,18 @@ def main():
         n = {"hindi": 1500, "punjabi": 1000, "haryanvi": 500, "english": 400}.get(lang, 120)
         playlists[lang] = core(lang, n)
         print(f"core {lang}: {len(playlists[lang])} playlists, total {len(C.order)}", flush=True)
+    # Words the app's listeners searched (Community): their songs join the catalog.
+    try:
+        with open(os.path.join(os.path.dirname(STATE), "community-searches.json"), encoding="utf-8") as f:
+            wanted = json.load(f)[:300]
+    except Exception:
+        wanted = []
+    if wanted:
+        with cf.ThreadPoolExecutor(8) as ex:
+            for res in ex.map(lambda q: call("search.getResults", {"q": q, "n": "30", "p": "1"}), wanted):
+                for o in items(res, ["results"]):
+                    C.add(o, pop=2)
+        print(f"community searches: {len(wanted)} looked up, total {len(C.order)}", flush=True)
     C.save(STATE)
     deep_crawl(t0 + MINUTES * 60)
     C.save(STATE)

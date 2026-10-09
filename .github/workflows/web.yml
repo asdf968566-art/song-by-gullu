@@ -5,7 +5,7 @@ name: Web App
 on:
   push:
     branches: ["main", "claude/**"]
-    paths: ["SangeetWeb/**", ".github/workflows/web.yml", ".github/scripts/build-web-catalog.py", ".github/scripts/yt-servers.py", ".github/scripts/build-movies.py", "Sangeet/app/src/main/assets/whats-new.json"]
+    paths: ["SangeetWeb/**", ".github/workflows/web.yml", ".github/scripts/build-web-catalog.py", ".github/scripts/yt-servers.py", ".github/scripts/build-movies.py", ".github/scripts/community.py", "Sangeet/app/src/main/assets/whats-new.json"]
   schedule:
     # Three crawls a day (2.5 h each) so the catalog grows faster and fewer songs need YouTube.
     - cron: "17 21 * * *"
@@ -64,6 +64,15 @@ jobs:
           fi
           if [ -s "$M" ]; then cp "$M" SangeetWeb/data/movies.json; else echo '[]' > SangeetWeb/data/movies.json; fi
           grep "MOVIES" movies.log >> summary.txt || true
+      # Listening data from the apps (Community): what listeners share, for everyone's suggestions.
+      - name: Community listening data
+        env:
+          REPORT_TOKEN: ${{ secrets.REPORT_TOKEN }}
+        run: |
+          python3 .github/scripts/community.py catalog-state/community.json.gz SangeetWeb/data/community.json \
+            catalog-state/community-searches.json | tee community.log || true
+          [ -s SangeetWeb/data/community.json ] || echo '{"tracks":[],"together":{},"top":[]}' > SangeetWeb/data/community.json
+          grep -E "COMMUNITY" community.log >> summary.txt || true
       - uses: actions/cache/save@v4
         if: always()
         with:

@@ -125,6 +125,15 @@ request the owner made, in order.
   (Search → 🎬 Movies, Library → Movies); Android: `ui/library/MoviesScreen.kt` (`MovieList`, `MoviesScreen`,
   `MovieScreen`, routes `movies?q=` and `movie?title=&year=&album=`), songs via `OnlineRepository.movieSongs`.
   Tap a name (music director, actor…) to see their other films.
+- **Community** (Oct 9, owner's ask: everyone's data for better feed/catalog/DJ): Android `data/community/Community.kt`
+  uploads once a day after 2 a.m. (WorkManager, setting `shareListening`, default on, Settings → "Help improve
+  suggestions") a random-id snapshot: searches, likes, plays, own playlists (JioSaavn/YouTube only, never phone files)
+  as a deflated base64 issue "sangeet-data <day>" in `DATA_REPO` = `vivekyadav200405-cpu/sangeet-data`, which must be
+  PRIVATE (CI checks; no private repo = nothing is sent). web.yml runs `.github/scripts/community.py`: reads + closes
+  those issues, keeps 60 days of state in catalog-state, publishes `data/community.json` (+ catalog release) with only
+  what ≥2 listeners share (songs played together, top songs, shared searches) and feeds all searches to the next
+  crawl. Used by Android feed (`Recommendations.candidates`), AI DJ, and web suggestions/radio (`Community.scores`).
+  The web app can't upload (a public site can't hold a token).
 - Other platforms checked Oct 9 from CI: Gaana's old open API is gone (404); Wynk, Hungama, Spotify have no open
   streams. JioSaavn + YouTube stay the sources.
 - In-app "Report a problem" got 403 from GitHub. Cause (found Oct 9 from CI: `REPORT_TOKEN fingerprint/account`

@@ -65,6 +65,8 @@ data class AppSettings(
     /** Wi-Fi + charging pe liked aur Daily Mix apne aap download. */
     val smartDownloads: Boolean = true,
     val autoPlaylists: Boolean = true,
+    /** Send anonymous listening data once a day, so suggestions learn from all listeners (Community). */
+    val shareListening: Boolean = true,
     val audiusEnabled: Boolean = true,
     val jiosaavnEnabled: Boolean = true,
     val youtubeEnabled: Boolean = true,
@@ -109,6 +111,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val headphoneResume = booleanPreferencesKey("headphone_resume")
         val smartDownloads = booleanPreferencesKey("smart_downloads")
         val autoPlaylists = booleanPreferencesKey("auto_playlists")
+        val shareListening = booleanPreferencesKey("share_listening")
         val audiusEnabled = booleanPreferencesKey("audius_enabled")
         val jiosaavnEnabled = booleanPreferencesKey("jiosaavn_enabled")
         val youtubeEnabled = booleanPreferencesKey("youtube_enabled")
@@ -147,6 +150,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             headphoneResume = p[Keys.headphoneResume] ?: d.headphoneResume,
             smartDownloads = p[Keys.smartDownloads] ?: d.smartDownloads,
             autoPlaylists = p[Keys.autoPlaylists] ?: d.autoPlaylists,
+            shareListening = p[Keys.shareListening] ?: d.shareListening,
             audiusEnabled = p[Keys.audiusEnabled] ?: d.audiusEnabled,
             jiosaavnEnabled = p[Keys.jiosaavnEnabled] ?: d.jiosaavnEnabled,
             youtubeEnabled = p[Keys.youtubeEnabled] ?: d.youtubeEnabled,
@@ -184,6 +188,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     suspend fun setSmartDownloads(v: Boolean) = context.dataStore.edit { it[Keys.smartDownloads] = v }
     suspend fun setAutoplay(v: Boolean) = context.dataStore.edit { it[Keys.autoplay] = v }
     suspend fun setAutoPlaylists(v: Boolean) = context.dataStore.edit { it[Keys.autoPlaylists] = v }
+    suspend fun setShareListening(v: Boolean) = context.dataStore.edit { it[Keys.shareListening] = v }
     suspend fun setAudiusEnabled(v: Boolean) = context.dataStore.edit { it[Keys.audiusEnabled] = v }
     suspend fun setJioSaavnEnabled(v: Boolean) = context.dataStore.edit { it[Keys.jiosaavnEnabled] = v }
     suspend fun setYouTubeEnabled(v: Boolean) = context.dataStore.edit { it[Keys.youtubeEnabled] = v }

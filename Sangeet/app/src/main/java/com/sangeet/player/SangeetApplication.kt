@@ -86,6 +86,12 @@ class AppContainer(private val app: Application) {
                 runCatching { com.sangeet.player.ui.widget.SangeetWidget.update(app, player.state.value) }
             }
         }
+        // Listening data for everyone's suggestions: once a day after 2 a.m. (Settings can turn it off).
+        scope.launch {
+            settings.settings.map { it.shareListening }.distinctUntilChanged().collect {
+                runCatching { com.sangeet.player.data.community.Community.schedule(app, it) }
+            }
+        }
         // Smart downloads on/off ke hisaab se roz ka kaam lagao / hatao
         scope.launch {
             settings.settings.map { it.smartDownloads }.distinctUntilChanged().collect {

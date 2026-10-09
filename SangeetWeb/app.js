@@ -421,6 +421,8 @@ function suggestions(count = 25, exclude = new Set()) {
   const addA = (t, w) => splitArtists(t.artist).forEach((a) => artists.set(norm(a), (artists.get(norm(a)) || 0) + w));
   for (const r of Object.values(S.history)) addA(r.t, r.c * (0.5 + 1 / (1 + (Date.now() - r.last) / 864e5 / 7)));
   S.liked.forEach((t) => addA(t, 3));
+  // Other Sangeet listeners: songs they play with yours, and what most of them play (Community).
+  const comm = Community.scores([...S.liked.slice(0, 25), ...recent().slice(0, 40)].map((x) => x.id));
   // Songs that share playlists with what you play and like ("people who like this also like").
   const plScore = new Map();
   for (const s of [...S.liked.slice(0, 25), ...recent().slice(0, 40)]) {
@@ -438,7 +440,7 @@ function suggestions(count = 25, exclude = new Set()) {
       p += plScore.get(pi) || 0;
       if (Catalog.playlists[pi].chart) chart = 0.8;
     }
-    scored.push([t, Math.log1p(a) + Math.log1p(p) * 0.8 + chart + (a > 0 && t.year >= since ? 1.5 : 0) + Math.random() * 2.5]);
+    scored.push([t, Math.log1p(a) + Math.log1p(p) * 0.8 + chart + (a > 0 && t.year >= since ? 1.5 : 0) + Math.log1p(comm.get(t.id) || 0) * 1.5 + Math.random() * 2.5]);
   }
   scored.sort((x, y) => y[1] - x[1]);
   const top = scored.slice(0, count * 4).map((x) => x[0]);
@@ -454,6 +456,7 @@ function suggestions(count = 25, exclude = new Set()) {
 /** Songs like this one (Spotify-style radio): same playlists, same singers, same language and era, popular ones first.
  * Used after a song picked in search, so "Khuda Jaane" is followed by similar songs, not by more songs named "Khuda…". */
 function radio(seed, count = 25, exclude = new Set()) {
+  const near = Community.scores([seed.id]);
   const singers = new Set(splitArtists(seed.artist).map(norm));
   const pls = new Set(Catalog.trackPl.get(seed.id) || []);
   const lang = seed.lang || Catalog.byId.get(seed.id)?.lang || '';
@@ -474,6 +477,7 @@ function radio(seed, count = 25, exclude = new Set()) {
     if (lang && t.lang === lang) s += 1.5;
     if (seed.year && t.year) s += Math.max(0, 1 - Math.abs(seed.year - t.year) / 8);
     s += (Catalog.rank.get(t.id) || 0) * 2;
+    s += (near.get(t.id) || 0) * 1.5; // listeners who play the seed also play this
     if (seenSet.has(t.id)) s -= 1;
     scored.push([t, s + Math.random() * 1.5]);
   }
@@ -2104,6 +2108,29 @@ function settingsPage() {
     h('div', { class: 'note' }, `Version ${window.SANGEET_BUILD}`));
 }
 
+/* ------------------------------------------------------------------ Community: what the app's listeners share */
+// data/community.json (built by CI from the Android app's daily anonymous uploads; only what 2+ listeners share).
+const Community = {
+  data: null, ids: [], idx: new Map(),
+  async load() {
+    if (this.data) return;
+    const d = await Deep.get(`data/community.json${Deep.v()}`);
+    this.data = d && d.tracks ? d : { tracks: [], together: {}, top: [] };
+    this.ids = this.data.tracks.map((t) => (t[0] === 'YOUTUBE' ? 'yt:' : 'js:') + t[1]);
+    this.idx = new Map(this.ids.map((id, i) => [id, i]));
+  },
+  /** Song id -> how much listeners like you play it (songs played with [mine]), plus what most listeners play. */
+  scores(mine) {
+    const out = new Map();
+    if (!this.data) return out;
+    for (const m of mine) {
+      (this.data.together[this.idx.get(m)] || []).forEach((j, r) => out.set(this.ids[j], (out.get(this.ids[j]) || 0) + 1 / (1 + r * 0.2)));
+    }
+    if (mine.length > 1) this.data.top.forEach((j, r) => out.set(this.ids[j], (out.get(this.ids[j]) || 0) + 0.5 / (1 + r * 0.05)));
+    return out;
+  },
+};
+
 /* ------------------------------------------------------------------ What's new (the update log, same file as Android) */
 const WhatsNew = {
   KEY: 'sangeet-whatsnew',
@@ -2599,5 +2626,6 @@ applyLook();
   Blend.fromHash();
   window.addEventListener('hashchange', () => { Sync.importFromHash(); Blend.fromHash(); });
   setTimeout(() => WhatsNew.check(), 1500);
+  Community.load().catch(() => {});
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();

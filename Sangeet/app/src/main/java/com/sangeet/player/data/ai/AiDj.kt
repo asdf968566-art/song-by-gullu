@@ -92,6 +92,11 @@ class AiDj(
         var tracks = (moodSongs?.await().orEmpty() + merged.filterNot(noisy)).distinctBy { it.id }
             .filter { it.inLanguages(plan.languages) || plan.languages.isEmpty() }
 
+        // What other Sangeet listeners play with these songs.
+        com.sangeet.player.data.community.Community.cached()?.let { shared ->
+            val near = shared.near(tracks.take(20).map { it.id }).filter { it.inLanguages(plan.languages) || plan.languages.isEmpty() }
+            tracks = (tracks + near.take(15)).distinctBy { it.id }
+        }
         // Grow the list with YouTube Music radio (and a little JioSaavn) for a longer, varied mix.
         if (tracks.size < 50) {
             val yt = tracks.filter { it.source == SourceType.YOUTUBE }.take(3)

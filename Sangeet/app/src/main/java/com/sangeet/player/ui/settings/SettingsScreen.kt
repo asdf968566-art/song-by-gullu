@@ -27,6 +27,7 @@ import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.SystemUpdate
+import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.NewReleases
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.foundation.layout.padding
@@ -122,6 +123,12 @@ fun SettingsScreen(nav: NavController) {
                     if (it) runCatching { c.recommendations.syncAutoPlaylists(force = true) }
                 }
             }
+            SettingsSwitch(
+                Icons.Rounded.Groups,
+                "Help improve suggestions",
+                "Once a day, sends what you search, like, play and put in playlists, without your name, number or phone files, so suggestions learn from all listeners",
+                s.shareListening,
+            ) { scope.launch { c.settings.setShareListening(it) } }
             SettingsSwitch(Icons.Rounded.Subtitles, "Fetch lyrics automatically", "Get lyrics from LRCLIB and save them for offline", s.autoLyrics) {
                 scope.launch { c.settings.setAutoLyrics(it) }
             }

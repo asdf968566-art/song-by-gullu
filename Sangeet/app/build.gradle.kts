@@ -20,6 +20,8 @@ android {
         versionName = "1.0.$build"
         vectorDrawables { useSupportLibrary = true }
         buildConfigField("String", "UPDATE_REPO", "\"asdf968566-art/song-by-gullu\"")
+        // Private repo for the shared listening data (Community); empty = nothing is sent. CI picks it.
+        buildConfigField("String", "DATA_REPO", "\"${System.getenv("DATA_REPO") ?: ""}\"")
         // Where "Report a problem" creates issues: CI picks a repo the report token can write to.
         buildConfigField("String", "REPORT_REPO", "\"${System.getenv("REPORT_REPO")?.takeIf { it.isNotBlank() } ?: "asdf968566-art/song-by-gullu"}\"")
         buildConfigField(
