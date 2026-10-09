@@ -1,0 +1,23 @@
+name: App reports
+# "Report a problem" issues are created in a repo of the report token's own account (the owner's other account);
+# this copies them here every hour so all reports are in this repo.
+on:
+  schedule:
+    - cron: "23 * * * *"
+  workflow_dispatch:
+  push:
+    branches: ["claude/**"]
+    paths: [".github/workflows/reports.yml", ".github/scripts/sync-reports.py"]
+permissions:
+  contents: read
+  issues: write
+jobs:
+  copy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 .github/scripts/sync-reports.py
+        env:
+          REPORT_TOKEN: ${{ secrets.REPORT_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}

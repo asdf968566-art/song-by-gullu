@@ -128,7 +128,9 @@ request the owner made, in order.
   the token can create issues here, else the first repo of the token's own account where it can (names with
   sangeet/song/report first). Log line: `REPORT_TOKEN: reports go to <repo> ✅` or a warning. If no repo works, the
   owner edits the token on the Vivek account: Repository access → that repo, Issues: Read and write. Until then
-  the app opens Share instead.
+  the app opens Share instead. **Reports still end up here:** the `App reports` workflow (hourly,
+  `.github/scripts/sync-reports.py`) copies open app reports (body has "**What happened:**") from the token's
+  account into this repo (label "app report") and closes the original with a link. Read them here.
 
 ## 5. Problems hit and how they were solved (why the code looks like it does)
 
