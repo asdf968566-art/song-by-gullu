@@ -294,15 +294,19 @@ GitHub artifact/blob downloads and dl.google.com (no local Android SDK — build
 the GitHub MCP `get_job_logs` tool; test the web app locally with Playwright (Chromium is preinstalled) by serving
 `SangeetWeb/` plus a copy of gh-pages `data/` and stubbing network routes.
 
-## 6. Status (2026-10-09)
+## 6. Status (2026-10-09 ~19:45 UTC)
 
-- `main` has everything up to PR #27 (build 134 was the last APK published).
-- The branch `claude/eloquent-maxwell-45qmfu` has everything listed in section 4 for Oct 8–9: moods, Pahadi,
-  movies, What's new, Community, chat AI DJ, report repo, owner dashboard, auto update, free AI and the CMS data
-  folder. It goes to main as PR #28 once Build APK + Web App are green, then the owner gets the APK link.
-- The owner may still need to:
-  - add the secret `DATA_TOKEN` (for the CMS folder);
-  - allow "Install unknown apps" for Sangeet once (for silent updates).
+- `main` has everything up to PR #30. Latest APK = **build 174** (emulator test passed). The site is live with the
+  same features.
+- Secrets the owner set on Oct 9:
+  - `GEMINI_API_KEY` (new AI Studio key; the first one was pasted in chat and then deleted by the owner).
+  - A new `REPORT_TOKEN`: fine-grained, Vivek account, all repos, Issues + Contents read/write, no expiry,
+    fingerprint `0688289aaba3`. The old token `2d02dbac326d` was deleted, so builds ≤ 162 can't send reports or
+    uploads until they auto-update.
+- Community files: CMS had no safe existing folder, so `pick_folder` put the `sangeet-*.json` files at the CMS
+  repo's top level (no new folder made). Listener counts started from 0 after the one-time reset.
+- The live site can't be fetched from the session sandbox (github.io is blocked). Check it in CI logs or ask the
+  owner.
 - The token inside the APK (REPORT_TOKEN, account vivekyadav200405-cpu) can create issues in all that account's
   repos. Advised the owner to limit it to day1 + CMS, Issues only; the owner said "koi baat nhi" (keeps it as is,
   like the YouTube key). Don't raise it again.
