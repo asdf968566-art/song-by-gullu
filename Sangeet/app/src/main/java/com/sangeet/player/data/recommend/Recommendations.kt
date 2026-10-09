@@ -321,10 +321,12 @@ class RecommendationRepository(
         val seedArtist = seed?.artist?.let(::norm)
         val topLangs = p.languages.take(2).toSet()
         val disliked = dislikedIds()
-        val langs = settings.current.languages
+        // Strict bhasha: Hindi chuna hai to sirf Hindi (phone ke gaane chhod ke). A radio also keeps its song's own
+        // language: a searched Pahadi or Tamil song is followed by more like it, chosen or not.
+        val seedLang = seed?.let { it.language.ifBlank { com.sangeet.player.data.remote.LanguageGuess.guess(it.title, it.artist) } }.orEmpty()
+        val langs = (settings.current.languages + listOfNotNull(seedLang.takeIf { it.isNotBlank() })).distinct()
         return list
             .filter { it.track.id !in exclude && it.track.id != seed?.id && it.track.id !in disliked }
-            // Strict bhasha: Hindi chuna hai to sirf Hindi (phone ke gaane chhod ke)
             .filter { it.track.inLanguages(langs) }
             .map { s ->
                 val a = norm(s.track.artist)

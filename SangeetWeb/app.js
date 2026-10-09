@@ -525,7 +525,7 @@ const Tube = {
       const meta = await (await fetch(`https://www.googleapis.com/youtube/v3/playlists?part=snippet&id=${encodeURIComponent(id)}&key=${S.ytKey}`)).json();
       const tracks = [];
       let token = '';
-      for (let page = 0; page < 10; page++) {
+      for (let page = 0; page < 40; page++) { // up to 2000 songs, 1 quota unit per 50
         const u = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${encodeURIComponent(id)}&key=${S.ytKey}${token ? '&pageToken=' + token : ''}`;
         const d = await (await fetch(u)).json();
         if (d.error) return tracks.length ? { title: meta.items?.[0]?.snippet?.title, tracks } : null;
