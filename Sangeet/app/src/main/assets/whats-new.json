@@ -1,99 +1,87 @@
 [
   {
     "date": "2026-10-09",
-    "title": "Sync, alarm, new-song alerts, updates by itself, Movies and more",
+    "title": "Sync, alarm, movies and a smarter AI DJ",
     "items": [
       {
         "on": "both",
-        "text": "🔄 Sync with another phone: your liked songs and playlists stay the same on your Android and iPhone (Settings → Sync with another phone)."
+        "type": "new",
+        "text": "Sync with another phone: your liked songs and playlists stay the same on Android and iPhone (Settings → Sync with another phone)."
       },
       {
         "on": "android",
-        "text": "⏰ Alarm: wake up to your liked songs, a playlist or a For You mix (Settings → Alarm)."
+        "type": "new",
+        "text": "Alarm: wake up to your liked songs, a playlist or a For You mix (Settings → Alarm)."
       },
       {
         "on": "android",
-        "text": "🆕 New song alerts: a notification when a singer you play most has a new song."
-      },
-      {
-        "on": "both",
-        "text": "🔤 Search in Hindi or Punjabi letters too (\"तुम ही हो\", \"ਜੱਟ\"), also with the mic."
-      },
-      {
-        "on": "both",
-        "text": "🔗 Share a song as a link: it opens in Sangeet, on the website on iPhone and in the app on Android."
-      },
-      {
-        "on": "both",
-        "text": "🤖 The AI DJ can use Google Gemini: add a free key in Settings."
+        "type": "new",
+        "text": "New song alerts: a notification when a singer you listen to releases a new song."
       },
       {
         "on": "android",
-        "text": "🔄 Updates by itself: when there's internet, a new version downloads and installs on its own while you're not using the app. Turn it off in Settings → App update."
+        "type": "new",
+        "text": "Automatic updates: new versions download and install on their own while you aren't using the app."
       },
       {
         "on": "both",
-        "text": "🤖 The AI DJ also asks a free online AI (GLM, DeepSeek) for songs. Only songs that really exist are played (Settings → Free online AI)."
+        "type": "new",
+        "text": "Movies: browse Indian films by language and decade, with music director and cast. Search a film's name to play its whole album in order."
       },
       {
         "on": "both",
-        "text": "🎬 Movies: every Indian film with its release year, music director, producers, director and cast. Filter by language and decade, or search any name (\"Pritam\", \"Yash Raj Films\", \"Shah Rukh Khan\")."
+        "type": "new",
+        "text": "AI DJ: talk to it like a person (\"sad Punjabi songs\", then \"only Arijit\" or \"no remix\"). Now powered by Google Gemini, and it plays only songs that really exist."
       },
       {
         "on": "both",
-        "text": "Search a movie's name to get its album: all its songs, playing one after another."
+        "type": "new",
+        "text": "Search in Hindi or Punjabi script, by typing or by voice."
       },
       {
         "on": "both",
-        "text": "Moods (Happy, Sad, Party…), Home rows and festivals now come from playlists made for them, not from songs that only have the word in their name or singer."
+        "type": "new",
+        "text": "Share a song as a link that opens straight in Sangeet."
       },
       {
         "on": "both",
-        "text": "🏔️ Pahadi: Garhwali, Kumaoni, Jaunsari and Himachali songs in a new category."
-      },
-      {
-        "on": "both",
-        "text": "🤖 AI DJ talks like a person now: say \"sad Punjabi songs\", then \"no remix\", \"only Arijit\", \"more\" or \"make it happy\" and it changes the mix. It also gets \"Kesariya jaise gaane\" and a film's name (\"Aashiqui 2 ke gaane\")."
+        "type": "new",
+        "text": "Pahadi songs: Garhwali, Kumaoni and Himachali music in a new category."
       },
       {
         "on": "android",
-        "text": "With your own Anthropic API key (Settings), the AI DJ uses Claude Haiku 5.5: fast and low-cost."
-      },
-      {
-        "on": "android",
-        "text": "🤝 Help improve suggestions: now and then, when there's internet, the app shares what you search, like, play and keep in playlists, with no name, number or phone files, so For You, radio and the AI DJ learn from all Sangeet listeners. Turn it off in Settings."
+        "type": "new",
+        "text": "For You, radio and the AI DJ now learn from what all Sangeet listeners play. Sharing is anonymous and can be turned off in Settings → Help improve suggestions."
       },
       {
         "on": "iphone",
-        "text": "🤝 For You and radio also learn from what other Sangeet listeners play."
-      },
-      {
-        "on": "android",
-        "text": "Pahadi is now a song language in Settings → Song languages."
-      },
-      {
-        "on": "android",
-        "text": "YouTube songs play more reliably (updated YouTube player)."
+        "type": "new",
+        "text": "For You and radio now learn from what other Sangeet listeners play."
       },
       {
         "on": "both",
-        "text": "YouTube and YouTube Music playlists import again, up to 2000 songs."
-      },
-      {
-        "on": "android",
-        "text": "After a song you searched, similar songs in that song's language follow."
-      },
-      {
-        "on": "android",
-        "text": "Report a problem sends your report again."
+        "type": "fix",
+        "text": "Moods (Happy, Sad, Party and more) now play songs that truly fit the mood, not songs that only have the word in their name."
       },
       {
         "on": "both",
-        "text": "What's new: this list, after every update and in Settings."
+        "type": "fix",
+        "text": "Importing YouTube and YouTube Music playlists works again."
       },
       {
         "on": "android",
-        "text": "Fix: the CI test phone is no longer counted as a listener."
+        "type": "fix",
+        "text": "YouTube songs play more reliably."
+      },
+      {
+        "on": "android",
+        "type": "fix",
+        "text": "Songs you search for now play whatever their language, followed by similar songs."
+      },
+      {
+        "on": "android",
+        "type": "fix",
+        "text": "Report a problem sends reports again."
       }
     ]
   },
@@ -103,39 +91,48 @@
     "items": [
       {
         "on": "both",
-        "text": "🎁 Wrapped: your year in music as a card to share (Library → Your Stats)."
+        "type": "new",
+        "text": "Wrapped: your year in music as a card to share (Library → Your Stats)."
       },
       {
         "on": "both",
-        "text": "🤝 Blend with a friend: one playlist from both your tastes."
+        "type": "new",
+        "text": "Blend: one playlist made from your taste and a friend's."
       },
       {
         "on": "both",
-        "text": "Share a line from the lyrics as a picture (long-press a lyrics line)."
+        "type": "new",
+        "text": "Share a line from the lyrics as a picture (press and hold a lyrics line)."
       },
       {
         "on": "both",
-        "text": "🚗 Car mode: big buttons in Now Playing."
+        "type": "new",
+        "text": "Car mode: big buttons in Now Playing."
       },
       {
         "on": "both",
-        "text": "🆕 New from your singers on Home."
+        "type": "new",
+        "text": "New from your singers on Home."
       },
       {
         "on": "both",
-        "text": "More songs: the song list now grows three times a day (over 12 lakh songs)."
+        "type": "new",
+        "text": "More songs: the catalogue now grows three times a day (over 12 lakh songs)."
       },
       {
         "on": "iphone",
-        "text": "YouTube in background (experimental, Settings)."
+        "type": "new",
+        "text": "Download songs to play without internet, and save them to Files."
       },
       {
         "on": "iphone",
-        "text": "Download songs to play without internet, and Save to Files."
-      },
-      {
-        "on": "iphone",
+        "type": "new",
         "text": "Liquid Glass look (Settings → Look)."
+      },
+      {
+        "on": "iphone",
+        "type": "new",
+        "text": "YouTube in the background (experimental, Settings)."
       }
     ]
   },
@@ -145,31 +142,38 @@
     "items": [
       {
         "on": "both",
-        "text": "🎤 Voice search, and search by a line from the lyrics."
+        "type": "new",
+        "text": "Voice search, and search by a line from the lyrics."
       },
       {
         "on": "both",
+        "type": "new",
         "text": "Recent searches in the search bar."
       },
       {
-        "on": "android",
-        "text": "Liquid Glass theme, now also in light mode; the time and battery at the top follow the theme."
-      },
-      {
-        "on": "android",
-        "text": "Tap a tab to go back to its start; song languages are in Settings and on Home."
+        "on": "both",
+        "type": "new",
+        "text": "A song you pick from search is followed by similar songs."
       },
       {
         "on": "both",
-        "text": "A song you pick from search is followed by songs like it."
+        "type": "new",
+        "text": "Haryanvi Badmashi category."
       },
       {
-        "on": "both",
-        "text": "😎 Haryanvi Badmashi category."
+        "on": "android",
+        "type": "new",
+        "text": "Liquid Glass theme, in light and dark."
       },
       {
         "on": "iphone",
+        "type": "new",
         "text": "Search by singer's name; lock screen and Dynamic Island controls."
+      },
+      {
+        "on": "android",
+        "type": "fix",
+        "text": "The clock and battery icons at the top now stay readable in every theme."
       }
     ]
   }

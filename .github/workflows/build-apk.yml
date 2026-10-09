@@ -146,9 +146,12 @@ jobs:
           print("Version 1.0.${{ github.run_number }} (build ${{ github.run_number }}) — commit ${{ github.sha }}"[:80])
           print("Sangeet.apk download karke install karo, ya app mein Settings → App update. Sangeet.aab is for the Google Play Console.")
           print(f"\nWhat's new\n{e['title']} ({e['date']})")
-          for it in e["items"]:
-              if it.get("on") != "iphone":
-                  print(f"• {it['text']}")
+          for kind, heading in (("new", "New"), ("fix", "Fixed")):
+              items = [it for it in e["items"] if it.get("on") != "iphone" and it.get("type", "new") == kind]
+              if items:
+                  print(f"\n{heading}")
+                  for it in items:
+                      print(f"• {it['text']}")
           PY
           gh release create latest Sangeet.apk Sangeet.aab \
             --title "Sangeet build ${{ github.run_number }}" \

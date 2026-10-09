@@ -2468,7 +2468,10 @@ const WhatsNew = {
         h('h2', null, "What's new"),
         entries.map((e) => h('div', null,
           h('div', { class: 'wn-title' }, [e.title, e.date].filter(Boolean).join(' · ')),
-          h('ul', null, e.items.map((i) => h('li', null, i.text))))),
+          [['new', 'New'], ['fix', 'Fixed']].map(([type, heading]) => {
+            const items = e.items.filter((i) => (i.type || 'new') === type);
+            return items.length ? h('div', null, h('div', { class: 'wn-kind' }, heading), h('ul', null, items.map((i) => h('li', null, i.text)))) : '';
+          }))),
         h('button', { class: 'pill primary', style: 'margin:12px 20px', onclick: close }, 'OK')));
     document.body.append(box);
   },

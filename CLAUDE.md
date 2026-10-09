@@ -18,7 +18,9 @@ request the owner made, in order.
 - Owner wants: simple UI, no hints/clutter, lakhs of songs, no song repeating on its own, Hindi/Punjabi/Haryanvi first.
 - **Every update needs a "What's new" entry** (owner asked, Oct 9): add it at the TOP of
   `Sangeet/app/src/main/assets/whats-new.json` before merging (`date`, short `title`, `items` with `on`:
-  both / android / iphone, plain English for users). Android shows new entries once after an update and in
+  both / android / iphone and `type`: `new` (feature) or `fix` (bug fixed)). Owner's rule: proper English, only the
+  main new features and real bug fixes, nothing minor, no emoji. The apps and the release notes show "New" and
+  "Fixed" separately. Android shows new entries once after an update and in
   Settings → What's new, and the update dialog / GitHub release notes use the newest entry; the web app gets the same
   file (web.yml copies it) and shows it once after an update and in Settings. Several updates on one day: add items
   to that day's entry.
