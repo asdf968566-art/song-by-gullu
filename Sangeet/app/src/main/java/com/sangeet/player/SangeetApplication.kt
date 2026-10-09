@@ -80,6 +80,13 @@ class AppContainer(private val app: Application) {
     }
 
     init {
+        // The AI DJ uses the app's radio, For You and the listener's taste.
+        aiDj.radio = { seed -> recommendations.radio(seed, setOf(seed.id), 40) }
+        aiDj.forYou = { recommendations.suggestions(limit = 40).map { it.track } }
+        aiDj.taste = {
+            val top = database.listenDao().topArtists(0L, 8).map { it.artist.substringBefore(",").trim() }.filter { it.isNotBlank() }.distinct()
+            if (top.isEmpty()) "" else "The listener plays these singers most: ${top.joinToString(", ")}."
+        }
         // Home screen widget ko player ke saath update rakho
         scope.launch {
             player.state.map { Triple(it.current?.id, it.isPlaying, it.current?.artworkUrl) }.distinctUntilChanged().collect {

@@ -1945,16 +1945,16 @@ function importPage() {
 
 /* ------------------------------------------------------------------ AI DJ: "sad punjabi songs for a night drive" */
 const MOODS = [
-  [['sad', 'dukh', 'udaas', 'breakup', 'heartbreak', 'dard', 'emotional'], ['sad', 'heartbreak', 'broken', 'dard', 'emotional', 'judaai']],
+  [['sad', 'dukh', 'dukhi', 'udaas', 'udas', 'rona', 'tanhai', 'bewafa', 'breakup', 'heartbreak', 'dard', 'emotional'], ['sad', 'heartbreak', 'broken', 'dard', 'emotional', 'judaai']],
   // Third list: close moods, used when few playlists are named after the mood itself.
-  [['happy', 'khush', 'cheerful', 'good mood'], ['happy', 'feel good', 'good vibes', 'cheerful'], ['party', 'dance', 'celebration', 'wedding', 'bhangra']],
-  [['party', 'dance', 'club', 'naach', 'dj'], ['party', 'dance', 'club', 'dj', 'bhangra']],
-  [['romantic', 'love', 'pyaar', 'ishq', 'date'], ['romantic', 'love', 'romance', 'ishq', 'pyaar']],
-  [['chill', 'lofi', 'relax', 'calm', 'sukoon', 'study'], ['lofi', 'chill', 'relax', 'calm', 'acoustic', 'unplugged']],
-  [['sleep', 'neend', 'night', 'raat'], ['night', 'sleep', 'soft', 'calm'], ['lofi', 'chill', 'acoustic', 'unplugged']],
-  [['gym', 'workout', 'running', 'exercise'], ['workout', 'gym', 'power', 'motivation']],
-  [['bhakti', 'bhajan', 'devotional', 'god', 'mandir', 'aarti'], ['bhakti', 'devotional', 'bhajan', 'aarti', 'spiritual']],
-  [['drive', 'road trip', 'travel', 'safar'], ['drive', 'road', 'travel', 'trip']],
+  [['happy', 'khush', 'khushi', 'mast', 'masti', 'cheerful', 'good mood', 'upbeat'], ['happy', 'feel good', 'good vibes', 'cheerful'], ['party', 'dance', 'celebration', 'wedding', 'bhangra']],
+  [['party', 'dance', 'club', 'naach', 'dj', 'dhamaal', 'bhangra', 'birthday'], ['party', 'dance', 'club', 'dj', 'bhangra']],
+  [['romantic', 'love', 'pyaar', 'pyar', 'ishq', 'mohabbat', 'crush', 'date'], ['romantic', 'love', 'romance', 'ishq', 'pyaar']],
+  [['chill', 'lofi', 'relax', 'calm', 'sukoon', 'study', 'padhai', 'focus'], ['lofi', 'chill', 'relax', 'calm', 'acoustic', 'unplugged']],
+  [['sleep', 'neend', 'night', 'raat', 'lori'], ['night', 'sleep', 'soft', 'calm'], ['lofi', 'chill', 'acoustic', 'unplugged']],
+  [['gym', 'workout', 'running', 'exercise', 'josh', 'motivation'], ['workout', 'gym', 'power', 'motivation']],
+  [['bhakti', 'bhajan', 'devotional', 'god', 'mandir', 'aarti', 'bhagwan', 'krishna', 'shiv', 'hanuman'], ['bhakti', 'devotional', 'bhajan', 'aarti', 'spiritual']],
+  [['drive', 'road trip', 'travel', 'safar', 'long drive', 'journey'], ['drive', 'road', 'travel', 'trip']],
   [['rain', 'barish', 'baarish', 'monsoon'], ['rain', 'monsoon', 'barish', 'baarish'], ['romantic', 'love', 'chill']],
   [['wedding', 'shaadi', 'sangeet', 'mehendi', 'baraat'], ['wedding', 'shaadi', 'sangeet', 'mehendi', 'baraat']],
   [['rap', 'hip hop', 'hiphop'], ['rap', 'hip hop', 'hip-hop']],
@@ -1968,10 +1968,18 @@ async function aiDj(text) {
   const pls = datas.flatMap((d) => d.pls);
   const mood = MOODS.find(([keys]) => keys.some((k) => q.includes(' ' + k + ' ') || q.includes(' ' + k)));
   const year = new Date().getFullYear();
-  const era = /\b(90s|nineties|purane|old|retro|classic)\b/.test(q) ? 'old' : /\b(new|naye|latest|20\d\d)\b/.test(q) ? 'new' : '';
+  const era = /\b(90s|nineties|purane|purani|old|older|retro|classic|sadabahar)\b/.test(q) ? 'old' : /\b(new|newer|naye|nayi|latest|trending|20\d\d)\b/.test(q) ? 'new' : '';
   // Singers named in the request (matched against the library's own artists).
   const artistSet = new Set();
-  for (const t of tracks) for (const a of splitArtists(t.artist)) { const n = norm(a); if (n.length > 3 && q.includes(' ' + n + ' ')) artistSet.add(n); }
+  // A singer's full name, or just a first name that's long enough ("arijit", "diljit") - but never a word that
+  // means a mood, a language or an era ("happy" is not Happy Raikoti, "punjabi" not Punjabi Outlawz).
+  const reserved = new Set([...ALL_LANGS, 'bollywood', 'songs', 'music', 'remix', 'latest', 'purane', 'naye', 'retro', 'classic',
+    ...MOODS.flatMap((m) => m.flat().flatMap((k) => k.split(' ')))]);
+  for (const t of tracks) for (const a of splitArtists(t.artist)) {
+    const n = norm(a), first = n.split(' ')[0];
+    if ((n.length > 3 && !reserved.has(n) && q.includes(' ' + n + ' ')) ||
+        (first.length >= 5 && n.includes(' ') && !reserved.has(first) && q.includes(' ' + first + ' '))) artistSet.add(n);
+  }
   // A mood's songs come from playlists made for it ("Feel Good Hindi"), never from the word being in a song's
   // name or singer (Happy Raikoti, "Happy Birthday").
   const has = (text, k) => (' ' + norm(text) + ' ').includes(' ' + k + ' ');
@@ -2004,28 +2012,88 @@ async function aiDj(text) {
   const title = text.trim().replace(/^./, (c) => c.toUpperCase()).slice(0, 40);
   return { title, tracks: scored.slice(0, 60).map((x) => x[0]) };
 }
+/** Understands a chat message for the DJ: a follow-up ("aur", "sirf Arijit", "no remix") changes the last mix. */
+const DjChat = {
+  FOLLOW: /^(aur|or|more|isme|add|also|only|sirf|bas|bina|without|no |hata|remove|zyada|kam|less|purane|naye|new|old|same|aise|similar|thoda|ab |and |make|change)/i,
+  without(text) {
+    const t = ` ${norm(text)} `, out = [];
+    for (const m of t.matchAll(/(?:bina|without|no|except) ([a-z0-9]+(?: [a-z0-9]+)?)/g)) out.push(m[1]);
+    for (const m of t.matchAll(/([a-z0-9]+(?: [a-z0-9]+)?) (?:ke alawa|ke bina|hata|hatao|remove)/g)) out.push(m[1]);
+    return out.map((w) => w.replace(/^wale /, '')).filter((w) => w && !['songs', 'gaane', 'gane'].includes(w));
+  },
+  /** {base, without, more}: the request to run now. */
+  next(text, prev) {
+    const without = this.without(text);
+    if (!prev || !this.FOLLOW.test(text.trim())) return { base: text, without, more: false };
+    const extra = norm(text).replace(/\b(aur|or|more|isme|add|also|only|sirf|bas|bina|without|no|hata|hatao|remove|zyada|kam|less|same|aise|similar|thoda|ab|and|make|change|it|this|like|songs|gaane|gane|wale|do|de)\b/g, ' ')
+      .split(' ').filter((w) => w && !without.some((x) => x.split(' ').includes(w))).join(' ');
+    return { base: `${prev.base} ${extra}`.trim(), without: [...new Set([...prev.without, ...without])], more: !extra && !without.length };
+  },
+};
+async function djMix(req, shown) {
+  const text = req.base;
+  const t = ` ${norm(text)} `;
+  let tracks = [];
+  // "Kesariya jaise gaane", "songs like Kesariya": that song, then songs like it.
+  const like = (t.match(/(?:songs like|like|similar to) (.+?) $/) || t.match(/^ (.+?) (?:jaise|jaisa|jaisi|type)\b/) || [])[1];
+  if (like) {
+    const seed = Catalog.search(like, 5)[0] || (await Deep.search(like, 5))[0];
+    if (seed) tracks = [seed, ...radio(seed, 40, shown)];
+  }
+  // A film's name: its album, all its songs.
+  if (!tracks.length) {
+    const words = norm(text).replace(/\b(movie|film|album|songs|song|gaane|gane|ke|ki|ka)\b/g, ' ').trim();
+    const albums = words && !MOODS.some(([keys]) => keys.some((k) => t.includes(` ${k} `)))
+      ? (await Albums.find(words, [...Catalog.search(words, 40), ...(await Deep.search(words))])).filter((a) => a.exact) : [];
+    if (albums.length) tracks = albums[0].tracks;
+  }
+  if (!tracks.length) tracks = (await aiDj(text)).tracks;
+  // Nothing fits everything ("sad punjabi" + "only Arijit"): drop the language words, then the mood words.
+  if (!tracks.length) {
+    const lean = norm(text).split(' ').filter((w) => !ALL_LANGS.includes(w)).join(' ');
+    if (lean !== norm(text)) tracks = (await aiDj(lean)).tracks;
+    if (!tracks.length) {
+      const moodless = lean.split(' ').filter((w) => !MOODS.some((m) => m.flat().includes(w))).join(' ');
+      if (moodless && moodless !== lean) tracks = (await aiDj(moodless)).tracks;
+    }
+  }
+  const bad = (x) => req.without.some((w) => norm(`${x.title} ${x.artist}`).includes(w));
+  return tracks.filter((x) => !shown.has(x.id) && !bad(x));
+}
 function djPage(initial) {
-  const out = h('div');
+  const out = h('div'), chat = h('div');
   const input = h('input', { type: 'text', placeholder: 'What do you want to hear?', enterkeyhint: 'go' });
+  let prev = null;
+  const shown = new Set();
   const run = async (text) => {
     if (!text.trim()) return;
-    input.value = text;
+    input.value = '';
     input.blur();
+    const req = DjChat.next(text, prev);
     out.replaceChildren(h('div', { class: 'spinner' }));
-    const r = await aiDj(text);
-    if (!r.tracks.length) return out.replaceChildren(h('div', { class: 'empty' }, 'Nothing found. Try different words.'));
+    const tracks = (await djMix(req, req.more ? shown : new Set())).slice(0, 60);
+    const title = req.base.trim().replace(/^./, (c) => c.toUpperCase()).slice(0, 40);
+    chat.append(h('div', { class: 'note', style: 'padding:4px 16px' }, `You: ${text}`),
+      h('div', { class: 'note', style: 'padding:0 16px 8px;opacity:.8' }, tracks.length ? `DJ: ${req.more ? `${tracks.length} more` : `${title} · ${tracks.length} songs`}${req.without.length ? ` (no ${req.without.join(', ')})` : ''}` : "DJ: I couldn't find songs for that. Try other words."));
+    if (!tracks.length) return out.replaceChildren();
+    prev = req;
+    tracks.forEach((x) => shown.add(x.id));
+    Player.play(tracks);
+    input.placeholder = 'Change it: "only Arijit", "no remix", "more"…';
     out.replaceChildren(
-      h('div', { class: 'section' }, r.title),
+      h('div', { class: 'chips' }, ['More like this', 'Newer songs', 'No remix', 'Make it sad', 'Also Punjabi'].map((f) => h('button', { class: 'chip', onclick: () => run(f) }, f)),
+        h('button', { class: 'chip', onclick: () => { prev = null; shown.clear(); chat.replaceChildren(); out.replaceChildren(); input.placeholder = 'What do you want to hear?'; } }, 'New chat')),
+      h('div', { class: 'section' }, title),
       h('div', { class: 'actions' },
-        h('button', { class: 'pill primary', onclick: () => Player.play(r.tracks) }, icon('play'), 'Play'),
-        h('button', { class: 'pill', onclick: () => { S.playlists.unshift({ id: String(Date.now()), name: r.title, tracks: r.tracks.map(slim) }); save(); toast('Saved to your playlists'); } }, icon('plus'), 'Save')),
-      trackList(r.tracks));
+        h('button', { class: 'pill primary', onclick: () => Player.play(tracks) }, icon('play'), 'Play'),
+        h('button', { class: 'pill', onclick: () => { S.playlists.unshift({ id: String(Date.now()), name: title, tracks: tracks.map(slim) }); save(); toast('Saved to your playlists'); } }, icon('plus'), 'Save')),
+      trackList(tracks));
   };
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter') run(input.value); });
-  const examples = ['Sad Punjabi songs for a night drive', '90s Bollywood romantic', 'Arijit Singh latest', 'Gym workout Hindi', 'Rainy day chill'];
+  const examples = ['Sad Punjabi songs for a night drive', '90s Bollywood romantic', 'Arijit Singh latest', 'Kesariya jaise gaane', 'Gym workout Hindi', 'Rainy day chill'];
   if (initial) setTimeout(() => run(initial), 0);
   return h('div', null, header('AI DJ', true), h('div', { class: 'search-box' }, input),
-    h('div', { class: 'chips' }, examples.map((e) => h('button', { class: 'chip', onclick: () => run(e) }, e))), out);
+    h('div', { class: 'chips' }, examples.map((e) => h('button', { class: 'chip', onclick: () => run(e) }, e))), chat, out);
 }
 
 const ACCENTS = [['Coral', '#ff5c6b'], ['Green', '#1db954'], ['Violet', '#8b5cf6'], ['Blue', '#3b82f6'], ['Teal', '#14b8a6'], ['Orange', '#f97316'], ['Pink', '#ec4899'], ['Red', '#ef4444']];

@@ -1,7 +1,7 @@
 [
   {
     "date": "2026-10-09",
-    "title": "Movies, Pahadi songs and real moods",
+    "title": "Movies, Pahadi songs, real moods and a smarter AI DJ",
     "items": [
       {
         "on": "both",
@@ -18,6 +18,14 @@
       {
         "on": "both",
         "text": "🏔️ Pahadi: Garhwali, Kumaoni, Jaunsari and Himachali songs in a new category."
+      },
+      {
+        "on": "both",
+        "text": "🤖 AI DJ talks like a person now: say \"sad Punjabi songs\", then \"no remix\", \"only Arijit\", \"more\" or \"make it happy\" and it changes the mix. It also gets \"Kesariya jaise gaane\" and a film's name (\"Aashiqui 2 ke gaane\")."
+      },
+      {
+        "on": "android",
+        "text": "With your own Anthropic API key (Settings), the AI DJ uses Claude Haiku 5.5: fast and low-cost."
       },
       {
         "on": "android",

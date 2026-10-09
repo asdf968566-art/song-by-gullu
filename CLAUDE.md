@@ -134,6 +134,14 @@ request the owner made, in order.
   what ≥2 listeners share (songs played together, top songs, shared searches) and feeds all searches to the next
   crawl. Used by Android feed (`Recommendations.candidates`), AI DJ, and web suggestions/radio (`Community.scores`).
   The web app can't upload (a public site can't hold a token).
+- **AI DJ** (Oct 9, owner: "LLM type", no paid key): built-in DJ = `data/ai/DjBrain.kt` (`DjIntent`: languages,
+  mood, era, singers, "X jaise"/"songs like X", film name, "bina/no X", count; follow-ups merge into the last intent;
+  `describe`/`followUps`) + `AiDj.buildLocal` (mood playlists, singer searches, radio of a song via `aiDj.radio`,
+  film album, For You via `aiDj.forYou`, Community). The screen is a chat (`AiDjViewModel` keeps intent, shown songs,
+  history; "New chat"). With a user's own Anthropic key (Settings) it calls `claude-haiku-5-5` (owner's choice; no
+  server-side refusal fallback on Haiku 5.5, so none is sent) with the chat history and taste in the prompt; on any
+  failure the built-in DJ answers. Web: `DjChat` + `djMix` in app.js (same follow-up idea; singer first names never
+  match mood/language words).
 - Other platforms checked Oct 9 from CI: Gaana's old open API is gone (404); Wynk, Hungama, Spotify have no open
   streams. JioSaavn + YouTube stay the sources.
 - In-app "Report a problem" got 403 from GitHub. Cause (found Oct 9 from CI: `REPORT_TOKEN fingerprint/account`
