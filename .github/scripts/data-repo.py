@@ -3,8 +3,9 @@
 
 Owner's rule (Oct 9): the private "CMS" repo (owner: "cms wali repo use kar"), else "sangeet-data", else any private
 repo of the report token's account where the token can create issues. A public repo is never used: the data is the
-listeners' searches, likes and playlists. The catalog build keeps its files in the folder "sangeet-data/" there.
-With --files: the first private repo (same order) where the token may write files, for that folder.
+listeners' searches, likes and playlists.
+With --files: the first private repo (same order) where the token may write files; the catalog build keeps
+sangeet-*.json files in a folder that repo already has (community.py).
 Env: REPORT_TOKEN.
 """
 import json
@@ -43,7 +44,7 @@ def main():
         if files:
             # --files: the first private repo the token may write files in (owner, Oct 9: "jo bhi folder mile usse use
             # karle"). An empty PUT is refused with 422 when allowed and 403/404 when not; nothing is written.
-            status, _ = call("PUT", f"/repos/{r['full_name']}/contents/sangeet-data/README.md", {})
+            status, _ = call("PUT", f"/repos/{r['full_name']}/contents/sangeet-stats.json", {})
         else:
             status, _ = call("POST", f"/repos/{r['full_name']}/issues", {})  # 422 = may create issues (nothing is created)
         if status == 422:

@@ -140,16 +140,17 @@ request the owner made, in order.
   - The **owner stats** go to the issue "sangeet-stats" (`SANGEET-STATS v1` + packed JSON) in the data repo:
     listeners today/week/month, versions, languages, most played, rising (vs last run), top singers/searches, and
     per listener (random id) their singers, top songs, playlists and searches.
-  - **Folder `sangeet-data/` in the data repo** (owner: "isme new folder bna ke kaam kar"). Every run with new
-    uploads makes one commit (Git Data API) with README.md, stats.json, listeners.json and community.json. This
-    needs a token that can write files there. REPORT_TOKEN can't (Oct 9 probe: contents 403 on CMS). Making it
-    able to would also put CMS's code at risk, because that token ships inside the public APK. So community.py
-    uses the optional CI-only secret **`DATA_TOKEN`** (fine-grained, CMS only, Contents: Read and write) if set.
-    The owner said CMS isn't an important project ("koi khas project nhi, jo bhi folder mile usse use karle"), so
-    adding Contents: Read and write to REPORT_TOKEN itself is fine too.
-    `data-repo.py --files` picks the folder repo (`FOLDER_REPO`): the first private repo where the token may write
-    files (empty PUT → 422), CMS first. Until one exists, the log says `folder repo none` and the data stays in the
-    issues.
+  - **Files in the data repo** (owner: first "naya folder bana", then "naya folder mat bana, kisi purane ko hi use
+    karle"). Every main run with new uploads makes one commit (Git Data API) with `sangeet-stats.json`,
+    `sangeet-listeners.json` and `sangeet-community.json` in a folder the repo **already has**. The folder is picked
+    by `pick_folder`: data/database/db/backup/storage/logs/files first, else the first folder a website wouldn't serve (never public/static/assets/docs/dist…), else the top level. It is kept in
+    the state (`folder`) so it doesn't move. This needs a token that can write files:
+    - REPORT_TOKEN couldn't on Oct 9 (contents 403 on CMS). The owner said CMS isn't an important project ("koi
+      khas project nhi, jo bhi folder mile usse use karle"), so they were told to add Contents: Read and write to
+      the same token.
+    - The optional CI-only secret `DATA_TOKEN` is used instead if set.
+    - `data-repo.py --files` picks the repo (`FOLDER_REPO`): the first private repo where the token may write files
+      (empty PUT → 422), CMS first. Until one exists, the log says `folder repo none` and the data stays in the issues.
   - The CI emulator never uploads (`Community.emulator()`), and only main's Web App reads and closes uploads
     (branch runs keep a separate cache). Build 159's CI emulator had uploaded; community.py's one-time reset
     (state `v` 2) dropped those test phones.

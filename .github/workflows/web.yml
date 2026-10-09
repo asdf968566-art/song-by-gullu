@@ -74,7 +74,7 @@ jobs:
           export DATA_REPO=$(python3 .github/scripts/data-repo.py)
           # Only main reads (and closes) the uploads: a branch run keeps its state apart and would lose them.
           if [ "${{ github.ref }}" != "refs/heads/main" ]; then DATA_REPO=""; echo "COMMUNITY: branch run, uploads left for main"; fi
-          # The folder sangeet-data/ goes in the first private repo the token may write files in (CMS first).
+          # The sangeet-*.json files go in an existing folder of the first private repo the token may write files in (CMS first).
           if [ -n "$DATA_REPO" ]; then
             export FOLDER_REPO=$(REPORT_TOKEN="${DATA_TOKEN:-$REPORT_TOKEN}" python3 .github/scripts/data-repo.py --files)
           fi
