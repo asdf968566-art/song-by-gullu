@@ -209,7 +209,13 @@ request the owner made, in order.
     - Voice search (hi-IN) gives Devanagari, so it benefits too.
   - **Gemini** (free key from aistudio.google.com):
     - The repo secret `GEMINI_API_KEY` goes to `BuildConfig.GEMINI_API_KEY` (build-apk.yml) and into the website's
-      `BUILT_IN_GEMINI` (web.yml "Stamp version" sed `__GEMINI_KEY__`; visible in the site code, free tier only).
+      `BUILT_IN_GEMINI`. On the web it is filled in ("Gemini key for the site") only for the Pages upload and taken
+      out again before the gh-pages push, so it never lands in a git branch (GitHub's scanner would report it and
+      Google could switch it off). It is still visible in the live site's code: free tier only, no billing.
+    - Oct 9: the owner pasted an AI Studio key ("AQ." format) in chat. A CI probe showed it works, and
+      `gemini-3.8-flash` named real songs in ~15 s (gemini-2.5-flash is 404 "no longer available to new users").
+      The session proxy can't set repo secrets, so the owner adds `GEMINI_API_KEY` themselves. Never write the key
+      into the repo.
     - Users can paste their own key in Settings.
     - `FreeAi` asks Gemini first and picks the newest plain `gemini-N-flash` from the models list, then the keyless
       LLM7 models. The same "keep only real catalog songs" check applies.
