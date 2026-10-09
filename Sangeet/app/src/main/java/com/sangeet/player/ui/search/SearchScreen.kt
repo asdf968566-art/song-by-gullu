@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.layout.PaddingValues
-import com.sangeet.player.ui.library.ALBUM_PREFIX
 import com.sangeet.player.ui.components.ShelfCard
 import com.sangeet.player.data.model.OnlinePlaylist
 import androidx.compose.foundation.lazy.LazyRow
@@ -270,6 +269,8 @@ class SearchViewModel(private val c: AppContainer) : ViewModel() {
     }
 }
 
+private const val MOVIES_TILE = "🎬 Movies"
+
 private val globalGenres = listOf(
     "Electronic" to 0xFF8D67AB, "Hip-Hop/Rap" to 0xFFBA5D07, "Lo-Fi" to 0xFF477D95,
     "Pop" to 0xFF148A08, "Rock" to 0xFFE91429, "Ambient" to 0xFF1E3264,
@@ -405,7 +406,7 @@ fun SearchScreen(nav: NavController) {
                 }
             }
             item { SectionHeader("Browse all") }
-            val genres = Categories.ordered(c.settings.current.languages).map { "${it.emoji} ${it.name}" to it.color } +
+            val genres = listOf(MOVIES_TILE to 0xFFB45309) + Categories.ordered(c.settings.current.languages).map { "${it.emoji} ${it.name}" to it.color } +
                 globalGenres
             items(genres.chunked(2)) { row ->
                 Row(
@@ -419,7 +420,10 @@ fun SearchScreen(nav: NavController) {
                                 .height(96.dp)
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(Color(color))
-                                .clickable { nav.navigate(Routes.list(ListKind.GENRE, name.substringAfter(' ').takeIf { Categories.find(it) != null } ?: name)) }
+                                .clickable {
+                                    if (name == MOVIES_TILE) nav.navigate(Routes.movies())
+                                    else nav.navigate(Routes.list(ListKind.GENRE, name.substringAfter(' ').takeIf { Categories.find(it) != null } ?: name))
+                                }
                                 .padding(12.dp),
                         ) {
                             Text(
@@ -441,7 +445,7 @@ fun SearchScreen(nav: NavController) {
                                 a.title,
                                 listOfNotNull(a.subtitle.ifBlank { null }, a.songCount.takeIf { it > 0 }?.let { "$it songs" }).joinToString(" · "),
                                 a.artworkUrl,
-                                onClick = { nav.navigate(Routes.onlinePlaylist(ALBUM_PREFIX + a.id, a.title)) },
+                                onClick = { nav.navigate(Routes.movie(a.title, a.year, a.id)) },
                             )
                         }
                     }

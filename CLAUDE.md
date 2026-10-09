@@ -113,6 +113,14 @@ request the owner made, in order.
   order). Android: JioSaavn `search.getAlbumResults` + `content.getAlbumDetails`, route `online/album-<id>`
   (`ALBUM_PREFIX`). Web: `Albums.find` groups catalog songs by album name + year + language. Shown only when the
   album's name is what was typed (all typed words in it, or its whole name inside the typed words).
+- **Movies** (Oct 9): `.github/scripts/build-movies.py` asks Wikidata (free, no key) for ~16,800 Indian films with
+  year, languages, music directors, producers/studios, directors, top cast → `data/movies.json` (weekly, kept in
+  catalog-state; also in the `catalog` release as movies.json.gz for Android). Web: `moviesPage` / `moviePage`
+  (Search → 🎬 Movies, Library → Movies); Android: `ui/library/MoviesScreen.kt` (`MovieList`, `MoviesScreen`,
+  `MovieScreen`, routes `movies?q=` and `movie?title=&year=&album=`), songs via `OnlineRepository.movieSongs`.
+  Tap a name (music director, actor…) to see their other films.
+- Other platforms checked Oct 9 from CI: Gaana's old open API is gone (404); Wynk, Hungama, Spotify have no open
+  streams. JioSaavn + YouTube stay the sources.
 - In-app "Report a problem" got 403 from GitHub: the `REPORT_TOKEN` secret can't create issues. The Build APK log
   says `REPORT_TOKEN: can create issues ✅` or a warning. Oct 9 result: 403 "Resource not accessible by personal
   access token" (the token works but has no Issues permission). Fix = edit that token on GitHub and add

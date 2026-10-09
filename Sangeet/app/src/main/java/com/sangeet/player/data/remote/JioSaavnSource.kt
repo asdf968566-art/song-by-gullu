@@ -94,6 +94,7 @@ class JioSaavnSource : OnlineSource {
                 subtitle = unescape(listOfNotNull((info?.str("music") ?: o.str("subtitle"))?.takeIf { it.isNotBlank() }, year).joinToString(" · ")),
                 artworkUrl = o.str("image")?.replace("150x150", "500x500"),
                 songCount = (info?.str("song_count") ?: o.str("song_count"))?.toIntOrNull() ?: 0,
+                year = year?.toIntOrNull() ?: 0,
             )
         }.distinctBy { it.id }
     }

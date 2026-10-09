@@ -155,6 +155,29 @@ class OnlineRepository(
             .filter { seen.add(it.title.lowercase().substringBefore(" (").substringBefore(" |").trim()) }
     }
 
+    /**
+     * A movie's songs in the film's order: its JioSaavn album ([albumId] when known, else the album with the film's
+     * name and year), else songs from that album found by a search, else YouTube.
+     */
+    suspend fun movieSongs(title: String, year: Int, albumId: String = ""): List<Track> = coroutineScope {
+        if (!canGoOnline) return@coroutineScope emptyList()
+        if (albumId.isNotBlank()) runCatching { saavn.albumTracks(albumId) }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { return@coroutineScope it }
+        fun words(s: String) = s.lowercase().replace(Regex("""\(.*?\)|\[.*?]"""), " ")
+            .replace(Regex("[^\\p{L}\\p{N}]+"), " ").split(" ").filter { it.isNotBlank() }
+        val want = words(title)
+        val album = runCatching { saavn.searchAlbums(title) }.getOrDefault(emptyList())
+            .filter { words(it.title).containsAll(want) && (year == 0 || it.year == 0 || kotlin.math.abs(it.year - year) <= 1) }
+            .sortedWith(compareBy({ if (words(it.title) == want) 0 else 1 }, { if (year > 0 && it.year > 0) kotlin.math.abs(it.year - year) else 2 }))
+            .firstOrNull()
+        album?.let { a -> runCatching { saavn.albumTracks(a.id) }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { return@coroutineScope it } }
+        val searched = runCatching { saavn.searchPage("$title ${if (year > 0) year else ""} songs".trim(), 1) }.getOrDefault(emptyList())
+            .filter { words(it.album).containsAll(want) }
+        if (searched.size >= 3) return@coroutineScope searched
+        val s = settings.current
+        if (youtube.isEnabled(s)) runCatching { youtube.search("$title ${if (year > 0) year else ""} movie songs".trim(), s) }.getOrDefault(emptyList())
+        else searched
+    }
+
     /** A feed mood's songs in these languages. */
     suspend fun moodTracks(mood: Mood, languages: List<String>, page: Int = 0, limit: Int = 60): List<Track> {
         val own = topicTracks(Topic(Moods.searches(mood, languages), mood.words, mood.words, languages), page, limit)

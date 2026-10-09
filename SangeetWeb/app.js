@@ -39,6 +39,7 @@ const ICONS = {
   close: 'M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z',
   mic: 'M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z',
   clock: 'M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z',
+  film: 'M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z',
   globe: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z',
   list: 'M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z',
 };
@@ -1356,6 +1357,7 @@ function searchPage() {
         h('button', { class: 'chip' + (now ? ' on' : ''), onclick: () => pushPage(() => djPage(q)) }, `${emoji} ${name}`))),
       h('div', { class: 'section' }, 'Browse all'),
       h('div', { class: 'cat-row' },
+        h('div', { class: 'cat', style: 'background:linear-gradient(135deg,#b45309,#3b1d02)', onclick: () => pushPage(() => moviesPage()) }, '🎬 Movies'),
         CATEGORIES.map((c) => h('div', { class: 'cat', style: `background:${c.color}`, onclick: () => pushPage(() => categoryPage(c)) }, `${c.emoji} ${c.name}`)),
         BROWSE.map(([name, q, color]) => h('div', { class: 'cat', style: `background:${color}`, onclick: () => pushPage(() => djPage(q)) }, name))),
       h('div', { class: 'section' }, 'Moods'),
@@ -1491,8 +1493,87 @@ const Albums = {
     return out.sort((a, b) => (b.exact - a.exact) || (b.tracks.length - a.tracks.length));
   },
 };
+/* ------------------------------------------------------------------ Movies: every Indian film with its details */
+// data/movies.json (from Wikidata): [title, year, languages, music, producers, directors, cast], "|"-separated.
+const Movies = {
+  list: null,
+  async load() {
+    if (!this.list) {
+      const rows = (await Deep.get(`data/movies.json${Deep.v()}`)) || [];
+      this.list = rows.map(([title, year, langs, music, producers, directors, cast]) => {
+        const m = { title, year, langs: split(langs), music: split(music), producers: split(producers), directors: split(directors), cast: split(cast) };
+        m.key = norm([title, ...m.langs, ...m.music, ...m.producers, ...m.directors, ...m.cast].join(' '));
+        return m;
+      });
+    }
+    return this.list;
+    function split(x) { return x ? x.split('|') : []; }
+  },
+  /** The film named like this album (same name, year within one), for its details on album pages. */
+  async of(title, year) {
+    const t = norm(title);
+    return (await this.load()).find((m) => norm(m.title) === t && (!year || !m.year || Math.abs(m.year - year) <= 1)) || null;
+  },
+};
+const DECADES = [['All', 0, 9999], ['2020s', 2020, 2029], ['2010s', 2010, 2019], ['2000s', 2000, 2009], ['90s', 1990, 1999], ['80s', 1980, 1989], ['70s', 1970, 1979], ['Older', 0, 1969]];
+function moviesPage(initial = '') {
+  const input = h('input', { type: 'search', placeholder: 'Movie, music director, producer, actor…', value: initial, autocomplete: 'off', autocapitalize: 'off', spellcheck: false });
+  const langBox = h('div', { class: 'chips scroll' }), decBox = h('div', { class: 'chips scroll' });
+  const list = h('div', null, h('div', { class: 'spinner' }));
+  let lang = '', dec = DECADES[0], shown = 60, all = [];
+  const chipRow = (box, items, isOn, pick) => fill(box, items.map((it) => h('button', { class: 'chip' + (isOn(it) ? ' on' : ''), onclick: () => { pick(it); draw(); } }, it.label)));
+  const draw = () => {
+    const words = norm(input.value).split(' ').filter(Boolean);
+    const found = all.filter((m) => (!lang || m.langs.includes(lang)) && m.year >= dec[1] && m.year <= dec[2] && words.every((w) => m.key.includes(w)));
+    chipRow(decBox, DECADES.map((d) => ({ label: d[0], d })), (it) => it.d === dec, (it) => { dec = it.d; shown = 60; });
+    const langs = [...new Set(all.flatMap((m) => m.langs))];
+    const count = (l) => all.filter((m) => m.langs.includes(l)).length;
+    langs.sort((a, b) => count(b) - count(a));
+    chipRow(langBox, [{ label: 'All languages', l: '' }, ...langs.slice(0, 10).map((l) => ({ label: l, l }))], (it) => it.l === lang, (it) => { lang = it.l; shown = 60; });
+    fill(list,
+      h('div', { class: 'note' }, found.length === 1 ? '1 movie' : `${found.length.toLocaleString()} movies`),
+      found.slice(0, shown).map(movieRow),
+      found.length > shown ? h('button', { class: 'chip', style: 'margin:12px 16px', onclick: () => { shown += 100; draw(); } }, 'Show more') : null);
+  };
+  input.addEventListener('input', () => { clearTimeout(draw.t); draw.t = setTimeout(() => { shown = 60; draw(); }, 200); });
+  Movies.load().then((l) => { all = l; if (!l.length) fill(list, h('div', { class: 'empty' }, "Movies aren't ready yet. Try again later.")); else draw(); });
+  return h('div', null, header('🎬 Movies', true), h('div', { class: 'search-box' }, input), langBox, decBox, list);
+}
+function movieRow(m) {
+  const by = [m.music.length ? `Music: ${m.music.slice(0, 2).join(', ')}` : '', m.directors.length ? `Director: ${m.directors[0]}` : ''].filter(Boolean).join(' · ');
+  return h('div', { class: 'movie-row', onclick: () => pushPage(() => moviePage(m)) },
+    h('div', { class: 't' }, m.title, h('span', { class: 'y' }, ` ${m.year || ''}`)),
+    h('div', { class: 'note', style: 'padding:0' }, [m.langs.join(', '), by].filter(Boolean).join(' · ')),
+    m.cast.length ? h('div', { class: 'note', style: 'padding:0' }, m.cast.slice(0, 3).join(', ')) : null);
+}
+/** A film: its details (tap a name for that person's other films) and its songs to play one after another. */
+function moviePage(m) {
+  const songs = h('div', null, h('div', { class: 'spinner' }));
+  const people = (label, names) => names.length ? h('div', { class: 'detail' }, h('b', null, label),
+    names.map((n) => h('button', { class: 'chip', onclick: () => pushPage(() => moviesPage(n)) }, n))) : null;
+  (async () => {
+    const found = [...Catalog.search(m.title, 40), ...(await Deep.search(m.title))];
+    const albums = (await Albums.find(m.title, found)).filter((a) => !m.year || !a.year || Math.abs(a.year - m.year) <= 1);
+    let tracks = albums[0]?.tracks || [];
+    if (!tracks.length) tracks = (await Tube.search(`${m.title} ${m.year || ''} movie songs`)).map((t) => Catalog.match(t) || t);
+    fill(songs, tracks.length ? [
+      h('div', { class: 'actions' },
+        h('button', { class: 'pill primary', onclick: () => Player.play(tracks) }, icon('play'), 'Play'),
+        h('button', { class: 'pill', onclick: () => Player.play(shuffle(tracks)) }, icon('shuffle'), 'Shuffle'),
+        h('button', { class: 'pill', onclick: () => { S.playlists.unshift({ id: String(Date.now()), name: m.title, tracks: tracks.map(slim) }); save(); toast('Saved to your playlists'); } }, icon('plus'), 'Save')),
+      trackList(tracks)] : h('div', { class: 'empty' }, "This movie's songs aren't here yet."));
+  })();
+  return h('div', null, header(m.title, true),
+    h('div', { class: 'movie-details' },
+      h('div', { class: 'note', style: 'padding:0' }, [m.year, m.langs.join(', ')].filter(Boolean).join(' · ')),
+      people('Music', m.music), people('Producers', m.producers), people('Director', m.directors), people('Cast', m.cast)),
+    songs);
+}
 function albumCard(a) {
-  return h('div', { class: 'card', onclick: () => pushPage(() => songsPage(a.title, a.tracks, null, a)) },
+  return h('div', { class: 'card', onclick: async () => {
+    const m = await Movies.of(a.title, a.year);
+    pushPage(() => (m ? moviePage(m) : songsPage(a.title, a.tracks, null, a)));
+  } },
     h('img', { class: 'cover', src: (a.img || '').replace('150x150', '500x500'), loading: 'lazy', alt: '' }),
     h('div', { class: 't' }, a.title),
     h('div', { class: 'note', style: 'padding:0' }, `${a.tracks.length} songs${a.year ? ' · ' + a.year : ''}`));
@@ -1545,6 +1626,7 @@ function libraryPage() {
     link('heartFill', 'Liked Songs', S.liked.length, () => pushPage(() => songsPage('Liked Songs', S.liked))),
     link('clock', 'Recently Played', null, () => pushPage(() => songsPage('Recently Played', recent().slice(0, 300)))),
     link('globe', 'Online Library', Catalog.playlists.length || null, () => pushPage(onlineLibraryPage)),
+    link('film', 'Movies', null, () => pushPage(() => moviesPage())),
     Offline.only() ? h('div', { class: 'offline-banner', onclick: () => pushPage(downloadsPage) },
       navigator.onLine ? 'Offline mode is on: only downloaded songs play.' : "You're offline. Your downloaded songs still play →") : null,
     link('download', 'Downloads', Offline.ids.size || null, () => pushPage(downloadsPage)),

@@ -52,6 +52,8 @@ import com.sangeet.player.ui.components.MiniPlayer
 import com.sangeet.player.ui.components.UpdateDialog
 import com.sangeet.player.ui.discover.DiscoverScreen
 import com.sangeet.player.ui.library.MixScreen
+import com.sangeet.player.ui.library.MovieScreen
+import com.sangeet.player.ui.library.MoviesScreen
 import com.sangeet.player.ui.library.ArtistScreen
 import com.sangeet.player.ui.library.StatsScreen
 import com.sangeet.player.ui.dj.AiDjScreen
@@ -119,12 +121,17 @@ object Routes {
     const val REPORT = "report"
     const val PLAYLIST = "playlist/{id}"
     const val LIST = "list/{kind}?arg={arg}"
+    const val MOVIES = "movies?q={q}"
+    const val MOVIE = "movie?title={title}&year={year}&album={album}"
 
     fun playlist(id: Long) = "playlist/$id"
     fun mix(id: String) = "mix/$id"
     fun artist(name: String) = "artist/${android.net.Uri.encode(name.substringBefore(",").trim())}"
     fun onlinePlaylist(id: String, title: String) = "online/$id?title=${android.net.Uri.encode(title)}"
     fun list(kind: ListKind, arg: String = "") = "list/${kind.name}?arg=${android.net.Uri.encode(arg)}"
+    fun movies(q: String = "") = "movies?q=${android.net.Uri.encode(q)}"
+    fun movie(title: String, year: Int, albumId: String = "") =
+        "movie?title=${android.net.Uri.encode(title)}&year=$year&album=${android.net.Uri.encode(albumId)}"
 }
 
 val audioPermission: String
@@ -215,6 +222,19 @@ fun SangeetRoot() {
                     ),
                 ) { entry ->
                     OnlinePlaylistScreen(nav, entry.arguments?.getString("id") ?: "", entry.arguments?.getString("title") ?: "Playlist")
+                }
+                composable(Routes.MOVIES, arguments = listOf(navArgument("q") { type = NavType.StringType; defaultValue = "" })) { entry ->
+                    MoviesScreen(nav, entry.arguments?.getString("q") ?: "")
+                }
+                composable(
+                    Routes.MOVIE,
+                    arguments = listOf(
+                        navArgument("title") { type = NavType.StringType; defaultValue = "" },
+                        navArgument("year") { type = NavType.IntType; defaultValue = 0 },
+                        navArgument("album") { type = NavType.StringType; defaultValue = "" },
+                    ),
+                ) { entry ->
+                    MovieScreen(nav, entry.arguments?.getString("title") ?: "", entry.arguments?.getInt("year") ?: 0, entry.arguments?.getString("album") ?: "")
                 }
                 composable(Routes.MIX, arguments = listOf(navArgument("id") { type = NavType.StringType })) { entry ->
                     MixScreen(nav, entry.arguments?.getString("id") ?: "")

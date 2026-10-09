@@ -74,15 +74,26 @@ def main():
         for r in rows:
             fid = val(r, "film")
             year = int(val(r, "year") or 0)
-            films[fid] = [val(r, "title"), year, val(r, "langs"), val(r, "music"), val(r, "producers"), val(r, "directors"), ""]
+            # A re-release (DDLJ in 2023) shows up again in a later range: the first release year counts.
+            if fid in films and films[fid][1] <= year:
+                continue
+            films[fid] = [val(r, "title"), year, val(r, "langs"), val(r, "music"), val(r, "producers"), val(r, "directors"), films.get(fid, [""] * 7)[6]]
         time.sleep(3)
         cast = ask(CAST % (a, b)) or []
         for r in cast:
             fid = val(r, "film")
-            if fid in films:
-                films[fid][6] = "|".join(val(r, "cast").split("|")[:6])
+            if fid in films and not films[fid][6]:
+                films[fid][6] = val(r, "cast")
         print(f"{a}-{b - 1}: {len(rows)} films, {len(cast)} with cast", flush=True)
         time.sleep(3)
+    # Wikidata's cast has no billing order: the actors in the most films (the stars) first, six of them.
+    seen = {}
+    for f in films.values():
+        for a in f[6].split("|"):
+            if a:
+                seen[a] = seen.get(a, 0) + 1
+    for f in films.values():
+        f[6] = "|".join(sorted((a for a in f[6].split("|") if a), key=lambda a: -seen[a])[:6])
     out = sorted(films.values(), key=lambda f: (-f[1], f[0]))
     # Keep the language names short ("Hindi", not "Hindi language").
     for f in out:

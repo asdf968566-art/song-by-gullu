@@ -78,6 +78,8 @@ data class OnlinePlaylist(
     val subtitle: String,
     val artworkUrl: String?,
     val songCount: Int = 0,
+    /** Release year (albums / movies), 0 when unknown. */
+    val year: Int = 0,
 )
 
 /** Download ki halat. */
