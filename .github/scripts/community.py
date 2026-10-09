@@ -223,6 +223,11 @@ def save_folder(files, got):
 def main():
     state = load_state()
     got = fetch(state)
+    # Until build 159 the CI emulator uploaded too; every listener before this reset was a test phone (Oct 9:
+    # no owner phone had a build with Community yet). Real listeners re-upload within 6 hours.
+    if state.get("v", 1) < 2:
+        print(f"COMMUNITY: dropped {len(state['users'])} test-phone listeners (one-time reset)")
+        state["users"], state["prev_plays"], state["v"] = {}, {}, 2
     cutoff = time.time() - KEEP_DAYS * 86400
     state["users"] = {u: d for u, d in state["users"].items() if d.get("seen", 0) >= cutoff}
     os.makedirs(os.path.dirname(STATE) or ".", exist_ok=True)

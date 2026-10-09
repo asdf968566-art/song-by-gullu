@@ -66,6 +66,10 @@
       {
         "on": "both",
         "text": "What's new: this list, after every update and in Settings."
+      },
+      {
+        "on": "android",
+        "text": "Fix: the CI test phone is no longer counted as a listener."
       }
     ]
   },
