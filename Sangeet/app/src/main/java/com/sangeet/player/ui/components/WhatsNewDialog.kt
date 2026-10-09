@@ -32,9 +32,17 @@ fun WhatsNewDialog(entries: List<WhatsNew.Entry>, onDismiss: () -> Unit) {
                         color = spec.onSurface,
                         modifier = Modifier.padding(top = if (i == 0) 0.dp else 16.dp, bottom = 6.dp),
                     )
-                    e.items.forEach { item ->
-                        Text("•  ${item.text}", style = MaterialTheme.typography.bodyMedium, color = spec.onSurface,
-                            modifier = Modifier.padding(bottom = 6.dp))
+                    // New features first, then what was fixed.
+                    listOf("new" to "New", "fix" to "Fixed").forEach { (type, heading) ->
+                        val items = e.items.filter { (it.type.ifBlank { "new" }) == type }
+                        if (items.isNotEmpty()) {
+                            Text(heading, style = MaterialTheme.typography.labelLarge, color = spec.accent,
+                                modifier = Modifier.padding(top = 4.dp, bottom = 4.dp))
+                            items.forEach { item ->
+                                Text("•  ${item.text}", style = MaterialTheme.typography.bodyMedium, color = spec.onSurface,
+                                    modifier = Modifier.padding(bottom = 6.dp))
+                            }
+                        }
                     }
                 }
             }

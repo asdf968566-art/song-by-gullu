@@ -10,8 +10,9 @@ import kotlinx.serialization.builtins.ListSerializer
  * After an update the new entries show once; Settings → What's new shows them all.
  */
 object WhatsNew {
+    /** [type]: "new" (a feature) or "fix" (a bug fixed). [on]: both / android / iphone. */
     @Serializable
-    data class Item(val on: String = "both", val text: String)
+    data class Item(val on: String = "both", val text: String, val type: String = "new")
 
     @Serializable
     data class Entry(val date: String, val title: String = "", val items: List<Item> = emptyList())

@@ -18,7 +18,10 @@ request the owner made, in order.
 - Owner wants: simple UI, no hints/clutter, lakhs of songs, no song repeating on its own, Hindi/Punjabi/Haryanvi first.
 - **Every update needs a "What's new" entry** (owner asked, Oct 9): add it at the TOP of
   `Sangeet/app/src/main/assets/whats-new.json` before merging (`date`, short `title`, `items` with `on`:
-  both / android / iphone, plain English for users). Android shows new entries once after an update and in
+  both / android / iphone and `type`: `new` (feature) or `fix` (bug fixed)). Owner's rule: proper English, very short
+  (a few words each, like "Automatic app updates"), only the main new features and real bug fixes; no emoji, no
+  explanations, no Settings paths, nothing about data or where it goes. The apps and the release notes show "New" and
+  "Fixed" separately. Android shows new entries once after an update and in
   Settings → What's new, and the update dialog / GitHub release notes use the newest entry; the web app gets the same
   file (web.yml copies it) and shows it once after an update and in Settings. Several updates on one day: add items
   to that day's entry.
@@ -140,19 +143,24 @@ request the owner made, in order.
   - The **owner stats** go to the issue "sangeet-stats" (`SANGEET-STATS v1` + packed JSON) in the data repo:
     listeners today/week/month, versions, languages, most played, rising (vs last run), top singers/searches, and
     per listener (random id) their singers, top songs, playlists and searches.
-  - **Folder `sangeet-data/` in the data repo** (owner: "isme new folder bna ke kaam kar"). Every run with new
-    uploads makes one commit (Git Data API) with README.md, stats.json, listeners.json and community.json. This
-    needs a token that can write files there. REPORT_TOKEN can't (Oct 9 probe: contents 403 on CMS). Making it
-    able to would also put CMS's code at risk, because that token ships inside the public APK. So community.py
-    uses the optional CI-only secret **`DATA_TOKEN`** (fine-grained, CMS only, Contents: Read and write). Until the
-    owner adds it, the log says `can't read … add the secret DATA_TOKEN` and the data stays in the issues.
+  - **Files in the data repo** (owner: first "naya folder bana", then "naya folder mat bana, kisi purane ko hi use
+    karle"). Every main run with new uploads makes one commit (Git Data API) with `sangeet-stats.json`,
+    `sangeet-listeners.json` and `sangeet-community.json` in a folder the repo **already has**. The folder is picked
+    by `pick_folder`: data/database/db/backup/storage/logs/files first, else the first folder a website wouldn't serve (never public/static/assets/docs/dist…), else the top level. It is kept in
+    the state (`folder`) so it doesn't move. This needs a token that can write files:
+    - REPORT_TOKEN couldn't on Oct 9 (contents 403 on CMS). The owner said CMS isn't an important project ("koi
+      khas project nhi, jo bhi folder mile usse use karle"), so they were told to add Contents: Read and write to
+      the same token.
+    - The optional CI-only secret `DATA_TOKEN` is used instead if set.
+    - `data-repo.py --files` picks the repo (`FOLDER_REPO`): the first private repo where the token may write files
+      (empty PUT → 422), CMS first. Until one exists, the log says `folder repo none` and the data stays in the issues.
   - The CI emulator never uploads (`Community.emulator()`), and only main's Web App reads and closes uploads
     (branch runs keep a separate cache). Build 159's CI emulator had uploaded; community.py's one-time reset
     (state `v` 2) dropped those test phones.
   - Used by the Android feed (`Recommendations.candidates`), the AI DJ, and the web suggestions/radio
     (`Community.scores`). The web app can't upload (a public site can't hold a token).
-- **Owner dashboard** (Oct 9): Android Settings → "Owner dashboard", behind the same password as Music sources
-  (`PasswordGate` in `SourcesLock.kt`). `ui/settings/OwnerDashboard.kt` shows:
+- **Owner dashboard** (Oct 9): Android Settings → Music sources (password) → "Owner dashboard" (moved inside Music
+  sources on the owner's ask; the screen itself is also behind `PasswordGate` in `SourcesLock.kt`, same password). `ui/settings/OwnerDashboard.kt` shows:
   - APK downloads: the count kept across builds in the `stats` release `downloads.json` (build-apk.yml adds the old
     `latest` asset's `download_count` before replacing it) plus the current build's count;
   - the "sangeet-stats" issue, read with REPORT_TOKEN.
@@ -196,6 +204,55 @@ request the owner made, in order.
     - DeepSeek's own API and OpenRouter need keys.
     - LLM7's DeepSeek was busy (503) and GLM-5.2 named real songs ("Solid Body - KD" for Haryanvi gym).
   If LLM7 stops working, the DJ just plays the built-in mix (no error).
+- **Owner's batch of Oct 9 (suggestions 2–9).**
+  - **Hindi / Punjabi script search.** Android `data/Transliterate.kt` and web `Translit`:
+    - Devanagari + Gurmukhi to Latin, in up to 3 spellings: as written, long vowels (raabta), and without the
+      unsaid a (dhadkan).
+    - The catalog / JioSaavn get all spellings; YouTube gets the text as typed.
+    - Voice search (hi-IN) gives Devanagari, so it benefits too.
+  - **Gemini** (free key from aistudio.google.com):
+    - The repo secret `GEMINI_API_KEY` goes to `BuildConfig.GEMINI_API_KEY` (build-apk.yml) and into the website's
+      `BUILT_IN_GEMINI`. On the web it is filled in ("Gemini key for the site") only for the Pages upload and taken
+      out again before the gh-pages push, so it never lands in a git branch (GitHub's scanner would report it and
+      Google could switch it off). It is still visible in the live site's code: free tier only, no billing.
+    - Oct 9: the owner pasted an AI Studio key ("AQ." format) in chat. A CI probe showed it works, and
+      `gemini-3.8-flash` named real songs in ~15 s (gemini-2.5-flash is 404 "no longer available to new users").
+      The session proxy can't set repo secrets, so the owner adds `GEMINI_API_KEY` themselves. Never write the key
+      into the repo.
+    - Users can paste their own key in Settings.
+    - `FreeAi` asks Gemini first and picks the newest plain `gemini-N-flash` from the models list, then the keyless
+      LLM7 models. The same "keep only real catalog songs" check applies.
+  - **New song alerts:** Android `data/notify/NewSongs.kt`.
+    - Every 12 h it checks the top 5 singers' newest JioSaavn songs (`newSongsBy`).
+    - The first run only remembers what's there. Then at most 3 notifications per run.
+    - Tap → `sangeet://play?q=`.
+    - Setting `newSongAlerts`.
+    - SangeetRoot asks POST_NOTIFICATIONS once on Android 13+.
+  - **Dashboard extras** (`data/Usage.kt`):
+    - Screens opened (route counts) and crashes (CrashReporter → `Usage.crashed`), plus the phone model / SDK, are
+      sent with the Community upload. community.py `owner_stats` adds `features`, `crashes`, `phones`, and per
+      listener `m` / `crash` / `use`.
+    - **Hit counters** on abacus.jasoncameron.dev (keyless, CORS, probed), space `sangeet-asdf968566`:
+      `android-users`, `android-day-yyyymmdd` (Android, not emulators), `web-users`, `web-day-…` (web `Visits`,
+      not headless browsers). The dashboard card "Users of both apps" reads them.
+  - **Alarm** (Android): `data/alarm/SongAlarm.kt` + `ui/settings/AlarmScreen.kt` (Settings → Alarm).
+    - Uses `setAlarmClock` (USE_EXACT_ALARM / SCHEDULE_EXACT_ALARM ≤32), and is set again on BOOT_COMPLETED /
+      MY_PACKAGE_REPLACED.
+    - Plays liked songs (shuffled), a playlist or For You. Offline it plays downloads only.
+  - **Song share links:** `#play=<packed Sync.encode(track)>` on the website (`SongLink`: a menu with Play, and
+    on Android "Open in the Sangeet app" via `intent://play?song=…`).
+    - Android `LibrarySync.songLink/songFromLink`, ShareCard text, intent filters for
+      `https://asdf968566-art.github.io/song-by-gullu` and `sangeet://play?song=`.
+    - Unverified App Links don't open the app by themselves on Android 12+. A verified one would need
+      `asdf968566-art.github.io/.well-known/assetlinks.json`, i.e. a repo `asdf968566-art.github.io`.
+  - **Sync with another phone:** Android `data/CloudSync.kt` + `ui/settings/SyncScreen.kt` (route
+    `settings/sync?code=`), web `CloudSync` + `syncBox()`.
+    - The library is packed like a #sync link and stored on **restful-api.dev** `/objects` (keyless, CORS,
+      probed). The object id is the sync code, and the join link is `#joinsync=<code>`.
+    - A three-way merge against the last synced copy (`base`) makes un-likes and deletes sync too.
+    - Android syncs 20 s after likes/playlists change, and on start; the web does the same through `save()`.
+    - restful-api.dev is a free test service. If an object disappears, the app says the code doesn't work and
+      the user starts again.
 - Other platforms checked Oct 9 from CI: Gaana's old open API is gone (404); Wynk, Hungama, Spotify have no open
   streams. JioSaavn + YouTube stay the sources.
 - In-app "Report a problem" got 403 from GitHub. Cause (found Oct 9 from CI: `REPORT_TOKEN fingerprint/account`

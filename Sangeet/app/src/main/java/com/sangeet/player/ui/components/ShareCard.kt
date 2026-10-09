@@ -33,7 +33,8 @@ object ShareCard {
         val send = Intent(Intent.ACTION_SEND)
             .setType("image/png")
             .putExtra(Intent.EXTRA_STREAM, uri)
-            .putExtra(Intent.EXTRA_TEXT, "Listening to \"${track.title}\" by ${track.artist} on Sangeet 🎵")
+            .putExtra(Intent.EXTRA_TEXT, "Listening to \"${track.title}\" by ${track.artist} on Sangeet 🎵" +
+                (com.sangeet.player.data.LibrarySync.songLink(track)?.let { "\n$it" } ?: ""))
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         context.startActivity(Intent.createChooser(send, "Share song").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }

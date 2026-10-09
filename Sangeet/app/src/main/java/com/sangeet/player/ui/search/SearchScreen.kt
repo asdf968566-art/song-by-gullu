@@ -166,12 +166,11 @@ class SearchViewModel(private val c: AppContainer) : ViewModel() {
                 val lyricsJob: Deferred<List<Track>>? = if (LyricsSearch.looksLikeLine(q) && c.online.canGoOnline) {
                     viewModelScope.async { runCatching { songsFromLyrics(q.trim()) }.getOrDefault(emptyList<Track>()) }
                 } else null
-                // Hindi mein likha ho to Hinglish mein bhi dhoondho ("तुम ही हो" + "tum hi ho")
-                val alt = q.trim().takeIf(Transliterate::hasDevanagari)?.let(Transliterate::toLatin)
-                val online = if (alt.isNullOrBlank()) c.online.search(q.trim()) else {
-                    val a = c.online.search(q.trim())
-                    val b = c.online.search(alt)
-                    (a + b).groupBy { it.source }.map { (src, rs) ->
+                // Hindi / Punjabi script: also search its Latin spellings ("तुम ही हो" + "tum hi ho", "ਜੱਟ" + "jatt").
+                val alts = if (Transliterate.hasIndic(q)) Transliterate.variants(q.trim()).take(2) else emptyList()
+                val online = if (alts.isEmpty()) c.online.search(q.trim()) else {
+                    val all = (listOf(q.trim()) + alts).map { x -> viewModelScope.async { c.online.search(x) } }.awaitAll()
+                    all.flatten().groupBy { it.source }.map { (src, rs) ->
                         SourceResult(src, rs.flatMap { it.tracks }.distinctBy { it.id }, rs.firstNotNullOfOrNull { it.error })
                     }
                 }

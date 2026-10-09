@@ -34,6 +34,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import com.sangeet.player.data.model.SourceType
@@ -97,6 +98,29 @@ class AppContainer(private val app: Application) {
         scope.launch {
             settings.settings.map { it.shareListening }.distinctUntilChanged().collect {
                 runCatching { com.sangeet.player.data.community.Community.schedule(app, it) }
+            }
+        }
+        // Sync with another phone (when a sync code is set): on start, and a little after likes / playlists change.
+        scope.launch {
+            kotlinx.coroutines.delay(5_000)
+            kotlinx.coroutines.flow.combine(library.favoriteIds, library.playlists) { a, b -> a.size to b.map { it.name to it.trackCount } }
+                .distinctUntilChanged()
+                .collectLatest {
+                    kotlinx.coroutines.delay(20_000) // wait until the changes stop
+                    if (com.sangeet.player.data.CloudSync.code(app) != null && online.canGoOnline) {
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+                            runCatching { com.sangeet.player.data.CloudSync.sync(app, library) }
+                                .onFailure { e -> android.util.Log.w("Sangeet", "sync: ${e.message}") }
+                        }
+                    }
+                }
+        }
+        // How many phones use the app (a number only; the owner dashboard shows it).
+        scope.launch { runCatching { com.sangeet.player.data.Usage.countMe(app, com.sangeet.player.data.Usage.emulator()) } }
+        // "New from your singers" notifications (Settings → New song alerts).
+        scope.launch {
+            settings.settings.map { it.newSongAlerts }.distinctUntilChanged().collect {
+                runCatching { com.sangeet.player.data.notify.NewSongs.schedule(app, it) }
             }
         }
         // Updates on its own whenever there's internet (Settings → App update → Update automatically).

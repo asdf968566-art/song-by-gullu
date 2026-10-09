@@ -263,3 +263,5 @@ body.np-open #toast { bottom: auto; top: calc(env(safe-area-inset-top) + 56px); 
 .whats-new .wn-title { padding: 12px 20px 2px; font-weight: 700; }
 .whats-new ul { margin: 4px 0; padding: 0 20px 0 38px; }
 .whats-new li { margin: 6px 0; line-height: 1.35; color: var(--text); }
+
+.whats-new .wn-kind { color: var(--accent); font-size: 13px; font-weight: 600; margin: 8px 20px 0; }

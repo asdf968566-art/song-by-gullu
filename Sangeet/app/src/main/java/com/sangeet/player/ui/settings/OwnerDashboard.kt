@@ -38,7 +38,10 @@ import com.sangeet.player.ui.theme.themedCard
 import java.io.ByteArrayInputStream
 import java.util.zip.Inflater
 import java.util.zip.InflaterInputStream
+import com.sangeet.player.data.Usage
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -56,13 +59,24 @@ import kotlinx.serialization.json.longOrNull
  * search, and each listener (random id) with their singers, songs, playlists and searches.
  */
 private object OwnerStats {
-    data class Snapshot(val downloadsTotal: Int?, val downloadsThisBuild: Int?, val stats: JsonObject?, val error: String?)
+    data class Snapshot(
+        val downloadsTotal: Int?, val downloadsThisBuild: Int?, val stats: JsonObject?, val error: String?,
+        /** Hit counters (Usage): installs and daily users of the Android app and the iPhone website. */
+        val counts: Map<String, Long?> = emptyMap(),
+    )
 
     private suspend fun get(url: String, auth: Boolean = false): String? = runCatching {
         Http.getText(url, if (auth) mapOf("Authorization" to "Bearer ${BuildConfig.REPORT_TOKEN}", "Accept" to "application/vnd.github+json") else emptyMap())
     }.getOrNull()
 
     suspend fun load(): Snapshot = withContext(Dispatchers.IO) {
+        val names = listOf("android-users", "web-users") +
+            listOf(0, 1).flatMap { d -> listOf("android-day-${Usage.day(d)}", "web-day-${Usage.day(d)}") }
+        val counts = names.map { n -> async { n to Usage.read(n) } }.awaitAll().toMap()
+        loadStats().copy(counts = counts)
+    }
+
+    private suspend fun loadStats(): Snapshot = withContext(Dispatchers.IO) {
         val repo = BuildConfig.UPDATE_REPO
         val now = get("https://api.github.com/repos/$repo/releases/tags/latest")?.let { body ->
             (Http.json.parseToJsonElement(body).jsonObject["assets"] as? JsonArray).orEmpty()
@@ -135,6 +149,19 @@ fun OwnerDashboard(nav: NavController) = PasswordGate(nav, "Owner dashboard", "E
                     style = MaterialTheme.typography.bodySmall, color = spec.muted)
             }
         }
+        item {
+            fun n(k: String) = s.counts[k]?.toString() ?: "?"
+            Card("Users of both apps") {
+                Line("Android phones (all time)", n("android-users"))
+                Line("Android today", n("android-day-${Usage.day()}"))
+                Line("Android yesterday", n("android-day-${Usage.day(1)}"))
+                Line("iPhone / website (all time)", n("web-users"))
+                Line("iPhone today", n("web-day-${Usage.day()}"))
+                Line("iPhone yesterday", n("web-day-${Usage.day(1)}"))
+                Text("Counted from this update on; one count per phone or browser (test phones are left out).",
+                    style = MaterialTheme.typography.bodySmall, color = spec.muted)
+            }
+        }
         if (st == null) {
             item { Text(s.error ?: "", color = spec.muted, modifier = Modifier.padding(20.dp)) }
             return@LazyColumn
@@ -151,6 +178,21 @@ fun OwnerDashboard(nav: NavController) = PasswordGate(nav, "Owner dashboard", "E
             }
         }
         item { Card("App versions") { Text(st["versions"].pairs(), color = spec.onSurface) } }
+        item { Card("Most used screens") { Text(st["features"].pairs(20).ifBlank { "Not yet" }, color = spec.onSurface) } }
+        (st["crashes"] as? JsonObject)?.let { cr ->
+            item {
+                Card("Crashes") {
+                    Line("Crashes", cr["total"].num()?.toString() ?: "0")
+                    Line("Phones that crashed", cr["phones"].num()?.toString() ?: "0")
+                    cr["by_version"].pairs(8).takeIf { it.isNotBlank() }?.let { Text("By version: $it", color = spec.onSurface) }
+                    cr["by_phone"].pairs(8).takeIf { it.isNotBlank() }?.let { Text("By phone: $it", color = spec.onSurface) }
+                    cr["recent"].list().take(6).forEach { e ->
+                        Text("• ${e.list().getOrNull(0).str()}", style = MaterialTheme.typography.bodySmall, color = spec.muted)
+                    }
+                }
+            }
+        }
+        item { Card("Phones") { Text(st["phones"].pairs(15).ifBlank { "Not yet" }, color = spec.onSurface) } }
         item { Card("Song languages") { Text(st["languages"].pairs(), color = spec.onSurface) } }
         item { Card("Most played (listeners)") { Text(st["top_songs"].pairs(20), color = spec.onSurface) } }
         item { Card("Rising now") { Text(st["rising"].pairs(15).ifBlank { "Nothing yet" }, color = spec.onSurface) } }
@@ -165,6 +207,8 @@ fun OwnerDashboard(nav: NavController) = PasswordGate(nav, "Owner dashboard", "E
             Card("Listener ${p["id"].str()}") {
                 Text("${p["p"].str().replaceFirstChar(Char::uppercase)} ${p["app"].str()} · seen ${ago(p["seen"].num())} · since ${ago(p["first"].num())} · ${p["uploads"].num() ?: 1} uploads",
                     style = MaterialTheme.typography.bodySmall, color = spec.muted)
+                p["m"].str().takeIf { it.isNotBlank() }?.let { Text("Phone: $it" + ((p["crash"].num() ?: 0L).takeIf { c -> c > 0 }?.let { c -> " · $c crashes" } ?: ""), color = spec.onSurface) }
+                p["use"].list().takeIf { it.isNotEmpty() }?.let { u -> Text("Uses: " + u.joinToString(", ") { e -> "${e.list().getOrNull(0).str()} ${e.list().getOrNull(1).num() ?: 0}" }, color = spec.muted) }
                 Text("Languages: ${p["langs"].list().joinToString(", ") { it.str() }}", color = spec.onSurface)
                 Text("Liked ${p["likes"].num() ?: 0} · played ${p["plays"].num() ?: 0} songs", color = spec.onSurface)
                 p["artists"].list().takeIf { it.isNotEmpty() }?.let { Text("Singers: ${it.joinToString(", ") { a -> a.str() }}", color = spec.onSurface) }

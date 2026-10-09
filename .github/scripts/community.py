@@ -8,8 +8,10 @@ repo) into what everyone gets back, keeping only what two or more listeners shar
 
 Usage: community.py <state.json.gz> <out community.json> <out searches.json>
 Env: REPORT_TOKEN (reads and closes the issues), DATA_REPO (owner/name; empty = only rebuild from the state),
-DATA_TOKEN (optional, CI only: may write files in DATA_REPO; then everything is also kept in its folder
-"sangeet-data/", one commit per run with new data — owner, Oct 9: "cms wali repo mein naya folder bana ke").
+FOLDER_REPO (a private repo the token may write files in; else DATA_REPO), DATA_TOKEN (optional, CI only).
+Everything is also kept as sangeet-stats.json, sangeet-listeners.json and sangeet-community.json in a folder that
+repo already has (owner, Oct 9: "cms wali repo", "naya folder mat bana, purana hi use kar"), one commit per run with
+new data.
 """
 import base64
 import collections
@@ -119,7 +121,8 @@ def owner_stats(state, plays_by, info, searched):
         songs = sorted(d.get("plays", []), key=lambda t: -(t[8] if len(t) > 8 else 1))[:5]
         users.append({
             "id": uid[:8], "first": d.get("first", d.get("seen")), "seen": d.get("seen"), "uploads": d.get("uploads", 1),
-            "p": d.get("p", ""), "app": d.get("app", ""), "langs": d.get("langs", []),
+            "p": d.get("p", ""), "app": d.get("app", ""), "langs": d.get("langs", []), "m": d.get("m", ""),
+            "crash": d.get("crash", 0), "use": sorted((d.get("use") or {}).items(), key=lambda kv: -kv[1])[:6],
             "likes": len(d.get("likes", [])), "plays": len(d.get("plays", [])),
             "artists": [a for a, _ in artists.most_common(6)],
             "songs": [f"{t[2]} — {str(t[3]).split(', ')[0]}" for t in songs],
@@ -133,8 +136,33 @@ def owner_stats(state, plays_by, info, searched):
         artist_users.update(mine)
     prev = state.get("prev_plays", {})
     rising = sorted(((n - prev.get(k, 0), k) for k, n in plays_by.items() if n - prev.get(k, 0) > 0), reverse=True)[:20]
+    # What the app's screens are used for, crashes and phones (each upload has this phone's totals so far).
+    features = collections.Counter()
+    crashes = collections.Counter()
+    crash_by_version = collections.Counter()
+    crash_by_phone = collections.Counter()
+    phones = collections.Counter()
+    errors = collections.Counter()
+    for d in state["users"].values():
+        for k, n in (d.get("use") or {}).items():
+            if isinstance(n, int):
+                features[k] += n
+        n = d.get("crash") or 0
+        if isinstance(n, int) and n > 0:
+            crashes["total"] += n
+            crashes["phones"] += 1
+            crash_by_version[d.get("app", "?")] += n
+            crash_by_phone[d.get("m", "?")] += n
+        for e in d.get("crashes") or []:
+            errors[str(e)[:160]] += 1
+        if d.get("m"):
+            phones[d["m"]] += 1
     stats = {
         "built": int(now),
+        "features": features.most_common(30),
+        "crashes": {"total": crashes["total"], "phones": crashes["phones"], "by_version": crash_by_version.most_common(8),
+                    "by_phone": crash_by_phone.most_common(8), "recent": errors.most_common(10)},
+        "phones": phones.most_common(15),
         "users": {"total": len(state["users"]), "today": active(1), "week": active(7), "month": active(30)},
         "versions": collections.Counter(d.get("app", "?") for d in state["users"].values()).most_common(10),
         "languages": collections.Counter(l for d in state["users"].values() for l in d.get("langs", [])).most_common(12),
@@ -166,23 +194,33 @@ def write_stats(stats):
     print(f"COMMUNITY: owner stats updated ({stats['users']['total']} listeners, {stats['users']['week']} this week)")
 
 
-FOLDER = "sangeet-data"
-README = """# Sangeet listening data
-
-Written by the Sangeet catalog build (asdf968566-art/song-by-gullu, `.github/scripts/community.py`). Keep this repo
-private: these are the listeners' searches, likes, plays and playlists (a random id per phone, no names or numbers).
-
-- `stats.json`: the numbers in the app's Owner dashboard (listeners today / week / month, versions, languages, most
-  played, rising, top singers and searches, and each listener's singers, songs, playlists and searches).
-- `listeners.json`: every listener's latest upload (last 60 days), keyed by their random id.
-- `community.json`: what the apps get back (only what two or more listeners share).
-"""
+# Owner, Oct 9: "naya folder mat bana, kisi purane ko hi use karle". The files go in a folder the repo already has
+# (a data-like name first, else the first one a website wouldn't serve; else the top level), named "sangeet-..."
+# so they never touch the project's own files. The chosen folder is kept in the state so it stays the same.
+PREFER = ["data", "database", "db", "backup", "backups", "storage", "logs", "files"]
+# Folders a website often serves to everyone (or tooling folders): never put listeners' data there.
+NOT_THESE = {"public", "static", "assets", "uploads", "www", "dist", "build", "out", "docs", "html", "media", "images",
+             "node_modules", "vendor", "github", "git"}
+NO_WRITE = ("COMMUNITY: can't write files in {repo} (HTTP {status}); data stays in its issues. To keep the files, the "
+            "token needs Contents: Read and write on {repo}")
 
 
-def save_folder(files, got):
-    """Puts [files] ({name: text}) in the data repo's folder as one commit (Git Data API). Needs Contents write."""
+def pick_folder(dirs, kept):
+    if kept is not None and (kept == "" or kept in dirs):
+        return kept
+    usable = sorted(d for d in dirs if d.lower() not in NOT_THESE and not d.startswith("."))
+    for want in PREFER:
+        hit = next((d for d in usable if d.lower() == want), None)
+        if hit:
+            return hit
+    return usable[0] if usable else ""
+
+
+def save_folder(files, got, state):
+    """Puts [files] ({name: text}) in an existing folder of a private repo as one commit (Git Data API)."""
     token = os.environ.get("DATA_TOKEN") or os.environ.get("REPORT_TOKEN", "")
-    repo = os.environ.get("DATA_REPO", "")
+    # FOLDER_REPO: a private repo the token may write files in (data-repo.py --files); else the data repo.
+    repo = os.environ.get("FOLDER_REPO") or os.environ.get("DATA_REPO", "")
     if not token or not repo:
         return
     status, meta = call("GET", f"/repos/{repo}", token)
@@ -190,13 +228,17 @@ def save_folder(files, got):
         return
     branch = meta.get("default_branch", "main")
     status, ref = call("GET", f"/repos/{repo}/git/ref/heads/{branch}", token)
-    if status != 200:
-        print(f"COMMUNITY: can't read {repo} files (HTTP {status}); data stays in its issues. To keep it in the folder "
-              f"{FOLDER}/, add the secret DATA_TOKEN: a token with Contents: Read and write on {repo}")
+    status2, top = call("GET", f"/repos/{repo}/contents?ref={branch}", token)
+    if status != 200 or status2 != 200 or not isinstance(top, list):
+        print(NO_WRITE.format(repo=repo, status=status if status != 200 else status2))
         return
-    status, _ = call("GET", f"/repos/{repo}/contents/{FOLDER}?ref={branch}", token)
+    kept = state.get("folder", {}).get(repo)
+    folder = pick_folder([x["name"] for x in top if x.get("type") == "dir"], kept)
+    where = f"{repo}/{folder + '/' if folder else ''}"
+    path = lambda name: f"{folder}/{name}" if folder else name
+    status, _ = call("GET", f"/repos/{repo}/contents/{path('sangeet-stats.json')}?ref={branch}", token)
     if status == 200 and got == 0:
-        print(f"COMMUNITY: no new uploads, {repo}/{FOLDER}/ unchanged")
+        print(f"COMMUNITY: no new uploads, {where}sangeet-*.json unchanged")
         return
     head = ref["object"]["sha"]
     _, commit = call("GET", f"/repos/{repo}/git/commits/{head}", token)
@@ -204,20 +246,21 @@ def save_folder(files, got):
     for name, text in files.items():
         status, blob = call("POST", f"/repos/{repo}/git/blobs", token, {"content": text, "encoding": "utf-8"})
         if status != 201:
-            print(f"COMMUNITY: can't write files in {repo} (HTTP {status}); data stays in its issues. To keep it in the "
-                  f"folder {FOLDER}/, add the secret DATA_TOKEN: a token with Contents: Read and write on {repo}")
+            print(NO_WRITE.format(repo=repo, status=status))
             return
-        tree.append({"path": f"{FOLDER}/{name}", "mode": "100644", "type": "blob", "sha": blob["sha"]})
+        tree.append({"path": path(name), "mode": "100644", "type": "blob", "sha": blob["sha"]})
     status, new_tree = call("POST", f"/repos/{repo}/git/trees", token, {"base_tree": commit["tree"]["sha"], "tree": tree})
     if status != 201:
-        print(f"COMMUNITY: can't write files in {repo} (HTTP {status}); data stays in its issues. To keep it in the folder "
-              f"{FOLDER}/, add the secret DATA_TOKEN: a token with Contents: Read and write on {repo}")
+        print(NO_WRITE.format(repo=repo, status=status))
         return
     status, new = call("POST", f"/repos/{repo}/git/commits", token,
                        {"message": f"Sangeet listening data: {got} new uploads", "tree": new_tree["sha"], "parents": [head]})
     if status == 201:
         status, _ = call("PATCH", f"/repos/{repo}/git/refs/heads/{branch}", token, {"sha": new["sha"]})
-    print(f"COMMUNITY: folder {repo}/{FOLDER}/ " + ("updated" if status == 200 else f"not updated (HTTP {status})"))
+    if status == 200:
+        state.setdefault("folder", {})[repo] = folder
+    print(f"COMMUNITY: files in {where} (sangeet-stats.json, sangeet-listeners.json, sangeet-community.json) "
+          + ("updated" if status == 200 else f"not updated (HTTP {status})"))
 
 
 def main():
@@ -297,13 +340,12 @@ def main():
         json.dump([q for q, _ in searched.most_common(500)], f, ensure_ascii=False)
     stats = owner_stats(state, plays_by, info, searched)
     files = {
-        "README.md": README,
-        "stats.json": json.dumps(stats, ensure_ascii=False, indent=1),
-        "listeners.json": json.dumps(state["users"], ensure_ascii=False, separators=(",", ":")),
-        "community.json": json.dumps(out, ensure_ascii=False, separators=(",", ":")),
+        "sangeet-stats.json": json.dumps(stats, ensure_ascii=False, indent=1),
+        "sangeet-listeners.json": json.dumps(state["users"], ensure_ascii=False, separators=(",", ":")),
+        "sangeet-community.json": json.dumps(out, ensure_ascii=False, separators=(",", ":")),
     }
     write_stats(stats)
-    save_folder(files, got)
+    save_folder(files, got, state)
     with gzip.open(STATE, "wt", encoding="utf-8") as f:
         json.dump(state, f, separators=(",", ":"))
     print(f"COMMUNITY: {got} new uploads, {len(songs_of)} listeners, {len(used)} songs shared, {len(out['searches'])} shared searches")

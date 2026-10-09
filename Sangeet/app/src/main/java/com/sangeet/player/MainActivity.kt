@@ -88,6 +88,19 @@ class MainActivity : ComponentActivity() {
             }
             Intent.ACTION_VIEW -> {
                 val uri = intent.data ?: return
+                // A shared Sangeet song: sangeet://play?song=… (the website's "Open in app") or the website link.
+                val shared = if (uri.getQueryParameter("song") != null || uri.fragment?.startsWith("play=") == true)
+                    com.sangeet.player.data.LibrarySync.songFromLink(uri.toString()) else null
+                if (shared != null) {
+                    container.player.startRadio(shared)
+                    return
+                }
+                // A sync link from the other phone (#joinsync=…): open Sync, which joins it.
+                uri.fragment?.takeIf { it.startsWith("joinsync=") }?.let {
+                    container.openRoute.value = com.sangeet.player.ui.Routes.sync(it.removePrefix("joinsync="))
+                    return
+                }
+                if (uri.host?.endsWith("github.io") == true) return // another page of the website: nothing to play
                 if (uri.scheme == "sangeet" && uri.host == "play") {
                     val q = uri.getQueryParameter("q") ?: return
                     val type = uri.getQueryParameter("source")?.let { name ->
