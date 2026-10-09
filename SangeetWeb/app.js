@@ -2100,8 +2100,44 @@ function settingsPage() {
     h('div', { class: 'note' }, "Songs you've heard are never suggested twice."),
     standalone ? null : h('div', null, h('div', { class: 'section' }, 'Install on iPhone'),
       h('div', { class: 'note' }, 'In Safari tap Share, then "Add to Home Screen". Sangeet opens full screen like an app.')),
+    h('button', { class: 'danger', style: 'color:var(--text)', onclick: () => WhatsNew.show() }, "What's new"),
     h('div', { class: 'note' }, `Version ${window.SANGEET_BUILD}`));
 }
+
+/* ------------------------------------------------------------------ What's new (the update log, same file as Android) */
+const WhatsNew = {
+  KEY: 'sangeet-whatsnew',
+  async list() {
+    try {
+      const r = await fetch(`whats-new.json?b=${window.SANGEET_BUILD}`);
+      if (!r.ok) return [];
+      return (await r.json()).map((e) => ({ ...e, items: e.items.filter((i) => i.on !== 'android') })).filter((e) => e.items.length);
+    } catch { return []; }
+  },
+  /** After an update: the new entries, once. A first visit shows nothing; an older install sees the newest entry. */
+  async check() {
+    const list = await this.list();
+    if (!list.length) return;
+    let seen = null;
+    try { seen = localStorage.getItem(this.KEY); localStorage.setItem(this.KEY, list[0].date); } catch {}
+    const usedBefore = S.liked.length || Object.keys(S.history || {}).length;
+    const fresh = seen ? list.filter((e) => e.date > seen) : usedBefore ? list.slice(0, 1) : [];
+    if (fresh.length) this.show(fresh);
+  },
+  async show(entries) {
+    entries = entries || (await this.list());
+    if (!entries.length) return toast('Nothing yet');
+    const close = () => box.remove();
+    const box = h('div', { class: 'menu', onclick: close },
+      h('div', { class: 'box whats-new', onclick: (e) => e.stopPropagation() },
+        h('h2', null, "What's new"),
+        entries.map((e) => h('div', null,
+          h('div', { class: 'wn-title' }, [e.title, e.date].filter(Boolean).join(' · ')),
+          h('ul', null, e.items.map((i) => h('li', null, i.text))))),
+        h('button', { class: 'pill primary', style: 'margin:12px 20px', onclick: close }, 'OK')));
+    document.body.append(box);
+  },
+};
 
 /* ------------------------------------------------------------------ look: Classic or Liquid Glass */
 const LOOKS = [['classic', 'Classic dark'], ['glass-dark', 'Liquid Glass · Dark'], ['glass-light', 'Liquid Glass · Light'], ['glass-auto', 'Liquid Glass · Same as iPhone']];
@@ -2562,5 +2598,6 @@ applyLook();
   Sync.importFromHash();
   Blend.fromHash();
   window.addEventListener('hashchange', () => { Sync.importFromHash(); Blend.fromHash(); });
+  setTimeout(() => WhatsNew.check(), 1500);
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();

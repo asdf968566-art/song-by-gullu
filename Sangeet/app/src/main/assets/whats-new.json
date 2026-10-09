@@ -1,0 +1,46 @@
+[
+  {
+    "date": "2026-10-09",
+    "title": "Movies, Pahadi songs and real moods",
+    "items": [
+      {"on": "both", "text": "🎬 Movies: every Indian film with its release year, music director, producers, director and cast. Filter by language and decade, or search any name (\"Pritam\", \"Yash Raj Films\", \"Shah Rukh Khan\")."},
+      {"on": "both", "text": "Search a movie's name to get its album: all its songs, playing one after another."},
+      {"on": "both", "text": "Moods (Happy, Sad, Party…), Home rows and festivals now come from playlists made for them, not from songs that only have the word in their name or singer."},
+      {"on": "both", "text": "🏔️ Pahadi: Garhwali, Kumaoni, Jaunsari and Himachali songs in a new category."},
+      {"on": "android", "text": "Pahadi is now a song language in Settings → Song languages."},
+      {"on": "android", "text": "YouTube songs play more reliably (updated YouTube player)."},
+      {"on": "both", "text": "YouTube and YouTube Music playlists import again, up to 2000 songs."},
+      {"on": "android", "text": "After a song you searched, similar songs in that song's language follow."},
+      {"on": "android", "text": "Report a problem sends your report again."},
+      {"on": "both", "text": "What's new: this list, after every update and in Settings."}
+    ]
+  },
+  {
+    "date": "2026-10-06",
+    "title": "Wrapped, Blend and Car mode",
+    "items": [
+      {"on": "both", "text": "🎁 Wrapped: your year in music as a card to share (Library → Your Stats)."},
+      {"on": "both", "text": "🤝 Blend with a friend: one playlist from both your tastes."},
+      {"on": "both", "text": "Share a line from the lyrics as a picture (long-press a lyrics line)."},
+      {"on": "both", "text": "🚗 Car mode: big buttons in Now Playing."},
+      {"on": "both", "text": "🆕 New from your singers on Home."},
+      {"on": "both", "text": "More songs: the song list now grows three times a day (over 12 lakh songs)."},
+      {"on": "iphone", "text": "YouTube in background (experimental, Settings)."},
+      {"on": "iphone", "text": "Download songs to play without internet, and Save to Files."},
+      {"on": "iphone", "text": "Liquid Glass look (Settings → Look)."}
+    ]
+  },
+  {
+    "date": "2026-10-05",
+    "title": "Voice search and Liquid Glass",
+    "items": [
+      {"on": "both", "text": "🎤 Voice search, and search by a line from the lyrics."},
+      {"on": "both", "text": "Recent searches in the search bar."},
+      {"on": "android", "text": "Liquid Glass theme, now also in light mode; the time and battery at the top follow the theme."},
+      {"on": "android", "text": "Tap a tab to go back to its start; song languages are in Settings and on Home."},
+      {"on": "both", "text": "A song you pick from search is followed by songs like it."},
+      {"on": "both", "text": "😎 Haryanvi Badmashi category."},
+      {"on": "iphone", "text": "Search by singer's name; lock screen and Dynamic Island controls."}
+    ]
+  }
+]

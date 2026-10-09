@@ -16,6 +16,12 @@ request the owner made, in order.
 - iPhone app = website: https://asdf968566-art.github.io/song-by-gullu/ (Safari → Share → Add to Home Screen).
   Updates go live by themselves after the Web App workflow deploys; tell the owner when it is live.
 - Owner wants: simple UI, no hints/clutter, lakhs of songs, no song repeating on its own, Hindi/Punjabi/Haryanvi first.
+- **Every update needs a "What's new" entry** (owner asked, Oct 9): add it at the TOP of
+  `Sangeet/app/src/main/assets/whats-new.json` before merging (`date`, short `title`, `items` with `on`:
+  both / android / iphone, plain English for users). Android shows new entries once after an update and in
+  Settings → What's new, and the update dialog / GitHub release notes use the newest entry; the web app gets the same
+  file (web.yml copies it) and shows it once after an update and in Settings. Several updates on one day: add items
+  to that day's entry.
 - Flow used for every feature: work on the dev branch → push → wait for CI (Build APK + Web App) → open PR to `main`
   → merge → wait for main's Build APK (emulator test) + Web App deploy → then give the APK link / say site is live.
   The PRs so far are #1–#24, all merged by Claude after tests passed.

@@ -27,6 +27,7 @@ import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.SystemUpdate
+import androidx.compose.material.icons.rounded.NewReleases
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -207,6 +208,12 @@ fun SettingsScreen(nav: NavController) {
                 "Current: version ${com.sangeet.player.BuildConfig.VERSION_NAME} (build ${c.updater.currentBuild})",
                 onClick = { scope.launch { c.updater.check() } },
             )
+            var showLog by remember { mutableStateOf(false) }
+            SettingsItem(Icons.Rounded.NewReleases, "What's new", "What changed in each update", onClick = { showLog = true })
+            if (showLog) {
+                val log = remember { com.sangeet.player.data.WhatsNew.all(context) }
+                com.sangeet.player.ui.components.WhatsNewDialog(log) { showLog = false }
+            }
             var token by remember(s.githubToken) { mutableStateOf(s.githubToken) }
             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                 Text(

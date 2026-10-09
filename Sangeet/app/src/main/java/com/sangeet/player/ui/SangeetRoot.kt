@@ -31,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -162,6 +163,15 @@ fun SangeetRoot() {
         container.openRoute.collect { route -> if (route != null) { nav.navigate(route); container.openRoute.value = null } }
     }
     UpdateDialog()
+    // After an update: what's new in it (once).
+    val appContext = LocalContext.current
+    var whatsNew by remember { mutableStateOf(com.sangeet.player.data.WhatsNew.unseen(appContext)) }
+    if (whatsNew.isNotEmpty()) {
+        com.sangeet.player.ui.components.WhatsNewDialog(whatsNew) {
+            com.sangeet.player.data.WhatsNew.markSeen(appContext)
+            whatsNew = emptyList()
+        }
+    }
 
     BackHandler(enabled = expanded) { expanded = false }
 
