@@ -30,6 +30,10 @@ def main():
         return
     _, repos = call("GET", "/user/repos?affiliation=owner&per_page=100", rt)
     repos = [r["full_name"] for r in (repos or []) if r.get("has_issues") and r["full_name"] != here]
+    # Where can the app send reports? (An issue without a title: 422 = allowed, nothing is created.)
+    for repo in ["vivekyadav200405-cpu/day1"] + [r for r in repos if r != "vivekyadav200405-cpu/day1"]:
+        st, _ = call("POST", f"/repos/{repo}/issues", rt, {})
+        print(f"REPORTS: {repo}: {'app can send reports here ✅' if st == 422 else f'no permission to create issues (GitHub said {st})'}")
     moved = 0
     for repo in repos:
         status, issues = call("GET", f"/repos/{repo}/issues?state=open&per_page=50", rt)
