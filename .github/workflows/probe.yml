@@ -3,9 +3,15 @@ on:
   push:
     branches: ["claude/**"]
     paths: [".github/probe/**", ".github/workflows/probe.yml"]
+permissions:
+  contents: read
+  models: read
 jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - run: python3 .github/probe/ai.py
+        env:
+          GH_MODELS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPORT_TOKEN: ${{ secrets.REPORT_TOKEN }}
