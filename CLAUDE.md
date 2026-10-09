@@ -144,8 +144,12 @@ request the owner made, in order.
     uploads makes one commit (Git Data API) with README.md, stats.json, listeners.json and community.json. This
     needs a token that can write files there. REPORT_TOKEN can't (Oct 9 probe: contents 403 on CMS). Making it
     able to would also put CMS's code at risk, because that token ships inside the public APK. So community.py
-    uses the optional CI-only secret **`DATA_TOKEN`** (fine-grained, CMS only, Contents: Read and write). Until the
-    owner adds it, the log says `can't read … add the secret DATA_TOKEN` and the data stays in the issues.
+    uses the optional CI-only secret **`DATA_TOKEN`** (fine-grained, CMS only, Contents: Read and write) if set.
+    The owner said CMS isn't an important project ("koi khas project nhi, jo bhi folder mile usse use karle"), so
+    adding Contents: Read and write to REPORT_TOKEN itself is fine too.
+    `data-repo.py --files` picks the folder repo (`FOLDER_REPO`): the first private repo where the token may write
+    files (empty PUT → 422), CMS first. Until one exists, the log says `folder repo none` and the data stays in the
+    issues.
   - The CI emulator never uploads (`Community.emulator()`), and only main's Web App reads and closes uploads
     (branch runs keep a separate cache). Build 159's CI emulator had uploaded; community.py's one-time reset
     (state `v` 2) dropped those test phones.

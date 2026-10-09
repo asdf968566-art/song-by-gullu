@@ -8,8 +8,9 @@ repo) into what everyone gets back, keeping only what two or more listeners shar
 
 Usage: community.py <state.json.gz> <out community.json> <out searches.json>
 Env: REPORT_TOKEN (reads and closes the issues), DATA_REPO (owner/name; empty = only rebuild from the state),
-DATA_TOKEN (optional, CI only: may write files in DATA_REPO; then everything is also kept in its folder
-"sangeet-data/", one commit per run with new data — owner, Oct 9: "cms wali repo mein naya folder bana ke").
+FOLDER_REPO (a private repo the token may write files in; else DATA_REPO), DATA_TOKEN (optional, CI only).
+Everything is also kept in the folder "sangeet-data/" there, one commit per run with new data (owner, Oct 9:
+"cms wali repo mein naya folder bana ke", "jo bhi folder mile usse use karle").
 """
 import base64
 import collections
@@ -182,7 +183,8 @@ private: these are the listeners' searches, likes, plays and playlists (a random
 def save_folder(files, got):
     """Puts [files] ({name: text}) in the data repo's folder as one commit (Git Data API). Needs Contents write."""
     token = os.environ.get("DATA_TOKEN") or os.environ.get("REPORT_TOKEN", "")
-    repo = os.environ.get("DATA_REPO", "")
+    # FOLDER_REPO: a private repo the token may write files in (data-repo.py --files); else the data repo.
+    repo = os.environ.get("FOLDER_REPO") or os.environ.get("DATA_REPO", "")
     if not token or not repo:
         return
     status, meta = call("GET", f"/repos/{repo}", token)
