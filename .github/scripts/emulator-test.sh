@@ -88,7 +88,12 @@ for i in $(seq 1 60); do
   [[ -n "$DL" ]] && break
   sleep 2
 done
-[[ -n "$DL" ]] || { adb logcat -d | grep -E "Sangeet|WM-|Download" | tail -30; fail "Download 2 minute mein poora nahi hua"; }
+if [[ -z "$DL" ]]; then
+  # Why: the download's own lines (worker start, pieces, retries, errors), not WorkManager's other jobs.
+  adb logcat -d | grep -iE "download|DownloadWorker|deep link|stream|HTTP [0-9]{3}" | grep -v -E "WM-(GreedyScheduler|NetworkStateTracker|ConstraintTracker|DelayedWorkTracker)" | tail -60
+  adb shell dumpsys jobscheduler 2>/dev/null | grep -A3 "com.sangeet.player" | head -20 || true
+  fail "Download 2 minute mein poora nahi hua"
+fi
 echo "$DL ✅"
 
 echo "== For You feed: kuch apne aap nahi bajna chahiye, Play dabane par bajna chahiye"
