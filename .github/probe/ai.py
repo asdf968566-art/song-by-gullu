@@ -101,9 +101,10 @@ def test(label, url, model, key):
 
 
 GH = "https://models.github.ai"
-tok = os.environ.get("GH_MODELS_TOKEN", "")
-s, body, _, _ = go(GH + "/catalog/models", headers={"Authorization": f"Bearer {tok}"})
-print("### GitHub Models catalog:", s)
+tok = os.environ.get("REPORT_TOKEN", "")  # the app's own token: what the app would use
+hdr = {"Authorization": f"Bearer {tok}", "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}
+s, body, _, _ = go(GH + "/catalog/models", headers=hdr)
+print("### GitHub Models catalog:", s, len(body))
 ids = []
 try:
     for m in json.loads(body):
@@ -111,50 +112,19 @@ try:
         print(f"  {m['id']}  tier={m.get('rate_limit_tier')}")
 except Exception:
     print(body[:300])
-want = ["deepseek/deepseek-v3", "openai/gpt-4.1", "openai/gpt-4.1-mini", "openai/gpt-4o", "meta/llama-4-maverick",
-        "xai/grok-3", "openai/gpt-5-mini", "openai/gpt-5", "mistral-ai/mistral-medium", "deepseek/deepseek-r1"]
+want = ["deepseek/deepseek-v3", "openai/gpt-4.1", "openai/gpt-5-chat", "openai/gpt-4o", "meta/llama-4-maverick",
+        "xai/grok-3", "openai/gpt-5-mini", "deepseek/deepseek-r1", "microsoft/mai-ds-r1", "openai/gpt-4.1-mini"]
 picked = []
 for w in want:
     hit = next((i for i in ids if i.lower().startswith(w) and i not in picked), None)
     if hit:
         picked.append(hit)
-for mid in picked[:8]:
+if not ids:
+    picked = ["deepseek/DeepSeek-V3-0324", "openai/gpt-4.1", "openai/gpt-4.1-mini", "meta/Llama-4-Maverick-17B-128E-Instruct-FP8"]
+for mid in picked[:9]:
     test("github-models", GH + "/inference/chat/completions", mid, tok)
-
-s, body, _, _ = go("https://api.llm7.io/v1/models")
-print("### llm7 models:", s)
-llm7 = []
-try:
-    data = json.loads(body)
-    llm7 = [m.get("id") for m in (data.get("data") if isinstance(data, dict) else data)]
-    print("  ", llm7[:40])
-except Exception:
-    print(body[:300])
-for w in ["deepseek", "gpt-4.1", "gemini", "gpt-4o", "llama"]:
-    hit = next((i for i in llm7 if i and w in i.lower()), None)
-    if hit:
-        test("llm7", "https://api.llm7.io/v1/chat/completions", hit, "unused")
-
-s, text, secs, _ = go("https://apifreellm.com/api/chat", {"message": SYSTEM + " Request: " + ASKS[0]})
-print("### apifreellm:", s, f"{secs:.1f}s", text[:300])
 
 print("\n### TOTAL real songs per model")
 for k, (a, b) in sorted(totals.items(), key=lambda kv: -(kv[1][0] / max(1, kv[1][1]))):
     print(f"  {k}: {a}/{b}")
 
-# What the report token may do (it is the one inside the app).
-rt = os.environ.get("REPORT_TOKEN", "")
-if rt:
-    s, text, secs, _ = chat(GH + "/inference/chat/completions", "openai/gpt-4.1-mini", "say ok", rt)
-    print("### REPORT_TOKEN -> GitHub Models:", s, text[:160] if s != 200 else "OK")
-    auth = {"Authorization": f"Bearer {rt}", "Accept": "application/vnd.github+json"}
-    s, body, _, _ = go("https://api.github.com/repos/vivekyadav200405-cpu/CMS", headers=auth)
-    try:
-        meta = json.loads(body)
-        print("### CMS repo:", s, "private" if meta.get("private") else "PUBLIC", "has_issues", meta.get("has_issues"))
-    except Exception:
-        print("### CMS repo:", s)
-    s, _, _, _ = go("https://api.github.com/repos/vivekyadav200405-cpu/CMS/contents/sangeet-data", headers=auth)
-    print("### CMS sangeet-data folder:", "exists" if s == 200 else f"HTTP {s}")
-    s, body, _, _ = go("https://api.github.com/repos/vivekyadav200405-cpu/CMS/contents/sangeet-data/probe.txt", {}, auth, method="PUT")
-    print("### CMS write files (422 = allowed, 403/404 = not):", s, body[:160])
