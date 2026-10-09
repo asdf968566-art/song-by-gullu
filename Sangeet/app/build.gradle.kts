@@ -24,7 +24,8 @@ android {
             "String",
             "YOUTUBE_API_KEY",
             // Key repo mein nahi rakhi: GitHub Secret YOUTUBE_API_KEY se aati hai (ya local.properties / -P se).
-            "\"${System.getenv("YOUTUBE_API_KEY") ?: project.findProperty("sangeet.youtubeApiKey") ?: ""}\"",
+            // An empty secret (not set) must not hide the key in gradle.properties.
+            "\"${System.getenv("YOUTUBE_API_KEY")?.takeIf { it.isNotBlank() } ?: project.findProperty("sangeet.youtubeApiKey") ?: ""}\"",
         )
         // Lets "Report a problem" create a GitHub issue from inside the app. A fine-grained token with only
         // "Issues: Read and write" on this repo, stored as the GitHub secret REPORT_TOKEN (never in the repo).

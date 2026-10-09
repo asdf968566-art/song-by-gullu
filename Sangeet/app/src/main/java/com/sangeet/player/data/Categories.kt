@@ -16,6 +16,10 @@ data class Category(
     val color: Long,
     val more: List<String> = emptyList(),
     val match: Regex? = null,
+    /** A singer's category (Arijit Singh): their name in a song's singers is what we want. */
+    val singer: Boolean = false,
+    /** Songs mostly on YouTube (Pahadi): these YouTube + JioSaavn searches instead of JioSaavn playlists. */
+    val youtube: List<String> = emptyList(),
 )
 
 /** Haryanvi badmashi songs: words from their titles (gunda, bandook, jail, dushman...). */
@@ -34,7 +38,7 @@ object Categories {
         Category("Punjabi Hits", "🥁", "punjabi hits", "punjabi", 0xFFE8115B),
         Category("Party", "🔥", "bollywood party songs", "hindi", 0xFF7358FF),
         Category("Lofi Chill", "🎧", "hindi lofi", "hindi", 0xFF477D95),
-        Category("Arijit Singh", "🎤", "arijit singh", "hindi", 0xFF8D67AB),
+        Category("Arijit Singh", "🎤", "arijit singh", "hindi", 0xFF8D67AB, singer = true),
         Category("Sad Songs", "💔", "hindi sad songs", "hindi", 0xFF1E3264),
         Category("Old is Gold", "📻", "old hindi songs 90s", "hindi", 0xFFBA5D07),
         Category("Punjabi Romantic", "💕", "punjabi romantic songs", "punjabi", 0xFFB06239),
@@ -48,6 +52,10 @@ object Categories {
             match = BADMASHI,
         ),
         Category("Bhojpuri", "🎺", "bhojpuri songs", "bhojpuri", 0xFF27856A),
+        Category(
+            "Pahadi", "🏔️", "pahadi songs", "pahadi", 0xFF2E6B5E,
+            youtube = listOf("new garhwali songs", "kumaoni songs", "himachali pahari nati", "pahadi dj songs", "jaunsari songs"),
+        ),
         Category("Devotional", "🙏", "bhakti songs hindi", "hindi", 0xFFF59B23),
         Category("Workout", "💪", "gym workout hindi songs", "hindi", 0xFF148A08),
         Category("Indie India", "🎸", "indian indie songs", "hindi", 0xFF503750),
@@ -62,6 +70,11 @@ object Categories {
     fun queryFor(name: String): String? =
         find(name)?.query ?: Festivals.all.firstOrNull { it.name.equals(name, true) }?.query
 
+    /** A category or festival as a [Topic] (null for other names). */
+    fun topicFor(name: String, languages: List<String>): Topic? =
+        find(name)?.let { topicOf(it.query, listOf(it.language), it.singer) }
+            ?: Festivals.all.firstOrNull { it.name.equals(name, true) }?.let { topicOf(it.query, languages) }
+
     fun titleFor(name: String): String? =
         find(name)?.let { "${it.emoji} ${it.name}" }
             ?: Festivals.all.firstOrNull { it.name.equals(name, true) }?.let { "${it.emoji} ${it.name}" }
@@ -70,28 +83,64 @@ object Categories {
     fun ordered(languages: List<String>): List<Category> =
         all.sortedBy { c -> languages.indexOf(c.language).let { if (it < 0) 99 else it } }
 
-    val languages = listOf("hindi", "punjabi", "english", "haryanvi", "bhojpuri", "tamil", "telugu", "marathi", "bengali", "gujarati")
+    val languages = listOf("hindi", "punjabi", "english", "haryanvi", "bhojpuri", "pahadi", "tamil", "telugu", "marathi", "bengali", "gujarati")
 }
 
-/** Feed ke mood buttons: 😊 Happy, 💔 Sad, 🔥 Party... */
-data class Mood(val emoji: String, val name: String, val keyword: String)
+/**
+ * Feed ke mood buttons: 😊 Happy, 💔 Sad, 🔥 Party...
+ * [searches]: JioSaavn playlist searches ("hindi feel good"); [words]: words in a playlist's name that fit the mood.
+ * A song is not "happy" because its name or singer has the word (Happy Raikoti, "Happy Birthday"): mood songs come
+ * from playlists made for the mood, see OnlineRepository.topicTracks.
+ */
+data class Mood(
+    val emoji: String,
+    val name: String,
+    val words: List<String>,
+    val searches: List<String>,
+    /** Close moods' playlist searches, when few playlists are named after the mood itself. */
+    val close: List<String> = emptyList(),
+)
 
 object Moods {
     val all = listOf(
-        Mood("😊", "Happy", "happy"),
-        Mood("💔", "Sad", "sad"),
-        Mood("🔥", "Party", "party dance"),
-        Mood("💕", "Romantic", "romantic love"),
-        Mood("😌", "Chill", "chill lofi"),
-        Mood("😴", "Sleep", "soft sleep calm"),
-        Mood("💪", "Workout", "workout gym"),
-        Mood("🙏", "Devotional", "bhakti bhajan"),
-        Mood("🚗", "Road Trip", "road trip travel"),
+        Mood("😊", "Happy", listOf("happy", "feel good", "good vibes", "cheerful", "khushi", "good mood", "smile"), listOf("happy", "feel good", "good vibes"),
+            close = listOf("party", "dance", "celebration")),
+        Mood("💔", "Sad", listOf("sad", "heartbreak", "broken", "dard", "emotional", "judaai", "bewafa", "tears"), listOf("sad", "heartbreak", "emotional")),
+        Mood("🔥", "Party", listOf("party", "dance", "club", "dj", "bhangra", "night out"), listOf("party", "dance")),
+        Mood("💕", "Romantic", listOf("romantic", "romance", "love", "ishq", "pyaar", "valentine"), listOf("romantic", "love")),
+        Mood("😌", "Chill", listOf("chill", "lofi", "lo-fi", "relax", "calm", "acoustic", "unplugged", "sukoon"), listOf("lofi", "chill", "unplugged")),
+        Mood("😴", "Sleep", listOf("sleep", "night", "soft", "calm", "sukoon", "lullaby", "soothing"), listOf("sleep", "soft", "calm"),
+            close = listOf("lofi", "unplugged", "acoustic")),
+        Mood("💪", "Workout", listOf("workout", "gym", "power", "motivation", "energy", "pump"), listOf("workout", "gym", "motivation")),
+        Mood("🙏", "Devotional", listOf("bhakti", "devotional", "bhajan", "aarti", "spiritual", "god"), listOf("bhakti", "devotional", "bhajan")),
+        Mood("🚗", "Road Trip", listOf("road trip", "drive", "travel", "journey", "safar", "long drive"), listOf("road trip", "long drive", "travel")),
     )
 
-    /** Mood + pasandida bhasha se search queries, jaise "hindi romantic love songs". */
-    fun queries(mood: Mood, languages: List<String>): List<String> =
-        languages.take(2).ifEmpty { listOf("hindi") }.map { "$it ${mood.keyword} songs" }
+    /** Playlist searches for a mood in the chosen languages, like "hindi feel good". */
+    fun searches(mood: Mood, languages: List<String>): List<String> =
+        languages.take(2).ifEmpty { listOf("hindi") }.flatMap { l -> mood.searches.map { "$l $it" } }
+
+    /** The mood a request talks about ("sad punjabi songs for a night drive" -> Sad), if any. */
+    fun find(text: String): Mood? {
+        val t = " ${text.lowercase()} "
+        return all.firstOrNull { m -> m.words.any { Regex("\\b${Regex.escape(it)}\\b").containsMatchIn(t) } }
+    }
+}
+
+/** What to look for to show a category or festival as songs. */
+data class Topic(val searches: List<String>, val words: List<String>, val noise: List<String>, val languages: List<String>)
+
+private val TOPIC_GENERIC = setOf("songs", "song", "geet", "music", "playlist")
+
+/** A category / festival search ("haryanvi songs", "holi songs") as a [Topic]. */
+fun topicOf(query: String, languages: List<String>, singer: Boolean = false): Topic {
+    val words = query.lowercase().split(Regex("\\s+")).filter { it.isNotBlank() && it !in TOPIC_GENERIC }
+    // Mood words in it ("hindi sad songs") also count as the mood's other words.
+    val mood = Moods.find(query)
+    val names = (words + mood?.words.orEmpty()).distinct()
+    val noise = if (singer) emptyList() else
+        (words.filter { it !in Categories.languages && it !in setOf("hits", "hit", "top", "best", "new", "latest", "old", "bollywood") } + mood?.words.orEmpty()).distinct()
+    return Topic(listOf(query.removeSuffix(" songs").trim()), names, noise, languages)
 }
 
 /** Tyohaar / mausam ki playlists — sahi waqt pe apne aap Home pe aati hain. */

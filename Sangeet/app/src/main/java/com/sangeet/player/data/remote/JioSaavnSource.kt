@@ -78,6 +78,10 @@ class JioSaavnSource : OnlineSource {
             .take(limit)
     }
 
+    /** Playlists for a search, like "hindi feel good" -> "Feel Good Hindi", "Happy Bollywood Hits". */
+    suspend fun searchPlaylists(query: String, page: Int = 1): List<OnlinePlaylist> =
+        playlistsFrom(call("search.getPlaylistResults", "q" to query, "n" to "20", "p" to page.toString()))
+
     suspend fun playlistTracks(id: String): List<Track> =
         songsFrom(call("playlist.getDetails", "listid" to id, "n" to "300", "p" to "1"))
 

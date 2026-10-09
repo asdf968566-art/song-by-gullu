@@ -10,6 +10,7 @@ import com.anthropic.models.messages.MessageCreateParams
 import com.anthropic.models.messages.OutputConfig
 import com.fasterxml.jackson.annotation.JsonPropertyDescription
 import com.sangeet.player.data.Categories
+import com.sangeet.player.data.Moods
 import com.sangeet.player.data.OnlineRepository
 import com.sangeet.player.data.model.SourceType
 import com.sangeet.player.data.model.Track
@@ -74,13 +75,22 @@ class AiDj(
         if (plan.languages.isEmpty()) plan.languages = settings.current.languages
 
         val queries = (plan.songs + plan.searchQueries).map { it.trim() }.filter { it.isNotEmpty() }.distinct().take(16)
+        // A mood ("happy punjabi songs"): songs from playlists made for it come first.
+        val mood = Moods.find(request)
+        val moodSongs = mood?.let { m -> async { runCatching { online.moodTracks(m, plan.languages, limit = 30) }.getOrDefault(emptyList()) } }
         val found = queries.map { q -> async { runCatching { online.searchAll(q).take(12) }.getOrDefault(emptyList()) } }
             .awaitAll()
         // Exact song picks first, then the rest interleaved for variety.
         val merged = ArrayList<Track>()
         val maxLen = found.maxOfOrNull { it.size } ?: 0
         for (i in 0 until maxLen) found.forEach { list -> list.getOrNull(i)?.let(merged::add) }
-        var tracks = merged.distinctBy { it.id }.filter { it.inLanguages(plan.languages) || plan.languages.isEmpty() }
+        // The built-in DJ searches "hindi happy songs", which also finds songs that only have the word in their
+        // name or singer (Happy Raikoti): leave those out when there is a mood.
+        val noisy = { t: Track ->
+            !usedAi && mood != null && mood.words.any { w -> Regex("\\b${Regex.escape(w)}\\b", RegexOption.IGNORE_CASE).containsMatchIn("${t.title} ${t.artist}") }
+        }
+        var tracks = (moodSongs?.await().orEmpty() + merged.filterNot(noisy)).distinctBy { it.id }
+            .filter { it.inLanguages(plan.languages) || plan.languages.isEmpty() }
 
         // Grow the list with YouTube Music radio (and a little JioSaavn) for a longer, varied mix.
         if (tracks.size < 50) {

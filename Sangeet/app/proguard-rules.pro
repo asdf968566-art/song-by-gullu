@@ -23,6 +23,9 @@
 -dontwarn javax.script.**
 -dontwarn jdk.dynalink.**
 -dontwarn com.google.re2j.**
+# NewPipeExtractor 0.26+ talks to YouTube with protobuf-lite messages (fields are read by reflection).
+-keep class * extends com.google.protobuf.GeneratedMessageLite { *; }
+-dontwarn com.google.protobuf.**
 
 # Anthropic SDK (AI DJ) uses Jackson + Kotlin reflection: keep its model classes and ours.
 -keep class com.anthropic.** { *; }

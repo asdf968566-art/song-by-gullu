@@ -99,6 +99,21 @@ request the owner made, in order.
   (handy when artifacts can't be downloaded).
 - **Build iOS** (`build-ios.yml`): unsigned .ipa for `SangeetiOS` (release `ios-latest`).
 
+### Moods, categories, festivals (Oct 9)
+- Never build these from a song search ("hindi happy songs" finds songs with the word in their name or singer, e.g.
+  Happy Raikoti). Android: `OnlineRepository.topicTracks` / `moodTracks` take songs from JioSaavn **playlists** named
+  for the mood (`search.getPlaylistResults`), drop songs whose singer has the mood word, and fall back to close moods
+  (`Mood.close`). Web: `aiDj` uses catalog playlists named for the mood (`MOODS` 2nd list, 3rd = close moods); the
+  crawler always keeps mood-named playlists (`MOOD_WORDS` in build-web-catalog.py).
+- **Pahadi** (Garhwali/Kumaoni/Jaunsari/Himachali) is a language on Android (`LanguageGuess.isPahadi`, JioSaavn lists
+  these songs as Hindi) and a category on both apps that mixes YouTube + JioSaavn searches (`Category.youtube`).
+- NewPipeExtractor updated v0.24.8 → v0.26.5 (old one broke YouTube playback / playlist import). YouTube playlist
+  import uses the Data API first (needs the key), NewPipe as fallback.
+- In-app "Report a problem" got 403 from GitHub: the `REPORT_TOKEN` secret can't create issues. The Build APK log
+  says `REPORT_TOKEN: can create issues ✅` or a warning. Fix = owner makes a new fine-grained token on the
+  **asdf968566-art** account, repository `song-by-gullu`, permission **Issues: Read and write**, and saves it as the
+  `REPORT_TOKEN` secret. Until then the app opens Share instead.
+
 ## 5. Problems hit and how they were solved (why the code looks like it does)
 
 | Problem | Cause | Fix |

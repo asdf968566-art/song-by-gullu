@@ -1340,7 +1340,7 @@ function searchPage() {
   const browse = () => {
     const recent = Recent.list();
     const charts = Catalog.playlists.filter((p) => p.chart).slice(0, 6);
-    const moods = ['Romantic', 'Sad', 'Party', 'Chill', 'Workout', '90s', 'Bhakti', 'Wedding', 'Road trip', 'Rain'];
+    const moods = ['Happy', 'Romantic', 'Sad', 'Party', 'Chill', 'Sleep', 'Workout', '90s', 'Bhakti', 'Wedding', 'Road trip', 'Rain'];
     return h('div', null,
       recent.length ? [
         h('div', { class: 'section-row' }, h('div', { class: 'section' }, 'Recent searches'),
@@ -1416,9 +1416,14 @@ function festivalsNow() {
 
 /* ------------------------------------------------------------------ special categories (Haryanvi Badmashi) */
 const BADMASHI = /badma?sh?|bdmash|\bgund[aeiy]|gundagardi|\bgoli|band[ou]+k|raf+al|rifle|pistol|\bkatt[ae]\b|\basla\b|licen[cs]e|\bjail\b|khoon|dushman|gangster|\bgang\b|ak ?47|\bbore\b|encounter|rangdari|dabdaba|hathyar|qatal|\bkatl\b|\bmaut\b|\bbadla\b|warrant|hawalat|\bdaku\b|bahubali|khatarnak|\bthar\b|bawal|rangbaaz|shooter|firing|\bfire\b|\bbullet\b|danger|\bdon\b/i;
+/** Garhwali, Kumaoni, Jaunsari and Himachali songs: words and singers in their names (same list as Android). */
+const PAHADI = /garhwali|garwali|gadwali|kumaoni|kumauni|kumaon|jaunsari|himachali|pahadi|pahari|uttarakhand|\bnati\b|गढ़वाली|गढवाली|कुमाऊँनी|कुमाउनी|जौनसारी|पहाड़ी|पहाडी|हिमाचली|narendra singh negi|gajendra rana|meena rana|pritam bhartwan|kishan mahipal|inder arya|saurav maithani|anisha ranghar|rohit chauhan|kuldeep sharma|thakur das rathi|vicky chauhan|basanti bisht/i;
 const CATEGORIES = [
   // The language's popular songs whose titles fit the category, most popular first.
   { name: 'Haryanvi Badmashi', emoji: '😎', color: 'linear-gradient(135deg,#8b1e1e,#2b0b0b)', lang: 'haryanvi', match: BADMASHI },
+  // Pahadi songs are mostly on YouTube: the catalog's few (listed as Hindi) plus YouTube searches.
+  { name: 'Pahadi', emoji: '🏔️', color: 'linear-gradient(135deg,#2e6b5e,#0f2a24)', lang: 'hindi', match: PAHADI, field: 'any',
+    youtube: ['new garhwali songs', 'kumaoni songs', 'himachali pahari nati'] },
 ];
 function categoryPage(cat) {
   const body = h('div', null, h('div', { class: 'spinner' }));
@@ -1431,11 +1436,18 @@ function categoryPage(cat) {
   if (cached) show(cached);
   else (async () => {
     const seen = new Set(), songs = [];
-    const add = (t) => {
+    const add = (t, trusted = false) => {
       const k = norm(t.title);
-      if (t.lang === cat.lang && cat.match.test(t.title) && !JUNK.test(t.title) && !seen.has(k)) { seen.add(k); songs.push(t); }
+      const fits = trusted || (t.lang === cat.lang && cat.match.test(cat.field === 'any' ? `${t.title} ${t.artist} ${t.album}` : t.title));
+      if (fits && !JUNK.test(t.title) && !seen.has(k)) { seen.add(k); songs.push(t); }
     };
-    (await Catalog.loadLang(cat.lang))?.tracks.forEach(add);
+    (await Catalog.loadLang(cat.lang))?.tracks.forEach((t) => add(t));
+    if (cat.youtube) {
+      const lists = await Promise.all(cat.youtube.map((q) => Tube.search(q)));
+      // Take turns between the searches; a YouTube song that is in the catalog plays from there.
+      const most = Math.max(0, ...lists.map((l) => l.length));
+      for (let i = 0; i < most; i++) for (const l of lists) if (l[i]) add(Catalog.match(l[i]) || l[i], true);
+    }
     categoryPage.cache.set(cat.name, songs);
     show(songs);
   })();
@@ -1805,15 +1817,16 @@ function importPage() {
 /* ------------------------------------------------------------------ AI DJ: "sad punjabi songs for a night drive" */
 const MOODS = [
   [['sad', 'dukh', 'udaas', 'breakup', 'heartbreak', 'dard', 'emotional'], ['sad', 'heartbreak', 'broken', 'dard', 'emotional', 'judaai']],
-  [['happy', 'khush', 'cheerful', 'good mood'], ['happy', 'feel good', 'good vibes']],
+  // Third list: close moods, used when few playlists are named after the mood itself.
+  [['happy', 'khush', 'cheerful', 'good mood'], ['happy', 'feel good', 'good vibes', 'cheerful'], ['party', 'dance', 'celebration', 'wedding', 'bhangra']],
   [['party', 'dance', 'club', 'naach', 'dj'], ['party', 'dance', 'club', 'dj', 'bhangra']],
   [['romantic', 'love', 'pyaar', 'ishq', 'date'], ['romantic', 'love', 'romance', 'ishq', 'pyaar']],
   [['chill', 'lofi', 'relax', 'calm', 'sukoon', 'study'], ['lofi', 'chill', 'relax', 'calm', 'acoustic', 'unplugged']],
-  [['sleep', 'neend', 'night', 'raat'], ['night', 'sleep', 'soft', 'calm']],
+  [['sleep', 'neend', 'night', 'raat'], ['night', 'sleep', 'soft', 'calm'], ['lofi', 'chill', 'acoustic', 'unplugged']],
   [['gym', 'workout', 'running', 'exercise'], ['workout', 'gym', 'power', 'motivation']],
   [['bhakti', 'bhajan', 'devotional', 'god', 'mandir', 'aarti'], ['bhakti', 'devotional', 'bhajan', 'aarti', 'spiritual']],
   [['drive', 'road trip', 'travel', 'safar'], ['drive', 'road', 'travel', 'trip']],
-  [['rain', 'barish', 'baarish', 'monsoon'], ['rain', 'monsoon', 'barish', 'baarish']],
+  [['rain', 'barish', 'baarish', 'monsoon'], ['rain', 'monsoon', 'barish', 'baarish'], ['romantic', 'love', 'chill']],
   [['wedding', 'shaadi', 'sangeet', 'mehendi', 'baraat'], ['wedding', 'shaadi', 'sangeet', 'mehendi', 'baraat']],
   [['rap', 'hip hop', 'hiphop'], ['rap', 'hip hop', 'hip-hop']],
 ];
@@ -1830,15 +1843,28 @@ async function aiDj(text) {
   // Singers named in the request (matched against the library's own artists).
   const artistSet = new Set();
   for (const t of tracks) for (const a of splitArtists(t.artist)) { const n = norm(a); if (n.length > 3 && q.includes(' ' + n + ' ')) artistSet.add(n); }
+  // A mood's songs come from playlists made for it ("Feel Good Hindi"), never from the word being in a song's
+  // name or singer (Happy Raikoti, "Happy Birthday").
+  const has = (text, k) => (' ' + norm(text) + ' ').includes(' ' + k + ' ');
   const moodTracks = new Set();
-  if (mood) for (const p of pls) { const n = ' ' + norm(p.title) + ' '; if (mood[1].some((k) => n.includes(k))) p.tracks.forEach((t) => moodTracks.add(t.id)); }
+  if (mood) for (const p of pls) if (mood[1].some((k) => has(p.title, k))) p.tracks.forEach((t) => moodTracks.add(t.id));
+  if (mood && mood[2] && moodTracks.size < 30) for (const p of pls) if (mood[2].some((k) => has(p.title, k))) p.tracks.forEach((t) => moodTracks.add(t.id));
+  const moodWords = mood ? new Set([...mood[0], ...mood[1]].flatMap((k) => k.split(' '))) : new Set();
   const stop = new Set(['songs', 'song', 'for', 'a', 'the', 'and', 'with', 'of', 'me', 'my', 'music', 'gaane', 'gane', 'play', 'some', 'best', 'hits', ...langs]);
-  const words = norm(text).split(' ').filter((w) => w.length > 2 && !stop.has(w));
+  const words = norm(text).split(' ').filter((w) => w.length > 2 && !stop.has(w) && !moodWords.has(w));
+  // Other topic words ("bollywood", "punjabi party", "holi"): songs of playlists named so count most.
+  const topicTracks = new Set();
+  if (words.length) for (const p of pls) if (words.some((w) => has(p.title, w))) p.tracks.forEach((t) => topicTracks.add(t.id));
+  const strictMood = mood && moodTracks.size >= 15;
   const scored = [];
   for (const t of tracks) {
     let s = 0;
     if (artistSet.size) { if (splitArtists(t.artist).some((a) => artistSet.has(norm(a)))) s += 5; else continue; }
-    if (mood) s += moodTracks.has(t.id) ? 4 : 0;
+    if (mood) {
+      if (moodTracks.has(t.id)) s += 4;
+      else if (strictMood || [...moodWords].some((k) => has(t.title + ' ' + t.artist, k))) continue;
+    }
+    if (topicTracks.has(t.id)) s += 2;
     if (era === 'old') { if (t.year && t.year <= 2005) s += 3; else if (t.year > 2012) continue; }
     if (era === 'new') { if (t.year >= year - 2) s += 3; else if (t.year && t.year < year - 5) continue; }
     for (const w of words) if (t._k.includes(w)) s += 1;

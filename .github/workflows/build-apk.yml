@@ -38,6 +38,14 @@ jobs:
           REPORT_TOKEN: ${{ secrets.REPORT_TOKEN }}
         run: |
           if [ -n "$REPORT_TOKEN" ]; then echo "REPORT_TOKEN: set (in-app reports on)"; else echo "::warning::REPORT_TOKEN missing: in-app reports fall back to sharing"; fi
+          # Can the token create issues? An issue without a title is refused with 422 when it can (nothing is
+          # created), and with 401/403 when it can't.
+          if [ -n "$REPORT_TOKEN" ]; then
+            CODE=$(curl -s -o /tmp/rt.json -w '%{http_code}' -X POST -H "Authorization: Bearer $REPORT_TOKEN" \
+              -H "Accept: application/vnd.github+json" -d '{}' "https://api.github.com/repos/${{ github.repository }}/issues")
+            if [ "$CODE" = 422 ]; then echo "REPORT_TOKEN: can create issues ✅"
+            else echo "::warning::REPORT_TOKEN can't create issues (GitHub said $CODE: $(grep -o '"message": *"[^"]*"' /tmp/rt.json | head -1)). Make a new token: see CLAUDE.md"; fi
+          fi
           chmod +x gradlew
           ./gradlew --no-daemon assembleRelease
           # The baseline profile must be inside the APK.

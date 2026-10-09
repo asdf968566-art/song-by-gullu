@@ -98,5 +98,7 @@ data class DownloadInfo(
 fun Track.inLanguages(languages: List<String>): Boolean {
     if (source == SourceType.LOCAL || languages.isEmpty()) return true
     val lang = language.ifBlank { com.sangeet.player.data.remote.LanguageGuess.guess(title, artist) }
-    return lang.isNotBlank() && lang in languages
+    if (lang.isNotBlank() && lang in languages) return true
+    // JioSaavn often lists Pahadi songs as Hindi: their names and singers tell.
+    return "pahadi" in languages && com.sangeet.player.data.remote.LanguageGuess.isPahadi(title, artist)
 }

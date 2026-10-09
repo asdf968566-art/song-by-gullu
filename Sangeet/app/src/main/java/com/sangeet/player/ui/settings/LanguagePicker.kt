@@ -35,7 +35,7 @@ import kotlinx.coroutines.launch
 
 /** Each language with its own script, so it is easy to spot. */
 private val NATIVE = mapOf(
-    "hindi" to "हिंदी", "punjabi" to "ਪੰਜਾਬੀ", "haryanvi" to "हरियाणवी", "bhojpuri" to "भोजपुरी",
+    "hindi" to "हिंदी", "punjabi" to "ਪੰਜਾਬੀ", "haryanvi" to "हरियाणवी", "bhojpuri" to "भोजपुरी", "pahadi" to "पहाड़ी",
     "tamil" to "தமிழ்", "telugu" to "తెలుగు", "marathi" to "मराठी", "bengali" to "বাংলা", "gujarati" to "ગુજરાતી",
 )
 
