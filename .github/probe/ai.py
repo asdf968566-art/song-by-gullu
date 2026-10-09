@@ -100,39 +100,45 @@ def test(label, url, model, key):
         time.sleep(5)
 
 
-rt = os.environ.get("REPORT_TOKEN", "")
-gt = os.environ.get("GH_MODELS_TOKEN", "")
-AZ = "https://models.inference.ai.azure.com"
-for label, tok in (("report-token", rt), ("actions-token", gt)):
-    s, body, secs, h = go(AZ + "/models", headers={"Authorization": f"Bearer {tok}"})
-    print(f"### GitHub Models (azure) list with {label}: {s} {body[:200]!r}")
-    s, body, secs, h = chat(AZ + "/chat/completions", "gpt-4o-mini", "say ok", tok)
-    print(f"### GitHub Models (azure) chat with {label}: {s} {body[:200]!r}")
-    if s == 200:
-        print("  limits:", {k: v for k, v in h.items() if "ratelimit" in k.lower()})
-        for mid in ["DeepSeek-V3-0324", "gpt-4.1", "gpt-4o", "Llama-4-Maverick-17B-128E-Instruct-FP8"]:
-            test(f"azure-{label}", AZ + "/chat/completions", mid, tok)
-        break
+# LLM7 without a key: the models that answered on Oct 9, tested slowly (anonymous use is rate limited).
+L7 = "https://api.llm7.io/v1/chat/completions"
 
-# LLM7 without a key: which models answer at all, then how well they know songs.
-s, body, _, _ = go("https://api.llm7.io/v1/models")
-llm7 = []
+
+def chat_retry(model, ask):
+    for _ in range(4):
+        s, content, secs, h = chat(L7, model, ask, "unused")
+        if s != 429:
+            return s, content, secs, h
+        try:
+            wait = float(json.loads(content)["error"].get("retry_after") or 8)
+        except Exception:
+            wait = 8
+        time.sleep(min(30, wait + 2))
+    return s, content, secs, h
+
+
+for mid in ["glm-5.2", "minimax-m3", "gemma4:31b", "DeepSeek-V4-Flash-0731", "gpt-oss:20b", "GLM-5.3-Flash"]:
+    print(f"### llm7 {mid}")
+    for ask in ASKS:
+        s, content, secs, h = chat_retry(mid, ask)
+        if s != 200:
+            print(f"  {ask}: HTTP {s} {content[:200]!r}")
+            break
+        ok, n = score(ask, content, secs)
+        a, b = totals.get(mid, (0, 0))
+        totals[mid] = (a + ok, b + n)
+        time.sleep(8)
+
+# Can the iPhone web app call it (CORS)?
+req = urllib.request.Request(L7, method="OPTIONS", headers={"Origin": "https://asdf968566-art.github.io",
+    "Access-Control-Request-Method": "POST", "Access-Control-Request-Headers": "authorization,content-type"})
 try:
-    data = json.loads(body)
-    llm7 = [m.get("id") for m in (data.get("data") if isinstance(data, dict) else data)]
-except Exception:
-    pass
-print("### llm7:", len(llm7), "models")
-answering = []
-for mid in llm7[:60]:
-    s, content, secs, h = chat("https://api.llm7.io/v1/chat/completions", mid, "Reply with the word ok", "unused")
-    print(f"  {mid}: HTTP {s} {secs:.1f}s {content[:80]!r}")
-    if s == 200:
-        answering.append(mid)
-    time.sleep(1)
-order = sorted(answering, key=lambda m: (0 if "deepseek" in m.lower() else 1 if "gemini" in m.lower() else 2 if "gpt" in m.lower() else 3))
-for mid in order[:5]:
-    test("llm7", "https://api.llm7.io/v1/chat/completions", mid, "unused")
+    with urllib.request.urlopen(req, timeout=20) as r:
+        print("### llm7 CORS:", r.status, {k: v for k, v in r.headers.items() if k.lower().startswith("access-control")})
+except urllib.error.HTTPError as e:
+    print("### llm7 CORS:", e.code, {k: v for k, v in e.headers.items() if k.lower().startswith("access-control")})
+except Exception as e:
+    print("### llm7 CORS:", e)
 
 print("\n### TOTAL real songs per model")
 for k, (a, b) in sorted(totals.items(), key=lambda kv: -(kv[1][0] / max(1, kv[1][1]))):
