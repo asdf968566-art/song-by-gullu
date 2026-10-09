@@ -11,6 +11,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.PaddingValues
+import com.sangeet.player.ui.library.ALBUM_PREFIX
+import com.sangeet.player.ui.components.ShelfCard
+import com.sangeet.player.data.model.OnlinePlaylist
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -115,6 +120,8 @@ class SearchViewModel(private val c: AppContainer) : ViewModel() {
         val recent: List<RecentItem> = emptyList(),
         /** Songs whose lyrics have the typed words (a line from the middle of a song). */
         val lyricsMatches: List<Track> = emptyList(),
+        /** Movies / albums named like the search: all their songs, one after another. */
+        val albums: List<OnlinePlaylist> = emptyList(),
     )
 
     private val _ui = MutableStateFlow(Ui())
@@ -152,7 +159,10 @@ class SearchViewModel(private val c: AppContainer) : ViewModel() {
                             it.artist.lowercase().contains(needle) ||
                             it.album.lowercase().contains(needle)
                     }.take(30)
-                _ui.value = _ui.value.copy(loading = true, local = local, lyricsMatches = emptyList())
+                _ui.value = _ui.value.copy(loading = true, local = local, lyricsMatches = emptyList(), albums = emptyList())
+                val albumsJob: Deferred<List<OnlinePlaylist>>? = if (c.online.canGoOnline && c.settings.current.jiosaavnEnabled) {
+                    viewModelScope.async { runCatching { movieAlbums(q.trim()) }.getOrDefault(emptyList<OnlinePlaylist>()) }
+                } else null
                 // A line from the lyrics: find which songs it is from, alongside the normal search.
                 val lyricsJob: Deferred<List<Track>>? = if (LyricsSearch.looksLikeLine(q) && c.online.canGoOnline) {
                     viewModelScope.async { runCatching { songsFromLyrics(q.trim()) }.getOrDefault(emptyList<Track>()) }
@@ -167,6 +177,7 @@ class SearchViewModel(private val c: AppContainer) : ViewModel() {
                     }
                 }
                 _ui.value = _ui.value.copy(loading = false, online = online)
+                albumsJob?.await()?.let { _ui.value = _ui.value.copy(albums = it) }
                 lyricsJob?.await()?.let { found ->
                     // Only songs the normal results don't already show at the top.
                     val shown = online.flatMap { it.tracks.take(5) }.map { it.title.lowercase() }.toSet()
@@ -174,6 +185,26 @@ class SearchViewModel(private val c: AppContainer) : ViewModel() {
                 }
             }
         }
+    }
+
+    /**
+     * Movies / albums whose name is what was typed ("aashiqui 2", "brahmastra songs"), not every album with one of
+     * the words in it. Singles named like a song ("Kesariya (From Brahmastra)") are left out.
+     */
+    private suspend fun movieAlbums(q: String): List<OnlinePlaylist> {
+        fun words(s: String) = s.lowercase().replace(Regex("""\(.*?\)|\[.*?]"""), " ")
+            .replace(Regex("[^\\p{L}\\p{N}]+"), " ").split(" ").filter { it.isNotBlank() }
+        val skip = setOf("songs", "song", "movie", "film", "album", "all", "ke", "gaane", "gane", "full", "jukebox")
+        val want = words(q).filter { it !in skip }
+        if (want.isEmpty()) return emptyList()
+        return c.online.saavn.searchAlbums(want.joinToString(" "))
+            .filter { a ->
+                val name = words(a.title)
+                // All typed words are in its name, or its whole name is in what was typed ("kesariya brahmastra").
+                name.isNotEmpty() && (name.containsAll(want) || " ${want.joinToString(" ")} ".contains(" ${name.joinToString(" ")} "))
+            }
+            .filter { it.songCount == 0 || it.songCount >= 3 }
+            .take(6)
     }
 
     /** Lyrics line -> song names (Genius) -> those songs on JioSaavn (else YouTube) to play. */
@@ -401,6 +432,21 @@ fun SearchScreen(nav: NavController) {
                 }
             }
         } else {
+            if (ui.albums.isNotEmpty()) {
+                item(key = "albums_h") { SectionHeader("💿 Movies & albums") }
+                item(key = "albums") {
+                    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        items(ui.albums, key = { "al_" + it.id }) { a ->
+                            ShelfCard(
+                                a.title,
+                                listOfNotNull(a.subtitle.ifBlank { null }, a.songCount.takeIf { it > 0 }?.let { "$it songs" }).joinToString(" · "),
+                                a.artworkUrl,
+                                onClick = { nav.navigate(Routes.onlinePlaylist(ALBUM_PREFIX + a.id, a.title)) },
+                            )
+                        }
+                    }
+                }
+            }
             if (ui.lyricsMatches.isNotEmpty()) {
                 item { SectionHeader("🎤 Songs with these lyrics") }
                 items(ui.lyricsMatches, key = { "ly_" + it.id }) { t ->

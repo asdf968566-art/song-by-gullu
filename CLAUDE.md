@@ -109,8 +109,14 @@ request the owner made, in order.
   these songs as Hindi) and a category on both apps that mixes YouTube + JioSaavn searches (`Category.youtube`).
 - NewPipeExtractor updated v0.24.8 → v0.26.5 (old one broke YouTube playback / playlist import). YouTube playlist
   import uses the Data API first (needs the key), NewPipe as fallback.
+- **Movie / album search**: typing a film's name shows "💿 Movies & albums" cards (all its songs, Play plays them in
+  order). Android: JioSaavn `search.getAlbumResults` + `content.getAlbumDetails`, route `online/album-<id>`
+  (`ALBUM_PREFIX`). Web: `Albums.find` groups catalog songs by album name + year + language. Shown only when the
+  album's name is what was typed (all typed words in it, or its whole name inside the typed words).
 - In-app "Report a problem" got 403 from GitHub: the `REPORT_TOKEN` secret can't create issues. The Build APK log
-  says `REPORT_TOKEN: can create issues ✅` or a warning. Fix = owner makes a new fine-grained token on the
+  says `REPORT_TOKEN: can create issues ✅` or a warning. Oct 9 result: 403 "Resource not accessible by personal
+  access token" (the token works but has no Issues permission). Fix = edit that token on GitHub and add
+  Issues: Read and write (the token value stays the same, no secret change), or make a new fine-grained token on the
   **asdf968566-art** account, repository `song-by-gullu`, permission **Issues: Read and write**, and saves it as the
   `REPORT_TOKEN` secret. Until then the app opens Share instead.
 

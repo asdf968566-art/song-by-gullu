@@ -170,6 +170,9 @@ fun OnlineLibraryScreen(nav: NavController) {
     }
 }
 
+/** Prefix of an album id in the online playlist route. */
+const val ALBUM_PREFIX = "album-"
+
 /** Ek online playlist / chart ke gaane. Library mein save bhi kar sakte ho. */
 @Composable
 fun OnlinePlaylistScreen(nav: NavController, id: String, title: String) {
@@ -177,15 +180,19 @@ fun OnlinePlaylistScreen(nav: NavController, id: String, title: String) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var menuFor by remember { mutableStateOf<Track?>(null) }
+    // "album-<id>": a movie / album from search, its songs in order.
+    val album = id.startsWith(ALBUM_PREFIX)
     val tracks by produceState<List<Track>?>(initialValue = null, id) {
-        value = runCatching { c.online.saavn.playlistTracks(id) }.getOrDefault(emptyList())
+        value = runCatching {
+            if (album) c.online.saavn.albumTracks(id.removePrefix(ALBUM_PREFIX)) else c.online.saavn.playlistTracks(id)
+        }.getOrDefault(emptyList())
     }
 
     menuFor?.let { TrackOptionsSheet(it, onDismiss = { menuFor = null }) }
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = bottomBarPadding()) {
         item {
-            CollectionHeader(nav, title, "JioSaavn", tracks.orEmpty()) {
+            CollectionHeader(nav, title, if (album) "Movie / album" else "JioSaavn", tracks.orEmpty()) {
                 val list = tracks
                 if (!list.isNullOrEmpty()) {
                     IconButton(onClick = {

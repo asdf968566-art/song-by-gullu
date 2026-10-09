@@ -1296,12 +1296,12 @@ function searchPage() {
     clearTimeout(ytAuto);
     if (q.length < 2) { results.replaceChildren(browse()); return; }
     const local = Catalog.search(q, 40);
-    const artistBox = h('div'), deepBox = h('div'), fixBox = h('div'), ytBox = h('div');
+    const artistBox = h('div'), albumBox = h('div'), deepBox = h('div'), fixBox = h('div'), ytBox = h('div');
     // A few words (4+) may be a line from the middle of a song: YouTube finds songs by their lyrics, so its
     // results come first then (they play from the catalog when the same song is there).
     const line = q.split(/\s+/).length >= 4;
     const localEl = local.length ? trackList(local, true) : h('div', { class: 'spinner' });
-    results.replaceChildren(artistBox, fixBox, line ? ytBox : '', localEl, deepBox, line ? '' : ytBox);
+    results.replaceChildren(albumBox, artistBox, fixBox, line ? ytBox : '', localEl, deepBox, line ? '' : ytBox);
     const shown = new Set(local.map((t) => norm(t.title)));
     const youtube = async () => {
       ytBox.replaceChildren(h('div', { class: 'spinner' }));
@@ -1320,6 +1320,10 @@ function searchPage() {
       const more = deep.filter((t) => !ids.has(t.id));
       more.forEach((t) => shown.add(norm(t.title)));
       if (artists.length) fill(artistBox, h('div', { class: 'section' }, 'Artists'), artists.map(artistRow));
+      // A movie's name: its album with all its songs, to play one after another.
+      Albums.find(q, [...local, ...deep]).then((albums) => {
+        if (my === seq && albums.length) fill(albumBox, h('div', { class: 'section' }, '💿 Movies & albums'), h('div', { class: 'grid' }, albums.map(albumCard)));
+      });
       if (more.length) fill(deepBox, local.length ? h('div', { class: 'section' }, 'More songs') : null, trackList(more, true));
       // Misspelt singer ("arjit singh", "sidhu moosewala"): first the songs of the singer it most likely means.
       const fix = artists[0];
@@ -1454,6 +1458,45 @@ function categoryPage(cat) {
   return h('div', null, header(`${cat.emoji} ${cat.name}`, true), body);
 }
 categoryPage.cache = new Map();
+
+/** Movies / albums named like a search ("aashiqui 2", "brahmastra songs"), with all their songs from the catalog. */
+const Albums = {
+  words: (s) => norm(String(s || '').replace(/\(.*?\)|\[.*?\]/g, ' ')).split(' ').filter(Boolean),
+  skip: new Set(['songs', 'song', 'movie', 'film', 'album', 'all', 'ke', 'gaane', 'gane', 'full', 'jukebox']),
+  async find(q, found) {
+    const want = this.words(q).filter((w) => !this.skip.has(w));
+    if (!want.length) return [];
+    const fits = (album) => {
+      const name = this.words(album);
+      // All typed words are in the album's name, or its whole name is in what was typed ("kesariya brahmastra").
+      return name.length && (want.every((w) => name.includes(w)) || ` ${want.join(' ')} `.includes(` ${name.join(' ')} `));
+    };
+    // One album = same name, year and language (many singles share a song's name: "Tum Hi Ho" by forty singers;
+    // a film's Tamil and Telugu versions share its name).
+    const id = (t) => `${norm(t.album || '')}|${t.year || 0}|${t.lang || ''}`;
+    const pool = [...found, ...(await Deep.search(want.join(' '), 100))];
+    const groups = new Map();
+    for (const t of pool) if (t.album && t.album !== 'YouTube' && fits(t.album) && !groups.has(id(t))) groups.set(id(t), t);
+    const out = [], names = new Set();
+    for (const [key, first] of [...groups].slice(0, 5)) {
+      const songs = new Map();
+      for (const t of [...pool, ...(await Deep.search(first.album, 150))]) if (id(t) === key && !songs.has(t.id)) songs.set(t.id, t);
+      const tracks = [...songs.values()];
+      // A movie has several different songs (not one song's versions); the same album once.
+      if (new Set(tracks.map((t) => norm(t.title).split(' ').slice(0, 3).join(' '))).size < 3 || names.has(key)) continue;
+      names.add(key);
+      out.push({ title: first.album, tracks, img: first.img, year: first.year, exact: this.words(first.album).join(' ') === want.join(' ') });
+    }
+    // The exact name first ("aashiqui 2" before "Aashiqui"), then the bigger albums.
+    return out.sort((a, b) => (b.exact - a.exact) || (b.tracks.length - a.tracks.length));
+  },
+};
+function albumCard(a) {
+  return h('div', { class: 'card', onclick: () => pushPage(() => songsPage(a.title, a.tracks, null, a)) },
+    h('img', { class: 'cover', src: (a.img || '').replace('150x150', '500x500'), loading: 'lazy', alt: '' }),
+    h('div', { class: 't' }, a.title),
+    h('div', { class: 'note', style: 'padding:0' }, `${a.tracks.length} songs${a.year ? ' · ' + a.year : ''}`));
+}
 
 /** All songs of one singer: popular ones first, YouTube when the catalog has only a few. */
 function artistPage(name) {
