@@ -31,6 +31,8 @@ android {
             // An empty secret (not set) must not hide the key in gradle.properties.
             "\"${System.getenv("YOUTUBE_API_KEY")?.takeIf { it.isNotBlank() } ?: project.findProperty("sangeet.youtubeApiKey") ?: ""}\"",
         )
+        // Google Gemini key for the AI DJ (free at aistudio.google.com), from the GitHub secret GEMINI_API_KEY; empty = none.
+        buildConfigField("String", "GEMINI_API_KEY", "\"${System.getenv("GEMINI_API_KEY")?.trim() ?: ""}\"")
         // Lets "Report a problem" create a GitHub issue from inside the app. A fine-grained token with only
         // "Issues: Read and write" on this repo, stored as the GitHub secret REPORT_TOKEN (never in the repo).
         buildConfigField(

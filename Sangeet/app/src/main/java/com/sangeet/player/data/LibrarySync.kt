@@ -24,11 +24,23 @@ import kotlinx.serialization.json.put
  * "Import playlist" on Android, adds the songs. Songs that only exist on this phone (local files) can't travel.
  */
 object LibrarySync {
-    private val site = BuildConfig.UPDATE_REPO.split('/').let { (owner, repo) -> "https://$owner.github.io/$repo/" }
+    internal val site = BuildConfig.UPDATE_REPO.split('/').let { (owner, repo) -> "https://$owner.github.io/$repo/" }
 
     fun isSyncLink(text: String) = "sync=" in text
 
     fun isBlendLink(text: String) = "blend=" in text
+
+    // ------------------------------------------------------------ one song as a link (#play=…, same as the web app)
+
+    /** A link that opens this song on the website (iPhone) or in the app (Android); null for phone files. */
+    fun songLink(t: Track): String? = encode(t)?.let { site + "#play=" + pack(it.toString()) }
+
+    /** The song in a #play= link, or a sangeet://play?song=… link, or null. */
+    fun songFromLink(text: String): Track? = runCatching {
+        val data = (if ("play=" in text) text.substringAfter("play=") else text.substringAfter("song="))
+            .takeWhile { it.isLetterOrDigit() || it == '-' || it == '_' }
+        decode(Http.json.parseToJsonElement(unpack(data)).jsonObject)
+    }.getOrNull()
 
     // ------------------------------------------------------------ Blend: one playlist from two people's taste
 
@@ -103,7 +115,7 @@ object LibrarySync {
 
     // ------------------------------------------------------------ one song <-> compact JSON (same format as the web app)
 
-    private fun encode(t: Track): JsonObject? = when (t.source) {
+    internal fun encode(t: Track): JsonObject? = when (t.source) {
         SourceType.JIOSAAVN -> buildJsonObject {
             put("s", "js"); put("i", t.sourceId); put("t", t.title); put("a", t.artist); put("al", t.album)
             put("d", t.durationMs / 1000); t.artworkUrl?.let { put("img", it) }
@@ -116,7 +128,7 @@ object LibrarySync {
         else -> null
     }
 
-    private fun decode(o: JsonObject): Track? {
+    internal fun decode(o: JsonObject): Track? {
         fun s(k: String) = (o[k] as? JsonPrimitive)?.contentOrNull
         val id = s("i") ?: return null
         val title = s("t") ?: return null
@@ -138,7 +150,7 @@ object LibrarySync {
 
     // ------------------------------------------------------------ deflate + base64url (the web app uses deflate-raw too)
 
-    private fun pack(text: String): String {
+    internal fun pack(text: String): String {
         val d = Deflater(9, true)
         d.setInput(text.toByteArray(Charsets.UTF_8))
         d.finish()
@@ -149,7 +161,7 @@ object LibrarySync {
         return Base64.encodeToString(out.toByteArray(), Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
     }
 
-    private fun unpack(data: String): String {
+    internal fun unpack(data: String): String {
         val bytes = Base64.decode(data, Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
         val inf = Inflater(true)
         inf.setInput(bytes)

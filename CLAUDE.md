@@ -201,6 +201,49 @@ request the owner made, in order.
     - DeepSeek's own API and OpenRouter need keys.
     - LLM7's DeepSeek was busy (503) and GLM-5.2 named real songs ("Solid Body - KD" for Haryanvi gym).
   If LLM7 stops working, the DJ just plays the built-in mix (no error).
+- **Owner's batch of Oct 9 (suggestions 2–9).**
+  - **Hindi / Punjabi script search.** Android `data/Transliterate.kt` and web `Translit`:
+    - Devanagari + Gurmukhi to Latin, in up to 3 spellings: as written, long vowels (raabta), and without the
+      unsaid a (dhadkan).
+    - The catalog / JioSaavn get all spellings; YouTube gets the text as typed.
+    - Voice search (hi-IN) gives Devanagari, so it benefits too.
+  - **Gemini** (free key from aistudio.google.com):
+    - The repo secret `GEMINI_API_KEY` goes to `BuildConfig.GEMINI_API_KEY` (build-apk.yml) and into the website's
+      `BUILT_IN_GEMINI` (web.yml "Stamp version" sed `__GEMINI_KEY__`; visible in the site code, free tier only).
+    - Users can paste their own key in Settings.
+    - `FreeAi` asks Gemini first and picks the newest plain `gemini-N-flash` from the models list, then the keyless
+      LLM7 models. The same "keep only real catalog songs" check applies.
+  - **New song alerts:** Android `data/notify/NewSongs.kt`.
+    - Every 12 h it checks the top 5 singers' newest JioSaavn songs (`newSongsBy`).
+    - The first run only remembers what's there. Then at most 3 notifications per run.
+    - Tap → `sangeet://play?q=`.
+    - Setting `newSongAlerts`.
+    - SangeetRoot asks POST_NOTIFICATIONS once on Android 13+.
+  - **Dashboard extras** (`data/Usage.kt`):
+    - Screens opened (route counts) and crashes (CrashReporter → `Usage.crashed`), plus the phone model / SDK, are
+      sent with the Community upload. community.py `owner_stats` adds `features`, `crashes`, `phones`, and per
+      listener `m` / `crash` / `use`.
+    - **Hit counters** on abacus.jasoncameron.dev (keyless, CORS, probed), space `sangeet-asdf968566`:
+      `android-users`, `android-day-yyyymmdd` (Android, not emulators), `web-users`, `web-day-…` (web `Visits`,
+      not headless browsers). The dashboard card "Users of both apps" reads them.
+  - **Alarm** (Android): `data/alarm/SongAlarm.kt` + `ui/settings/AlarmScreen.kt` (Settings → Alarm).
+    - Uses `setAlarmClock` (USE_EXACT_ALARM / SCHEDULE_EXACT_ALARM ≤32), and is set again on BOOT_COMPLETED /
+      MY_PACKAGE_REPLACED.
+    - Plays liked songs (shuffled), a playlist or For You. Offline it plays downloads only.
+  - **Song share links:** `#play=<packed Sync.encode(track)>` on the website (`SongLink`: a menu with Play, and
+    on Android "Open in the Sangeet app" via `intent://play?song=…`).
+    - Android `LibrarySync.songLink/songFromLink`, ShareCard text, intent filters for
+      `https://asdf968566-art.github.io/song-by-gullu` and `sangeet://play?song=`.
+    - Unverified App Links don't open the app by themselves on Android 12+. A verified one would need
+      `asdf968566-art.github.io/.well-known/assetlinks.json`, i.e. a repo `asdf968566-art.github.io`.
+  - **Sync with another phone:** Android `data/CloudSync.kt` + `ui/settings/SyncScreen.kt` (route
+    `settings/sync?code=`), web `CloudSync` + `syncBox()`.
+    - The library is packed like a #sync link and stored on **restful-api.dev** `/objects` (keyless, CORS,
+      probed). The object id is the sync code, and the join link is `#joinsync=<code>`.
+    - A three-way merge against the last synced copy (`base`) makes un-likes and deletes sync too.
+    - Android syncs 20 s after likes/playlists change, and on start; the web does the same through `save()`.
+    - restful-api.dev is a free test service. If an object disappears, the app says the code doesn't work and
+      the user starts again.
 - Other platforms checked Oct 9 from CI: Gaana's old open API is gone (404); Wynk, Hungama, Spotify have no open
   streams. JioSaavn + YouTube stay the sources.
 - In-app "Report a problem" got 403 from GitHub. Cause (found Oct 9 from CI: `REPORT_TOKEN fingerprint/account`

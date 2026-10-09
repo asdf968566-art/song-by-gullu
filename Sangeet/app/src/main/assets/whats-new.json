@@ -1,8 +1,32 @@
 [
   {
     "date": "2026-10-09",
-    "title": "Updates by itself, Movies, Pahadi songs, real moods and a smarter AI DJ",
+    "title": "Sync, alarm, new-song alerts, updates by itself, Movies and more",
     "items": [
+      {
+        "on": "both",
+        "text": "🔄 Sync with another phone: your liked songs and playlists stay the same on your Android and iPhone (Settings → Sync with another phone)."
+      },
+      {
+        "on": "android",
+        "text": "⏰ Alarm: wake up to your liked songs, a playlist or a For You mix (Settings → Alarm)."
+      },
+      {
+        "on": "android",
+        "text": "🆕 New song alerts: a notification when a singer you play most has a new song."
+      },
+      {
+        "on": "both",
+        "text": "🔤 Search in Hindi or Punjabi letters too (\"तुम ही हो\", \"ਜੱਟ\"), also with the mic."
+      },
+      {
+        "on": "both",
+        "text": "🔗 Share a song as a link: it opens in Sangeet, on the website on iPhone and in the app on Android."
+      },
+      {
+        "on": "both",
+        "text": "🤖 The AI DJ can use Google Gemini: add a free key in Settings."
+      },
       {
         "on": "android",
         "text": "🔄 Updates by itself: when there's internet, a new version downloads and installs on its own while you're not using the app. Turn it off in Settings → App update."

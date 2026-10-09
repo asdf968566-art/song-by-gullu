@@ -121,7 +121,8 @@ def owner_stats(state, plays_by, info, searched):
         songs = sorted(d.get("plays", []), key=lambda t: -(t[8] if len(t) > 8 else 1))[:5]
         users.append({
             "id": uid[:8], "first": d.get("first", d.get("seen")), "seen": d.get("seen"), "uploads": d.get("uploads", 1),
-            "p": d.get("p", ""), "app": d.get("app", ""), "langs": d.get("langs", []),
+            "p": d.get("p", ""), "app": d.get("app", ""), "langs": d.get("langs", []), "m": d.get("m", ""),
+            "crash": d.get("crash", 0), "use": sorted((d.get("use") or {}).items(), key=lambda kv: -kv[1])[:6],
             "likes": len(d.get("likes", [])), "plays": len(d.get("plays", [])),
             "artists": [a for a, _ in artists.most_common(6)],
             "songs": [f"{t[2]} — {str(t[3]).split(', ')[0]}" for t in songs],
@@ -135,8 +136,33 @@ def owner_stats(state, plays_by, info, searched):
         artist_users.update(mine)
     prev = state.get("prev_plays", {})
     rising = sorted(((n - prev.get(k, 0), k) for k, n in plays_by.items() if n - prev.get(k, 0) > 0), reverse=True)[:20]
+    # What the app's screens are used for, crashes and phones (each upload has this phone's totals so far).
+    features = collections.Counter()
+    crashes = collections.Counter()
+    crash_by_version = collections.Counter()
+    crash_by_phone = collections.Counter()
+    phones = collections.Counter()
+    errors = collections.Counter()
+    for d in state["users"].values():
+        for k, n in (d.get("use") or {}).items():
+            if isinstance(n, int):
+                features[k] += n
+        n = d.get("crash") or 0
+        if isinstance(n, int) and n > 0:
+            crashes["total"] += n
+            crashes["phones"] += 1
+            crash_by_version[d.get("app", "?")] += n
+            crash_by_phone[d.get("m", "?")] += n
+        for e in d.get("crashes") or []:
+            errors[str(e)[:160]] += 1
+        if d.get("m"):
+            phones[d["m"]] += 1
     stats = {
         "built": int(now),
+        "features": features.most_common(30),
+        "crashes": {"total": crashes["total"], "phones": crashes["phones"], "by_version": crash_by_version.most_common(8),
+                    "by_phone": crash_by_phone.most_common(8), "recent": errors.most_common(10)},
+        "phones": phones.most_common(15),
         "users": {"total": len(state["users"]), "today": active(1), "week": active(7), "month": active(30)},
         "versions": collections.Counter(d.get("app", "?") for d in state["users"].values()).most_common(10),
         "languages": collections.Counter(l for d in state["users"].values() for l in d.get("langs", [])).most_common(12),

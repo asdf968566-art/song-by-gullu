@@ -27,7 +27,7 @@ object FreeAi {
     data class Provider(val name: String, val url: String, val model: String, val key: String)
 
     /** Shown in Settings. */
-    const val NAME = "LLM7.io (GLM, DeepSeek)"
+    const val NAME = "Gemini (with a key), else LLM7.io (GLM, DeepSeek)"
     private const val LLM7 = "https://api.llm7.io/v1/chat/completions"
 
     // LLM7.io gives these without a key (CI probe, Oct 9): each phone has its own small daily quota; a busy (503) or
@@ -53,13 +53,83 @@ object FreeAi {
         "songs: 12 real, released songs that fit, with their exact title and main singer. Never invent a song; " +
         "if you know fewer, give fewer. Mix famous hits with less obvious ones and different singers."
 
-    /** A plan for [request], or null. [about]: the listener's languages, singers and what's trending. */
-    suspend fun plan(request: String, about: String, history: List<String>): DjPlan? = withContext(Dispatchers.IO) {
+    // ------------------------------------------------------------ Google Gemini (free key, owner's choice Oct 9)
+
+    private const val GEMINI = "https://generativelanguage.googleapis.com/v1beta"
+    @Volatile private var geminiModel: String? = null
+
+    /** The best Flash model this key may use ("models/gemini-…-flash"), asked once per app run. */
+    private fun geminiModelFor(key: String, timeoutMs: Long): String? {
+        geminiModel?.let { return it }
+        val client = Http.client.newBuilder().callTimeout(timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS).build()
+        val req = Request.Builder().url("$GEMINI/models?pageSize=200&key=$key").build()
+        val names = client.newCall(req).execute().use { res ->
+            if (!res.isSuccessful) { android.util.Log.w("Sangeet", "Gemini models: HTTP ${res.code}"); return null }
+            (Http.json.parseToJsonElement(res.body?.string().orEmpty()).jsonObject["models"] as? JsonArray).orEmpty()
+                .mapNotNull { it as? JsonObject }
+                .filter { m -> (m["supportedGenerationMethods"] as? JsonArray).orEmpty().any { (it as? JsonPrimitive)?.contentOrNull == "generateContent" } }
+                .mapNotNull { (it["name"] as? JsonPrimitive)?.contentOrNull }
+        }
+        fun version(n: String) = Regex("gemini-(\\d+(?:\\.\\d+)?)").find(n)?.groupValues?.get(1)?.toDoubleOrNull() ?: 0.0
+        val plain = Regex("^models/gemini-\\d+(\\.\\d+)?-flash(-latest)?$")
+        // A plain "Flash" (knows songs best for its speed), newest first; else Flash-Lite; else any Flash.
+        val pick = names.filter { plain.matches(it) }.maxByOrNull(::version)
+            ?: names.filter { it.contains("flash-lite") && !it.contains("preview") }.maxByOrNull(::version)
+            ?: names.filter { it.contains("flash") }.maxByOrNull(::version)
+        android.util.Log.i("Sangeet", "Gemini model: $pick")
+        return pick?.also { geminiModel = it }
+    }
+
+    private fun askGemini(key: String, user: String, timeoutMs: Long): String? {
+        val started = System.currentTimeMillis()
+        val model = geminiModelFor(key, timeoutMs) ?: return null
+        val left = timeoutMs - (System.currentTimeMillis() - started)
+        if (left < 2_000) return null
+        val body = buildJsonObject {
+            put("systemInstruction", buildJsonObject { putJsonArray("parts") { add(buildJsonObject { put("text", SYSTEM) }) } })
+            putJsonArray("contents") {
+                add(buildJsonObject { put("role", "user"); putJsonArray("parts") { add(buildJsonObject { put("text", user) }) } })
+            }
+            put("generationConfig", buildJsonObject {
+                put("temperature", 0.4); put("maxOutputTokens", 4000); put("responseMimeType", "application/json")
+            })
+        }
+        val req = Request.Builder().url("$GEMINI/$model:generateContent?key=$key")
+            .post(body.toString().toRequestBody("application/json".toMediaType()))
+            .build()
+        val client = Http.client.newBuilder().callTimeout(left, java.util.concurrent.TimeUnit.MILLISECONDS).build()
+        client.newCall(req).execute().use { res ->
+            if (!res.isSuccessful) {
+                android.util.Log.w("Sangeet", "Gemini: HTTP ${res.code}")
+                if (res.code == 404) geminiModel = null // the model went away: pick again next time
+                return null
+            }
+            val o = Http.json.parseToJsonElement(res.body?.string().orEmpty()).jsonObject
+            val parts = ((o["candidates"] as? JsonArray)?.firstOrNull() as? JsonObject)
+                ?.let { it["content"] as? JsonObject }?.let { it["parts"] as? JsonArray }.orEmpty()
+            return parts.mapNotNull { ((it as? JsonObject)?.get("text") as? JsonPrimitive)?.contentOrNull }.joinToString("")
+                .takeIf { it.isNotBlank() }
+        }
+    }
+
+    /**
+     * A plan for [request], or null. [about]: the listener's languages, singers and what's trending. With a Gemini
+     * key ([geminiKey]: Settings, else the app's built-in one) Gemini is asked first, then the keyless models.
+     */
+    suspend fun plan(request: String, about: String, history: List<String>, geminiKey: String = ""): DjPlan? = withContext(Dispatchers.IO) {
         val earlier = if (history.isEmpty()) "" else
             "Earlier in this chat: " + history.takeLast(4).joinToString(" | ") { "\"${it.take(80)}\"" } +
                 ". Treat the request as a change to that mix if it reads like one.\n"
         val user = about.take(500) + "\n" + earlier + "Request: " + request.take(200)
         val until = System.currentTimeMillis() + 22_000
+        if (geminiKey.isNotBlank()) {
+            runCatching { askGemini(geminiKey, user, until - System.currentTimeMillis()) }
+                .onFailure { android.util.Log.w("Sangeet", "Gemini: ${it.message}") }
+                .getOrNull()?.let(::parse)?.let {
+                    android.util.Log.i("Sangeet", "free AI: Gemini answered")
+                    return@withContext it
+                }
+        }
         for (p in PROVIDERS) {
             val left = until - System.currentTimeMillis()
             if (left < 3_000) break

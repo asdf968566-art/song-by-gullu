@@ -146,7 +146,8 @@ class AiDj(
                 append(top.joinToString(", ") { "${it.title} - ${it.artist.substringBefore(",")}" }).append(". ")
             }
         }
-        val plan = FreeAi.plan(request, about, history) ?: return@coroutineScope emptyList()
+        val gemini = settings.current.geminiApiKey.ifBlank { com.sangeet.player.BuildConfig.GEMINI_API_KEY }
+        val plan = FreeAi.plan(request, about, history, gemini) ?: return@coroutineScope emptyList()
         val langs = i.languages.ifEmpty { plan.languages }.ifEmpty { DjBrain.languagesFor(i) }
         val anyLanguage = i.like.isNotBlank() || i.movie.isNotBlank() || i.artists.isNotEmpty()
         val found = plan.songs.take(18).map { s ->

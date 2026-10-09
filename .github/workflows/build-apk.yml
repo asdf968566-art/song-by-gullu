@@ -36,7 +36,10 @@ jobs:
           # Repo public hai, isliye key Settings → Secrets → Actions mein YOUTUBE_API_KEY naam se rakho.
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           REPORT_TOKEN: ${{ secrets.REPORT_TOKEN }}
+          # Free Google Gemini key for the AI DJ (aistudio.google.com), Settings → Secrets → Actions → GEMINI_API_KEY.
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
+          if [ -n "$GEMINI_API_KEY" ]; then echo "GEMINI_API_KEY: set (AI DJ asks Gemini first)"; else echo "GEMINI_API_KEY: not set (AI DJ uses the keyless models)"; fi
           if [ -n "$REPORT_TOKEN" ]; then echo "REPORT_TOKEN: set (in-app reports on)"; else echo "::warning::REPORT_TOKEN missing: in-app reports fall back to sharing"; fi
           # Can the token create issues? An issue without a title is refused with 422 when it can (nothing is
           # created), and with 401/403 when it can't.
@@ -82,6 +85,7 @@ jobs:
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           REPORT_TOKEN: ${{ secrets.REPORT_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           UPLOAD_KEYSTORE_B64: ${{ secrets.UPLOAD_KEYSTORE_B64 }}
           UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.UPLOAD_KEYSTORE_PASSWORD }}
           UPLOAD_KEY_ALIAS: ${{ secrets.UPLOAD_KEY_ALIAS }}

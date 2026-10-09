@@ -121,6 +121,9 @@ object Routes {
     const val DOWNLOADS = "downloads"
     const val REPORT = "report"
     const val OWNER = "settings/owner"
+    const val ALARM = "settings/alarm"
+    const val SYNC = "settings/sync?code={code}"
+    fun sync(code: String? = null) = "settings/sync" + (code?.let { "?code=" + android.net.Uri.encode(it) } ?: "")
     const val PLAYLIST = "playlist/{id}"
     const val LIST = "list/{kind}?arg={arg}"
     const val MOVIES = "movies?q={q}"
@@ -149,6 +152,9 @@ fun SangeetRoot() {
     val state by container.player.state.collectAsStateWithLifecycle()
     val backStack by nav.currentBackStackEntryAsState()
     val onDiscover = backStack?.destination?.route == Routes.DISCOVER
+    // Which screens are used (owner dashboard, through the Community upload).
+    val openedRoute = backStack?.destination?.route
+    LaunchedEffect(openedRoute) { com.sangeet.player.data.Usage.opened(context, openedRoute) }
 
     // Permission pehle se mili ho to phone ke gaane scan karo.
     LaunchedEffect(Unit) {
@@ -157,6 +163,21 @@ fun SangeetRoot() {
         }
     }
 
+    // Android 13+: ask once to show notifications (downloads, updates, new songs from your singers).
+    val askNotify = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
+    ) { }
+    LaunchedEffect(Unit) {
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            val prefs = context.getSharedPreferences("ui", android.content.Context.MODE_PRIVATE)
+            if (!prefs.getBoolean("asked_notify", false) &&
+                ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            ) {
+                prefs.edit().putBoolean("asked_notify", true).apply()
+                runCatching { askNotify.launch(android.Manifest.permission.POST_NOTIFICATIONS) }
+            }
+        }
+    }
     // Naya version chupchaap check karo (6 ghante mein ek baar)
     LaunchedEffect(Unit) { runCatching { container.updater.checkIfDue() } }
     // Opened from a notification (e.g. the download progress): go to that screen.
@@ -257,6 +278,11 @@ fun SangeetRoot() {
                 composable(Routes.SOURCES) { com.sangeet.player.ui.settings.LockedSourcesScreen(nav) }
                 composable(Routes.REPORT) { com.sangeet.player.ui.settings.ReportScreen(nav) }
                 composable(Routes.OWNER) { com.sangeet.player.ui.settings.OwnerDashboard(nav) }
+                composable(Routes.ALARM) { com.sangeet.player.ui.settings.AlarmScreen(nav) }
+                composable(
+                    Routes.SYNC,
+                    arguments = listOf(navArgument("code") { type = NavType.StringType; nullable = true; defaultValue = null }),
+                ) { e -> com.sangeet.player.ui.settings.SyncScreen(nav, e.arguments?.getString("code")) }
                 composable(Routes.EQUALIZER) { EqualizerScreen(nav) }
                 composable(Routes.IMPORT) { ImportPlaylistScreen(nav) }
                 composable(Routes.DOWNLOADS) { com.sangeet.player.ui.library.DownloadsScreen(nav) }

@@ -14,6 +14,10 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- Android 13+: lets the app update itself without a tap (AutoUpdate). -->
     <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
+    <!-- Song alarm (SongAlarm): ring on time, and set it again after a restart. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
@@ -63,6 +67,13 @@
                 <data android:host="youtu.be" />
                 <data android:host="music.youtube.com" />
             </intent-filter>
+            <!-- Shared song links of the website (…github.io/song-by-gullu/#play=…) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="asdf968566-art.github.io" android:pathPrefix="/song-by-gullu" />
+            </intent-filter>
             <!-- sangeet://play?q=... -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
@@ -105,6 +116,15 @@
                 android:resource="@xml/widget_info" />
         </receiver>
 
+        <!-- Song alarm: rings, and is set again after a restart or an update. -->
+        <receiver
+            android:name=".data.alarm.SongAlarm$Receiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
         <!-- Auto update: what the installer did, and "updated" after a new version. -->
         <receiver
             android:name=".data.update.AutoUpdate$StatusReceiver"

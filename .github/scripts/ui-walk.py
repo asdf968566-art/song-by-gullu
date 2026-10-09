@@ -421,7 +421,7 @@ def main():
     step("Settings: open", lambda: tap("Settings", wait=3))
     for label in ["Normalize volume", "Skip silence", "Hook preview in For You", "Resume on headphones", "Smart downloads",
                   "Autoplay", "Auto playlists", "Fetch lyrics automatically", "Offline mode", "Download on Wi-Fi only",
-                  "Free online AI", "Update automatically"]:
+                  "New song alerts", "Free online AI", "Update automatically"]:
         far = label in ("Free online AI", "Update automatically")  # further down (AI DJ, App update)
         step(f"Settings switch: {label}", toggle_twice(label, 14 if far else 8))
         for _ in range(6 if far else 2):
@@ -470,7 +470,7 @@ def main():
         for _ in range(6):
             swipe_down()
     to_top()
-    for label in ["Theme", "Equalizer & Bass boost", "Open AI DJ"]:
+    for label in ["Theme", "Equalizer & Bass boost", "Alarm", "Open AI DJ", "Sync with another phone"]:
         step(f"Settings: {label}", open_and_back(label, scroll=10, wait=3))
         to_top()
     step("Settings: Move library to another phone", open_and_back("Move library to another phone", scroll=10, wait=4))

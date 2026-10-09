@@ -1,6 +1,9 @@
 package com.sangeet.player.ui.settings
 
+import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.Autorenew
+import androidx.compose.material.icons.rounded.CloudSync
+import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.Psychology
 import androidx.compose.material.icons.rounded.SdStorage
 import androidx.compose.material.icons.rounded.BugReport
@@ -99,6 +102,7 @@ fun SettingsScreen(nav: NavController) {
 
         SettingsGroup("Playback") {
             SettingsItem(Icons.Rounded.Equalizer, "Equalizer & Bass boost", "Fine-tune your sound", onClick = { nav.navigate(Routes.EQUALIZER) })
+            SettingsItem(Icons.Rounded.Alarm, "Alarm", "Wake up to your songs", onClick = { nav.navigate(Routes.ALARM) })
             SettingsSwitch(Icons.Rounded.VolumeUp, "Normalize volume", "Every song plays at the same loudness", eq.normalize) {
                 c.equalizer.setNormalize(it)
             }
@@ -132,6 +136,9 @@ fun SettingsScreen(nav: NavController) {
                 "Now and then, sends what you search, like, play and put in playlists, without your name, number or phone files, so suggestions learn from all listeners",
                 s.shareListening,
             ) { scope.launch { c.settings.setShareListening(it) } }
+            SettingsSwitch(Icons.Rounded.NotificationsActive, "New song alerts", "A notification when a singer you play most has a new song", s.newSongAlerts) {
+                scope.launch { c.settings.setNewSongAlerts(it) }
+            }
             SettingsSwitch(Icons.Rounded.Subtitles, "Fetch lyrics automatically", "Get lyrics from LRCLIB and save them for offline", s.autoLyrics) {
                 scope.launch { c.settings.setAutoLyrics(it) }
             }
@@ -205,6 +212,30 @@ fun SettingsScreen(nav: NavController) {
                 "Without a key, the DJ also asks a free online AI, ${com.sangeet.player.data.ai.FreeAi.NAME}, for songs. Only songs that really exist are played. It gets your request and the singers you play most",
                 s.freeAi,
             ) { scope.launch { c.settings.setFreeAi(it) } }
+            var geminiKey by remember(s.geminiApiKey) { mutableStateOf(s.geminiApiKey) }
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                Text(
+                    if (com.sangeet.player.BuildConfig.GEMINI_API_KEY.isNotBlank()) "Google Gemini is on (built in). You can use your own free key instead."
+                    else "Optional: a free Google Gemini key (aistudio.google.com → Get API key) makes the online AI better.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Sangeet.spec.muted,
+                )
+                OutlinedTextField(
+                    value = geminiKey,
+                    onValueChange = { geminiKey = it },
+                    label = { Text("Gemini API key (optional)") },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                )
+                TextButton(onClick = {
+                    scope.launch {
+                        c.settings.setGeminiApiKey(geminiKey)
+                        Toast.makeText(context, if (geminiKey.isBlank()) "Gemini key removed" else "Gemini key saved", Toast.LENGTH_SHORT).show()
+                    }
+                }) { Text("Save Gemini key") }
+            }
             SettingsItem(Icons.Rounded.AutoAwesome, "Open AI DJ", "Describe a vibe, get a playlist", onClick = { nav.navigate(Routes.DJ) })
             SettingsItem(
                 Icons.Rounded.DeleteSweep,
@@ -264,6 +295,9 @@ fun SettingsScreen(nav: NavController) {
         }
 
         SettingsGroup("Help") {
+            SettingsItem(Icons.Rounded.CloudSync, "Sync with another phone", "Liked songs and playlists the same on both (Android or iPhone)", onClick = {
+                nav.navigate(Routes.sync())
+            })
             SettingsItem(Icons.Rounded.SyncAlt, "Move library to another phone", "Liked songs and playlists, to another Android or your iPhone", onClick = {
                 scope.launch {
                     val link = com.sangeet.player.data.LibrarySync.exportLink(c.library)

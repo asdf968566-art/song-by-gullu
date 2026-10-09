@@ -95,7 +95,7 @@ object Community {
             val s = c.settings.settings.first()
             if (!s.shareListening || s.offlineMode || BuildConfig.DATA_REPO.isBlank() || BuildConfig.REPORT_TOKEN.isBlank()) return Result.success()
             // The CI test phone (an emulator) is not a listener: it would show up in the owner's numbers.
-            if (emulator()) return Result.success()
+            if (com.sangeet.player.data.Usage.emulator()) return Result.success()
             val prefs = applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
             if (System.currentTimeMillis() - prefs.getLong("sent_at", 0L) < 6 * 3_600_000L) return Result.success()
@@ -112,10 +112,6 @@ object Community {
             }
         }
     }
-
-    private fun emulator(): Boolean = android.os.Build.FINGERPRINT.startsWith("generic") ||
-        android.os.Build.FINGERPRINT.contains("emulator") || android.os.Build.HARDWARE in setOf("goldfish", "ranchu") ||
-        android.os.Build.PRODUCT.contains("sdk")
 
     /** A random id for this install (the same every day, so a listener's days count once). */
     private fun id(context: Context): String {
@@ -146,6 +142,12 @@ object Community {
             val json = buildJsonObject {
                 put("v", 1); put("id", id); put("p", "android"); put("app", BuildConfig.VERSION_NAME); put("day", day)
                 putJsonArray("langs") { c.settings.current.languages.forEach { add(it) } }
+                // For the owner dashboard: the phone model, screens opened (totals) and crashes.
+                put("m", "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}".trim().take(40))
+                put("sdk", android.os.Build.VERSION.SDK_INT)
+                put("use", buildJsonObject { com.sangeet.player.data.Usage.features(c.appContext).forEach { (k, n) -> put(k, n) } })
+                put("crash", com.sangeet.player.data.Usage.crashes(c.appContext))
+                putJsonArray("crashes") { com.sangeet.player.data.Usage.recentCrashes(c.appContext).forEach { add(it) } }
                 putJsonArray("searches") { searches.forEach { add(it) } }
                 putJsonArray("likes") { likes.take((500 * keep).toInt()).forEach { add(compact(it)) } }
                 // Recently played (since the last upload first), with how often.

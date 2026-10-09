@@ -38,6 +38,7 @@ object CrashReporter {
                 val sw = StringWriter()
                 error.printStackTrace(PrintWriter(sw))
                 File(app.filesDir, FILE).writeText("${now()} on thread ${thread.name}\n$sw")
+                Usage.crashed(app, "${BuildConfig.VERSION_NAME}: ${error.javaClass.simpleName}: ${error.message.orEmpty()}".take(160))
             }
             previous?.uncaughtException(thread, error)
         }

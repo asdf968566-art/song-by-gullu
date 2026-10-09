@@ -89,6 +89,73 @@ function fmt(s) {
 function norm(s) {
   return (s || '').toLowerCase().replace(/\(.*?\)|\[.*?\]/g, ' ').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 }
+/* Hindi (Devanagari) and Punjabi (Gurmukhi) typed or spoken in their own script, written the way the catalog
+ * spells songs: "तुम ही हो" -> "tum hi ho", "ਕਿੰਨੀ ਸੋਹਣੀ" -> "kinni sohni". Two spellings, since names keep long vowels
+ * or not ("raabta" / "rabta"); the same rules as Android's Transliterate. */
+const Translit = {
+  RE: /[ऀ-ॿ਀-੿]/,
+  has(s) { return this.RE.test(s || ''); },
+  C: {
+    'क': 'k', 'ख': 'kh', 'ग': 'g', 'घ': 'gh', 'ङ': 'n', 'च': 'ch', 'छ': 'chh', 'ज': 'j', 'झ': 'jh', 'ञ': 'n', 'ट': 't', 'ठ': 'th',
+    'ड': 'd', 'ढ': 'dh', 'ण': 'n', 'त': 't', 'थ': 'th', 'द': 'd', 'ध': 'dh', 'न': 'n', 'प': 'p', 'फ': 'ph', 'ब': 'b', 'भ': 'bh',
+    'म': 'm', 'य': 'y', 'र': 'r', 'ल': 'l', 'व': 'v', 'श': 'sh', 'ष': 'sh', 'स': 's', 'ह': 'h', 'ळ': 'l',
+    'क़': 'q', 'ख़': 'kh', 'ग़': 'g', 'ज़': 'z', 'ड़': 'd', 'ढ़': 'dh', 'फ़': 'f', 'य़': 'y',
+    'ਕ': 'k', 'ਖ': 'kh', 'ਗ': 'g', 'ਘ': 'gh', 'ਙ': 'n', 'ਚ': 'ch', 'ਛ': 'chh', 'ਜ': 'j', 'ਝ': 'jh', 'ਞ': 'n', 'ਟ': 't', 'ਠ': 'th',
+    'ਡ': 'd', 'ਢ': 'dh', 'ਣ': 'n', 'ਤ': 't', 'ਥ': 'th', 'ਦ': 'd', 'ਧ': 'dh', 'ਨ': 'n', 'ਪ': 'p', 'ਫ': 'ph', 'ਬ': 'b', 'ਭ': 'bh',
+    'ਮ': 'm', 'ਯ': 'y', 'ਰ': 'r', 'ਲ': 'l', 'ਵ': 'v', 'ਸ': 's', 'ਹ': 'h', 'ੜ': 'd', 'ਸ਼': 'sh', 'ਖ਼': 'kh', 'ਗ਼': 'g', 'ਜ਼': 'z',
+    'ਫ਼': 'f', 'ਲ਼': 'l',
+  },
+  NUKTA: { 'क': 'क़', 'ख': 'ख़', 'ग': 'ग़', 'ज': 'ज़', 'ड': 'ड़', 'ढ': 'ढ़', 'फ': 'फ़',
+    'ਸ': 'ਸ਼', 'ਖ': 'ਖ਼', 'ਗ': 'ਗ਼', 'ਜ': 'ਜ਼', 'ਫ': 'ਫ਼', 'ਲ': 'ਲ਼' },
+  V: { 'अ': 'a', 'आ': 'A', 'इ': 'i', 'ई': 'I', 'उ': 'u', 'ऊ': 'U', 'ऋ': 'ri', 'ए': 'e', 'ऐ': 'ai', 'ओ': 'o', 'औ': 'au', 'ऑ': 'o',
+    'ਅ': 'a', 'ਆ': 'A', 'ਇ': 'i', 'ਈ': 'I', 'ਉ': 'u', 'ਊ': 'U', 'ਏ': 'e', 'ਐ': 'ai', 'ਓ': 'o', 'ਔ': 'au' },
+  M: { 'ा': 'A', 'ि': 'i', 'ी': 'I', 'ु': 'u', 'ू': 'U', 'ृ': 'ri', 'े': 'e', 'ै': 'ai', 'ो': 'o', 'ौ': 'au', 'ॉ': 'o', 'ॅ': 'e',
+    'ਾ': 'A', 'ਿ': 'i', 'ੀ': 'I', 'ੁ': 'u', 'ੂ': 'U', 'ੇ': 'e', 'ੈ': 'ai', 'ੋ': 'o', 'ੌ': 'au' },
+  /** One word as letters: {c: consonant, v: vowel ('' = none), inh: the vowel is the unwritten a, n: nasal after}. */
+  units(w) {
+    const out = [];
+    let double = false;
+    const chars = Array.from(w);
+    for (let i = 0; i < chars.length; i++) {
+      let ch = chars[i];
+      if ((chars[i + 1] === '़' || chars[i + 1] === '਼') && this.NUKTA[ch]) { ch = this.NUKTA[ch]; i++; }
+      const c = this.C[ch];
+      if (c) {
+        const u = { c: double && c !== 'ch' ? c[0] + c : c, v: 'a', inh: true, n: '' };
+        double = false;
+        const next = chars[i + 1];
+        if (next && this.M[next]) { u.v = this.M[next]; u.inh = false; i++; } else if (next === '्' || next === '੍') { u.v = ''; u.inh = false; i++; }
+        out.push(u);
+      } else if (this.V[ch]) out.push({ c: '', v: this.V[ch], inh: false, n: '' });
+      else if ('ंँਂੰ'.includes(ch)) { if (out.length) out[out.length - 1].n = 'n'; else out.push({ c: 'n', v: '', inh: false, n: '' }); }
+      else if (ch === 'ः') out.push({ c: 'h', v: '', inh: false, n: '' });
+      else if (ch === 'ੱ') double = true; // addak: the next letter is said twice (ਜੱਟ = jatt)
+      else if (/[०-९]/.test(ch)) out.push({ c: String(ch.charCodeAt(0) - 0x966), v: '', inh: false, n: '' });
+      else if (/[੦-੯]/.test(ch)) out.push({ c: String(ch.charCodeAt(0) - 0xA66), v: '', inh: false, n: '' });
+      else if (!this.RE.test(ch)) out.push({ c: ch, v: '', inh: false, n: '' });
+    }
+    return out;
+  },
+  /** Letters as Latin. long: aa/ee/oo for long vowels (not at the end); drop: the unsaid a inside a word too
+   * (sohani -> sohni, dhadakan -> dhadkan). The a at a word's end is never said (tum, not tuma). */
+  render(us, long, drop) {
+    const has = (u) => u && u.v !== '';
+    return us.map((u, i) => {
+      let v = u.v;
+      const last = i === us.length - 1;
+      if (u.inh && us.length > 1 && last && !u.n) v = '';
+      else if (u.inh && drop && i > 0 && !last && !u.n && has(us[i - 1]) && us[i + 1].c && has(us[i + 1]) && !(us[i + 1].inh && i + 1 === us.length - 1 && !us[i + 1].n)) v = '';
+      if (long && !last) v = v.replace('A', 'aa').replace('I', 'ee').replace('U', 'oo');
+      return u.c + v.toLowerCase() + u.n;
+    }).join('');
+  },
+  /** ["tum hi ho", …]: the usual spelling first, then with long vowels, then without the unsaid a's. */
+  variants(text) {
+    const words = String(text || '').split(/\s+/).filter(Boolean).map((w) => this.units(w));
+    const as = (long, drop) => words.map((us) => this.render(us, long, drop)).join(' ').trim();
+    return [...new Set([as(false, false), as(true, false), as(false, true)])].filter(Boolean);
+  },
+};
 /* Matching a YouTube video to the same song in the catalog (which plays in the background on iPhone).
  * YouTube names carry extras ("Official Video", "Full Song", "| Movie | Actor", hashtags, years). Each part of the
  * name is reduced to the song's own words; a catalog song counts as the same when its name matches one part AND
@@ -160,7 +227,10 @@ const S = (() => {
 let saveTimer;
 function save() {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => { try { localStorage.setItem('sangeet', JSON.stringify(S)); } catch {} }, 300);
+  saveTimer = setTimeout(() => {
+    try { localStorage.setItem('sangeet', JSON.stringify(S)); } catch {}
+    if (typeof CloudSync !== 'undefined') CloudSync.changed();
+  }, 300);
 }
 const seenSet = new Set(S.seen);
 function markSeen(ids) {
@@ -1100,11 +1170,37 @@ function playlistPicker(t) {
     }]),
   ]);
 }
-function share(t) {
-  const url = t.src === 'yt' ? `https://music.youtube.com/watch?v=${t.sid}` : `https://www.jiosaavn.com/search/song/${encodeURIComponent(t.title + ' ' + t.artist)}`;
-  if (navigator.share) navigator.share({ title: t.title, text: `${t.title} · ${t.artist}`, url }).catch(() => {});
-  else navigator.clipboard?.writeText(url).then(() => toast('Link copied'));
+/** Share a song as a Sangeet link (#play=…): it opens here on iPhone, and in the app on Android. */
+async function share(t) {
+  const o = Sync.encode(t);
+  const url = o ? `${location.origin}${location.pathname}#play=${await Sync.pack(JSON.stringify(o))}`
+    : `https://www.jiosaavn.com/search/song/${encodeURIComponent(t.title + ' ' + t.artist)}`;
+  const text = `🎵 ${t.title} · ${t.artist} on Sangeet`;
+  if (navigator.share) navigator.share({ title: t.title, text, url }).catch(() => {});
+  else navigator.clipboard?.writeText(`${text}\n${url}`).then(() => toast('Link copied'));
 }
+/** Opened a shared song link: offer to play it (a tap is needed to start sound), or open it in the Android app. */
+const SongLink = {
+  async fromHash() {
+    const m = location.hash.match(/play=([\w-]+)/);
+    if (!m) return;
+    history.replaceState(null, '', location.pathname);
+    try {
+      const t = Sync.decode(JSON.parse(await Sync.unpack(m[1])));
+      if (!t) throw new Error('bad link');
+      const known = Catalog.byId.get(t.id) || t;
+      const items = [['▶ Play', () => Player.playRadio(known)], [isLiked(known) ? 'Liked ✓' : 'Like', () => { if (!isLiked(known)) toggleLike(known); }]];
+      if (/Android/i.test(navigator.userAgent)) {
+        items.push(['Open in the Sangeet app', () => {
+          location.href = `intent://play?song=${m[1]}#Intent;scheme=sangeet;package=com.sangeet.player;end`;
+        }]);
+      }
+      menu(`${known.title} · ${known.artist}`, items);
+    } catch {
+      toast("That song link didn't work");
+    }
+  },
+};
 function seekBar() {
   const range = h('input', { type: 'range', min: 0, max: 1000, value: 0 });
   const a = h('span', null, '0:00'), b = h('span', null, '0:00');
@@ -1294,23 +1390,27 @@ function searchPage() {
   const input = h('input', { type: 'search', placeholder: 'Songs, artists, movies', autocomplete: 'off', autocapitalize: 'off', spellcheck: false, enterkeyhint: 'search' });
   let ytTimer, ytAuto, seq = 0;
   const run = () => {
-    const q = input.value.trim();
-    searchPage.q = q;
+    const raw = input.value.trim();
+    searchPage.q = raw;
+    // Typed (or said) in Hindi / Punjabi script: the catalog is searched in its Latin spellings, YouTube as typed.
+    const qs = Translit.has(raw) ? Translit.variants(raw) : [raw];
+    const q = qs[0] || raw;
+    const each = (list) => { const seen = new Set(); return list.flat().filter((t) => !seen.has(t.id) && seen.add(t.id)); };
     const my = ++seq;
     clearTimeout(ytTimer);
     clearTimeout(ytAuto);
-    if (q.length < 2) { results.replaceChildren(browse()); return; }
-    const local = Catalog.search(q, 40);
+    if (raw.length < 2) { results.replaceChildren(browse()); return; }
+    const local = each(qs.map((x) => Catalog.search(x, 40))).slice(0, 40);
     const artistBox = h('div'), albumBox = h('div'), deepBox = h('div'), fixBox = h('div'), ytBox = h('div');
     // A few words (4+) may be a line from the middle of a song: YouTube finds songs by their lyrics, so its
     // results come first then (they play from the catalog when the same song is there).
-    const line = q.split(/\s+/).length >= 4;
+    const line = raw.split(/\s+/).length >= 4;
     const localEl = local.length ? trackList(local, true) : h('div', { class: 'spinner' });
     results.replaceChildren(albumBox, artistBox, fixBox, line ? ytBox : '', localEl, deepBox, line ? '' : ytBox);
     const shown = new Set(local.map((t) => norm(t.title)));
     const youtube = async () => {
       ytBox.replaceChildren(h('div', { class: 'spinner' }));
-      const yt = (await Tube.search(line ? `${q} song` : q))
+      const yt = (await Tube.search(line ? `${raw} song` : raw))
         .map((t) => Catalog.match(t) || t) // in the catalog: show (and play) that one, it keeps playing in the background
         .filter((t) => !shown.has(norm(t.title)));
       if (my !== seq) return;
@@ -1319,7 +1419,8 @@ function searchPage() {
     // Then the full catalog (lakhs of songs) and singers; YouTube only for what isn't there.
     ytTimer = setTimeout(async () => {
       const ids = new Set(local.map((t) => t.id));
-      const [deep, artists] = await Promise.all([Deep.search(q), Artists.find(q)]);
+      const [deeps, artists] = await Promise.all([Promise.all(qs.map((x) => Deep.search(x))), Artists.find(q)]);
+      const deep = each(deeps);
       if (my !== seq) return;
       if (!local.length) localEl.remove();
       const more = deep.filter((t) => !ids.has(t.id));
@@ -2017,8 +2118,32 @@ async function aiDj(text) {
  * names songs for the request; a song is kept only when the catalog has that very song by that singer, so nothing
  * made-up plays. Models picked by CI probes that checked every named song on JioSaavn (CLAUDE.md). Settings can
  * turn it off; any failure just leaves the built-in DJ's mix. */
+const BUILT_IN_GEMINI = '__GEMINI_KEY__'; // filled in by web.yml from the GEMINI_API_KEY secret
 const FreeAi = {
   URL: 'https://api.llm7.io/v1/chat/completions',
+  GEMINI: 'https://generativelanguage.googleapis.com/v1beta',
+  geminiKey() { return (S.geminiKey || '').trim() || (BUILT_IN_GEMINI.startsWith('__') ? '' : BUILT_IN_GEMINI); },
+  /** The best Flash model the key may use (a plain Flash, newest first; else Flash-Lite). Asked once. */
+  async geminiModel(key, signal) {
+    if (this.model) return this.model;
+    const r = await fetch(`${this.GEMINI}/models?pageSize=200&key=${key}`, { signal });
+    if (!r.ok) return null;
+    const names = ((await r.json()).models || []).filter((m) => (m.supportedGenerationMethods || []).includes('generateContent')).map((m) => m.name);
+    const ver = (n) => parseFloat((n.match(/gemini-(\d+(?:\.\d+)?)/) || [])[1] || 0);
+    const best = (list) => list.sort((a, b) => ver(b) - ver(a))[0];
+    this.model = best(names.filter((n) => /^models\/gemini-\d+(\.\d+)?-flash(-latest)?$/.test(n)))
+      || best(names.filter((n) => n.includes('flash-lite') && !n.includes('preview'))) || best(names.filter((n) => n.includes('flash'))) || null;
+    return this.model;
+  },
+  async askGemini(key, user, signal) {
+    const model = await this.geminiModel(key, signal);
+    if (!model) return '';
+    const r = await fetch(`${this.GEMINI}/${model}:generateContent?key=${key}`, { method: 'POST', signal, headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ systemInstruction: { parts: [{ text: this.SYSTEM }] }, contents: [{ role: 'user', parts: [{ text: user }] }],
+        generationConfig: { temperature: 0.4, maxOutputTokens: 4000, responseMimeType: 'application/json' } }) });
+    if (!r.ok) { if (r.status === 404) this.model = null; return ''; }
+    return ((await r.json()).candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('');
+  },
   // Keyless on LLM7.io (CI probe, Oct 9); a busy (503) or used-up (429) one is skipped. Same list as Android FreeAi.
   MODELS: ['glm-5.2', 'DeepSeek-V4-Flash-0731', 'minimax-m3', 'gemma4:31b'],
   SYSTEM: 'You are the DJ of Sangeet, an Indian music app (JioSaavn and YouTube catalogue). Turn the listener\'s request '
@@ -2034,6 +2159,20 @@ const FreeAi = {
       + (history.length ? `Earlier in this chat: ${history.slice(-4).map((x) => `"${x}"`).join(' | ')}. Treat the request as a change to that mix if it reads like one. ` : '')
       + `Request: ${text}`;
     const until = Date.now() + 22000;
+    const fromText = async (content, who) => {
+      const plan = JSON.parse(content.slice(content.indexOf('{'), content.lastIndexOf('}') + 1));
+      const names = (plan.songs || []).map((x) => (typeof x === 'string' ? x : x && x.title ? `${x.title} - ${x.artist || x.singer || ''}` : ''))
+        .filter((x) => x.length > 1).slice(0, 18);
+      const found = (await Promise.all(names.map((x) => this.find(x)))).filter(Boolean);
+      console.log(`free AI ${who}: ${names.length} named, ${found.length} real`);
+      return found;
+    };
+    const key = this.geminiKey();
+    if (key) {
+      const ctl = new AbortController();
+      const timer = setTimeout(() => ctl.abort(), 22000);
+      try { const text = await this.askGemini(key, user, ctl.signal); if (text) return await fromText(text, 'Gemini'); } catch {} finally { clearTimeout(timer); }
+    }
     for (const model of this.MODELS) {
       const left = until - Date.now();
       if (left < 3000) break;
@@ -2043,13 +2182,7 @@ const FreeAi = {
         const r = await fetch(this.URL, { method: 'POST', signal: ctl.signal, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer unused' },
           body: JSON.stringify({ model, temperature: 0.4, max_tokens: 3000, messages: [{ role: 'system', content: this.SYSTEM }, { role: 'user', content: user }] }) });
         if (!r.ok) continue;
-        const content = (await r.json()).choices?.[0]?.message?.content || '';
-        const plan = JSON.parse(content.slice(content.indexOf('{'), content.lastIndexOf('}') + 1));
-        const names = (plan.songs || []).map((x) => (typeof x === 'string' ? x : x && x.title ? `${x.title} - ${x.artist || x.singer || ''}` : ''))
-          .filter((x) => x.length > 1).slice(0, 18);
-        const found = (await Promise.all(names.map((x) => this.find(x)))).filter(Boolean);
-        console.log(`free AI ${model}: ${names.length} named, ${found.length} real`);
-        return found;
+        return await fromText((await r.json()).choices?.[0]?.message?.content || '', model);
       } catch {} finally { clearTimeout(timer); }
     }
     return [];
@@ -2087,9 +2220,9 @@ const DjChat = {
   },
 };
 async function djMix(req, shown, history = []) {
-  const text = req.base;
+  const text = Translit.has(req.base) ? Translit.variants(req.base)[0] : req.base;
   const t = ` ${norm(text)} `;
-  const fromAi = FreeAi.songs(text, history);
+  const fromAi = FreeAi.songs(req.base, history); // the AI reads Hindi script as it is
   let tracks = [];
   // "Kesariya jaise gaane", "songs like Kesariya": that song, then songs like it.
   const like = (t.match(/(?:songs like|like|similar to) (.+?) $/) || t.match(/^ (.+?) (?:jaise|jaisa|jaisi|type)\b/) || [])[1];
@@ -2181,6 +2314,35 @@ function reportProblem() {
   else navigator.clipboard?.writeText(text).then(() => toast('Copied. Paste it in a message.'));
 }
 
+/** Settings → Sync with another phone. */
+function syncBox() {
+  const box = h('div');
+  const say = (text) => { toast(text); draw(); };
+  const draw = () => {
+    const code = CloudSync.code;
+    if (!code) {
+      const input = h('input', { type: 'text', placeholder: 'Sync link or code from your other phone', autocapitalize: 'off', spellcheck: false, style: 'width:100%' });
+      fill(box, h('div', { class: 'section' }, 'Sync with another phone'),
+        h('div', { class: 'note' }, 'Liked songs and playlists stay the same on both phones (iPhone or Android). No account needed.'),
+        h('button', { class: 'pill primary', style: 'margin:8px 16px', onclick: async () => {
+          try { const c = await CloudSync.start(); const url = CloudSync.link(c); if (navigator.share) navigator.share({ title: 'Sangeet sync', url }).catch(() => {}); else navigator.clipboard?.writeText(url); say('Sync is on. Open the link on your other phone.'); } catch (e) { say(`Didn't work: ${e.message}`); }
+        } }, 'Start sync'),
+        h('div', { class: 'setting', style: 'display:block' }, input),
+        h('button', { class: 'pill', style: 'margin:0 16px 8px', onclick: async () => {
+          try { const [l, p] = await CloudSync.join(input.value); say(`Synced: ${l} liked songs, ${p} playlists`); } catch (e) { say(e.message || "Didn't work"); }
+        } }, 'Join'));
+    } else {
+      fill(box, h('div', { class: 'section' }, 'Sync with another phone'),
+        h('div', { class: 'note' }, `Sync is on (code ${code.slice(0, 8)}…). Changes go to your other phone by themselves.`),
+        h('div', { class: 'actions' },
+          h('button', { class: 'pill', onclick: () => { const url = CloudSync.link(code); if (navigator.share) navigator.share({ title: 'Sangeet sync', url }).catch(() => {}); else navigator.clipboard?.writeText(url).then(() => toast('Link copied')); } }, 'Send sync link'),
+          h('button', { class: 'pill', onclick: async () => { try { const r = await CloudSync.sync(); say(r ? `Synced: ${r[0]} liked songs, ${r[1]} playlists` : "This sync code doesn't work any more. Stop and start again."); } catch (e) { say(e.message); } } }, 'Sync now'),
+          h('button', { class: 'pill', onclick: () => { CloudSync.set(null); say('Sync stopped on this phone'); } }, 'Stop')));
+    }
+  };
+  draw();
+  return box;
+}
 function settingsPage() {
   const langChips = h('div', { class: 'chips' }, ALL_LANGS.map((l) => {
     const b = h('button', { class: 'chip' + (S.langs.includes(l) ? ' on' : '') }, l[0].toUpperCase() + l.slice(1));
@@ -2222,8 +2384,13 @@ function settingsPage() {
     h('div', { class: 'section' }, 'Languages'), langChips, count,
     h('div', { class: 'section' }, 'Audio'),
     h('div', { class: 'setting' }, h('label', null, 'Streaming quality'), quality),
+    h('div', { class: 'setting', style: 'display:block' }, h('label', null, 'Gemini API key (optional)'), (() => {
+      const k = h('input', { type: 'text', value: S.geminiKey || '', autocapitalize: 'off', spellcheck: false, placeholder: BUILT_IN_GEMINI.startsWith('__') ? 'Free at aistudio.google.com' : 'Built in (or paste your own)', style: 'font-family:ui-monospace,monospace;font-size:13px;width:100%' });
+      k.addEventListener('change', () => { S.geminiKey = k.value.trim(); FreeAi.model = null; save(); toast(S.geminiKey ? 'Gemini key saved' : 'Gemini key removed'); });
+      return k;
+    })()),
     toggleRow('Free online AI for the DJ',
-      'The AI DJ also asks a free online AI (LLM7.io: GLM, DeepSeek) for songs. Only songs that really exist are played. It gets your request and the singers you play most.',
+      'The AI DJ also asks a free online AI (Gemini with a key, else LLM7.io: GLM, DeepSeek) for songs. Only songs that really exist are played. It gets your request and the singers you play most.',
       S.freeAi !== false, (on) => { S.freeAi = on; save(); }),
     h('div', { class: 'section' }, 'YouTube Data API key'),
     h('div', { class: 'setting' }, key),
@@ -2232,6 +2399,7 @@ function settingsPage() {
       'YouTube songs keep playing with the screen locked, through free public servers. They are sometimes slow or down; then YouTube plays as before (stops when locked).',
       !!S.ytAudio, (v) => { S.ytAudio = v; save(); }),
     h('div', { class: 'section' }, 'Move library'),
+    syncBox(),
     h('button', { class: 'danger', style: 'color:var(--text)', onclick: () => Sync.share() }, 'Send liked songs and playlists to another phone'),
     h('div', { class: 'note' }, 'Open the link on the other phone. On Android, paste it in Library → Import playlist.'),
     h('div', { class: 'section' }, 'Offline'),
@@ -2756,6 +2924,141 @@ document.querySelectorAll('#tabs button').forEach((b) => {
 
 applyLook();
 
+/* Sync with another phone (owner, Oct 9): liked songs and playlists the same on iPhone and Android, no account. One
+ * phone makes a sync code; the library is kept packed on restful-api.dev (free keyless JSON store, CI-probed) under
+ * that long code. Every sync merges three ways against what both had last time (an un-liked song goes on both).
+ * Same data as Android's CloudSync. */
+const CloudSync = {
+  API: 'https://api.restful-api.dev/objects',
+  get code() { try { return localStorage.getItem('sangeet-sync-code'); } catch { return null; } },
+  set(code, lib) {
+    try {
+      if (!code) { localStorage.removeItem('sangeet-sync-code'); localStorage.removeItem('sangeet-sync-base'); return; }
+      localStorage.setItem('sangeet-sync-code', code);
+      if (lib) localStorage.setItem('sangeet-sync-base', JSON.stringify(this.toJson(lib)));
+    } catch {}
+  },
+  link(code) { return `${location.origin}${location.pathname}#joinsync=${code}`; },
+  me() {
+    try { let id = localStorage.getItem('sangeet-sync-me'); if (!id) { id = Math.random().toString(36).slice(2, 10); localStorage.setItem('sangeet-sync-me', id); } return id; } catch { return 'web'; }
+  },
+  local() {
+    const tracks = new Map(), ok = (t) => Sync.encode(t) && tracks.set(t.id, t);
+    const liked = S.liked.filter(ok).map((t) => t.id);
+    const lists = {};
+    S.playlists.filter((p) => !p.name.startsWith('✨')).forEach((p) => { lists[p.name] = p.tracks.filter(ok).map((t) => t.id); });
+    return { liked, lists, tracks };
+  },
+  toJson(l) {
+    const enc = (id) => (l.tracks.get(id) ? Sync.encode(l.tracks.get(id)) : null);
+    return { l: l.liked.map(enc).filter(Boolean), p: Object.entries(l.lists).map(([n, ids]) => ({ n, t: ids.map(enc).filter(Boolean) })) };
+  },
+  fromJson(o) {
+    const tracks = new Map();
+    const list = (a) => (a || []).map((x) => Sync.decode(x)).filter(Boolean).map((t) => { tracks.set(t.id, t); return t.id; });
+    const lists = {};
+    (o.p || []).forEach((p) => { lists[p.n || 'Playlist'] = list(p.t); });
+    return { liked: list(o.l), lists, tracks };
+  },
+  async call(method, url, body) {
+    const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+    if (r.status === 404) return null;
+    if (!r.ok) throw new Error(`sync HTTP ${r.status}`);
+    return r.json();
+  },
+  async wrap(l) { return { name: 'sangeet-sync', data: { v: 1, u: Date.now(), by: this.me(), z: await Sync.pack(JSON.stringify(this.toJson(l))) } }; },
+  async unwrap(o) { return o && o.data && o.data.z ? this.fromJson(JSON.parse(await Sync.unpack(o.data.z))) : null; },
+  async start() {
+    const mine = this.local();
+    const made = await this.call('POST', this.API, await this.wrap(mine));
+    if (!made || !made.id) throw new Error('no sync code');
+    this.set(made.id, mine);
+    return made.id;
+  },
+  async join(text) {
+    const code = String(text).split('joinsync=').pop().trim().replace(/[^A-Za-z0-9]/g, '');
+    if (code.length < 8) throw new Error('That code is too short');
+    try { localStorage.setItem('sangeet-sync-code', code); localStorage.removeItem('sangeet-sync-base'); } catch {}
+    const r = await this.sync();
+    if (!r) { this.set(null); throw new Error("That sync code wasn't found"); }
+    return r;
+  },
+  /** Merges with the other phone; [liked, playlists] after it, or null when the code is gone. */
+  async sync() {
+    const code = this.code;
+    if (!code || this.busy) return null;
+    this.busy = true;
+    try {
+      const remote = await this.unwrap(await this.call('GET', `${this.API}/${code}`));
+      if (!remote) return null;
+      let base = null;
+      try { const b = localStorage.getItem('sangeet-sync-base'); if (b) base = this.fromJson(JSON.parse(b)); } catch {}
+      const mine = this.local();
+      const tracks = new Map([...mine.tracks, ...remote.tracks]);
+      const merge = (b, a, r) => {
+        const bs = new Set(b || []), as = new Set(a), rs = new Set(r);
+        const gone = new Set([...bs].filter((x) => !as.has(x) || !rs.has(x)));
+        return [...new Set([...a, ...r])].filter((x) => !gone.has(x));
+      };
+      const liked = merge(base && base.liked, mine.liked, remote.liked);
+      const names = [...new Set([...Object.keys(mine.lists), ...Object.keys(remote.lists)])]
+        .filter((n) => !(base && base.lists[n] && (!mine.lists[n] || !remote.lists[n])));
+      const lists = {};
+      names.forEach((n) => { lists[n] = merge(base && base.lists[n], mine.lists[n] || [], remote.lists[n] || []); });
+      const merged = { liked, lists, tracks };
+      // Into this phone's library (keeps the songs' own details when they are already here).
+      const have = new Map([...S.liked, ...S.playlists.flatMap((p) => p.tracks)].map((t) => [t.id, t]));
+      const pick = (id) => have.get(id) || tracks.get(id);
+      S.liked = liked.map(pick).filter(Boolean);
+      const auto = S.playlists.filter((p) => p.name.startsWith('✨'));
+      S.playlists = [...names.map((n) => {
+        const old = S.playlists.find((p) => p.name === n);
+        return { ...(old || { id: String(Date.now() + Math.random()) }), name: n, tracks: lists[n].map(pick).filter(Boolean) };
+      }), ...auto];
+      this.sig = this.signature();
+      save();
+      refreshLikes?.();
+      if (JSON.stringify(this.toJson(merged)) !== JSON.stringify(this.toJson(remote))) await this.call('PUT', `${this.API}/${code}`, await this.wrap(merged));
+      this.set(code, merged);
+      this.sig = this.signature();
+      return [liked.length, names.length];
+    } finally { this.busy = false; }
+  },
+  signature() { return `${S.liked.map((t) => t.id).join()}|${S.playlists.map((p) => `${p.name}:${p.tracks.length}`).join()}`; },
+  /** After likes / playlists change: sync a little later. */
+  changed() {
+    if (!this.code) return;
+    const sig = this.signature();
+    if (sig === this.sig) return;
+    this.sig = sig;
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => this.sync().catch(() => {}), 20000);
+  },
+  async fromHash() {
+    const m = location.hash.match(/joinsync=([A-Za-z0-9]+)/);
+    if (!m) return;
+    history.replaceState(null, '', location.pathname);
+    if (this.code === m[1]) return toast('Sync is already on');
+    if (!confirm('Sync your liked songs and playlists with your other phone?')) return;
+    try { const [l, p] = await this.join(m[1]); toast(`Synced: ${l} liked songs, ${p} playlists`); } catch (e) { toast(e.message || "Sync didn't work"); }
+  },
+};
+/* How many iPhones / browsers use the site, for the owner dashboard (Android): a free public hit counter
+ * (abacus.jasoncameron.dev, no key). Once per browser ever ("web-users") and once a day ("web-day-yyyymmdd"). Only a
+ * number is sent. Same counter space as Android's Usage. */
+const Visits = {
+  URL: 'https://abacus.jasoncameron.dev/hit/sangeet-asdf968566/',
+  count() {
+    if (!navigator.onLine || /HeadlessChrome|Playwright/.test(navigator.userAgent)) return;
+    const d = new Date(), day = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+    const hit = (name, flag, value) => {
+      try { if (localStorage.getItem(flag) === value) return; } catch { return; }
+      fetch(this.URL + name, { mode: 'cors' }).then((r) => { if (r.ok) try { localStorage.setItem(flag, value); } catch {} }).catch(() => {});
+    };
+    hit('web-users', 'sangeet-counted', '1');
+    hit(`web-day-${day}`, 'sangeet-counted-day', day);
+  },
+};
 (async () => {
   UI.initSwipe();
   Feed.init();
@@ -2764,8 +3067,12 @@ applyLook();
   UI.update();
   Sync.importFromHash();
   Blend.fromHash();
-  window.addEventListener('hashchange', () => { Sync.importFromHash(); Blend.fromHash(); });
+  SongLink.fromHash();
+  CloudSync.fromHash();
+  window.addEventListener('hashchange', () => { Sync.importFromHash(); Blend.fromHash(); SongLink.fromHash(); CloudSync.fromHash(); });
+  if (CloudSync.code) setTimeout(() => CloudSync.sync().catch(() => {}), 3000);
   setTimeout(() => WhatsNew.check(), 1500);
   Community.load().catch(() => {});
+  setTimeout(() => Visits.count(), 4000);
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
