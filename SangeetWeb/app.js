@@ -2013,6 +2013,62 @@ async function aiDj(text) {
   return { title, tracks: scored.slice(0, 60).map((x) => x[0]) };
 }
 /** Understands a chat message for the DJ: a follow-up ("aur", "sirf Arijit", "no remix") changes the last mix. */
+/* AI DJ helper (Oct 9, owner: "a free AI, not one that gives wrong data"): a free online AI (LLM7.io, no key)
+ * names songs for the request; a song is kept only when the catalog has that very song by that singer, so nothing
+ * made-up plays. Models picked by CI probes that checked every named song on JioSaavn (CLAUDE.md). Settings can
+ * turn it off; any failure just leaves the built-in DJ's mix. */
+const FreeAi = {
+  URL: 'https://api.llm7.io/v1/chat/completions',
+  // Keyless on LLM7.io (CI probe, Oct 9); a busy (503) or used-up (429) one is skipped. Same list as Android FreeAi.
+  MODELS: ['glm-5.2', 'DeepSeek-V4-Flash-0731', 'minimax-m3', 'gemma4:31b'],
+  SYSTEM: 'You are the DJ of Sangeet, an Indian music app (JioSaavn and YouTube catalogue). Turn the listener\'s request '
+    + '(English, Hindi or Hinglish) into a playlist. Reply ONLY with JSON: {"title":str,"languages":[str],"songs":["Song - Singer"]}. '
+    + 'songs: 12 real, released songs that fit, with their exact title and main singer. Never invent a song; if you know '
+    + 'fewer, give fewer. Mix famous hits with less obvious ones and different singers.',
+  async songs(text, history = []) {
+    if (S.freeAi === false || !navigator.onLine) return [];
+    const top = Object.values(S.history).sort((a, b) => b.c - a.c).slice(0, 40);
+    const singers = [...new Set(top.map((r) => (r.t.artist || '').split(',')[0].trim()).filter(Boolean))].slice(0, 8);
+    const user = `Listener's languages: ${S.langs.join(', ')}. `
+      + (singers.length ? `The listener plays these singers most: ${singers.join(', ')}. ` : '')
+      + (history.length ? `Earlier in this chat: ${history.slice(-4).map((x) => `"${x}"`).join(' | ')}. Treat the request as a change to that mix if it reads like one. ` : '')
+      + `Request: ${text}`;
+    const until = Date.now() + 22000;
+    for (const model of this.MODELS) {
+      const left = until - Date.now();
+      if (left < 3000) break;
+      const ctl = new AbortController();
+      const timer = setTimeout(() => ctl.abort(), left);
+      try {
+        const r = await fetch(this.URL, { method: 'POST', signal: ctl.signal, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer unused' },
+          body: JSON.stringify({ model, temperature: 0.4, max_tokens: 3000, messages: [{ role: 'system', content: this.SYSTEM }, { role: 'user', content: user }] }) });
+        if (!r.ok) continue;
+        const content = (await r.json()).choices?.[0]?.message?.content || '';
+        const plan = JSON.parse(content.slice(content.indexOf('{'), content.lastIndexOf('}') + 1));
+        const names = (plan.songs || []).map((x) => (typeof x === 'string' ? x : x && x.title ? `${x.title} - ${x.artist || x.singer || ''}` : ''))
+          .filter((x) => x.length > 1).slice(0, 18);
+        const found = (await Promise.all(names.map((x) => this.find(x)))).filter(Boolean);
+        console.log(`free AI ${model}: ${names.length} named, ${found.length} real`);
+        return found;
+      } catch {} finally { clearTimeout(timer); }
+    }
+    return [];
+  },
+  /** The catalog's song for "Song - Singer", or null when there is no such song by that singer. */
+  async find(line) {
+    const [name, singer = ''] = line.split(/\s+[-–—]\s+|\s+by\s+/);
+    const want = norm(name);
+    if (want.length < 2) return null;
+    const q = `${name} ${singer}`.trim();
+    const pool = [...Catalog.search(q, 10), ...(await Deep.search(q, 10))];
+    const who = norm(singer), first = who.split(' ')[0];
+    return pool.find((t) => {
+      const got = norm(t.title), by = norm(t.artist);
+      const same = got === want || got.startsWith(`${want} `) || (want.length >= 6 && got.includes(want));
+      return same && (!who || by.includes(who) || (first.length >= 4 && by.includes(first)));
+    }) || null;
+  },
+};
 const DjChat = {
   FOLLOW: /^(aur|or|more|isme|add|also|only|sirf|bas|bina|without|no |hata|remove|zyada|kam|less|purane|naye|new|old|same|aise|similar|thoda|ab |and |make|change)/i,
   without(text) {
@@ -2030,9 +2086,10 @@ const DjChat = {
     return { base: `${prev.base} ${extra}`.trim(), without: [...new Set([...prev.without, ...without])], more: !extra && !without.length };
   },
 };
-async function djMix(req, shown) {
+async function djMix(req, shown, history = []) {
   const text = req.base;
   const t = ` ${norm(text)} `;
+  const fromAi = FreeAi.songs(text, history);
   let tracks = [];
   // "Kesariya jaise gaane", "songs like Kesariya": that song, then songs like it.
   const like = (t.match(/(?:songs like|like|similar to) (.+?) $/) || t.match(/^ (.+?) (?:jaise|jaisa|jaisi|type)\b/) || [])[1];
@@ -2057,24 +2114,36 @@ async function djMix(req, shown) {
       if (moodless && moodless !== lean) tracks = (await aiDj(moodless)).tracks;
     }
   }
+  // The free AI's songs (real ones only) and the built-in DJ's, taking turns; in the asked languages.
+  const langsAsked = ALL_LANGS.filter((l) => t.includes(` ${l} `));
+  const ai = (await fromAi).filter((x) => !langsAsked.length || !x.lang || langsAsked.includes(x.lang));
+  const mixed = [];
+  for (let i = 0; i < Math.max(ai.length, tracks.length); i++) { if (ai[i]) mixed.push(ai[i]); if (tracks[i]) mixed.push(tracks[i]); }
   const bad = (x) => req.without.some((w) => norm(`${x.title} ${x.artist}`).includes(w));
-  return tracks.filter((x) => !shown.has(x.id) && !bad(x));
+  const seen = new Set();
+  const out = mixed.filter((x) => !shown.has(x.id) && !bad(x) && !seen.has(x.id) && seen.add(x.id));
+  out.ai = new Set(ai.map((x) => x.id));
+  return out;
 }
 function djPage(initial) {
   const out = h('div'), chat = h('div');
   const input = h('input', { type: 'text', placeholder: 'What do you want to hear?', enterkeyhint: 'go' });
   let prev = null;
-  const shown = new Set();
+  const shown = new Set(), asked = [];
   const run = async (text) => {
     if (!text.trim()) return;
     input.value = '';
     input.blur();
     const req = DjChat.next(text, prev);
     out.replaceChildren(h('div', { class: 'spinner' }));
-    const tracks = (await djMix(req, req.more ? shown : new Set())).slice(0, 60);
+    const mix = await djMix(req, req.more ? shown : new Set(), asked);
+    const tracks = mix.slice(0, 60);
+    const picked = tracks.filter((x) => mix.ai.has(x.id)).length;
+    const aiNote = picked ? ` · ${picked} picked by the online AI` : '';
     const title = req.base.trim().replace(/^./, (c) => c.toUpperCase()).slice(0, 40);
     chat.append(h('div', { class: 'note', style: 'padding:4px 16px' }, `You: ${text}`),
-      h('div', { class: 'note', style: 'padding:0 16px 8px;opacity:.8' }, tracks.length ? `DJ: ${req.more ? `${tracks.length} more` : `${title} · ${tracks.length} songs`}${req.without.length ? ` (no ${req.without.join(', ')})` : ''}` : "DJ: I couldn't find songs for that. Try other words."));
+      h('div', { class: 'note', style: 'padding:0 16px 8px;opacity:.8' }, tracks.length ? `DJ: ${req.more ? `${tracks.length} more` : `${title} · ${tracks.length} songs`}${req.without.length ? ` (no ${req.without.join(', ')})` : ''}${aiNote}` : "DJ: I couldn't find songs for that. Try other words."));
+    asked.push(text);
     if (!tracks.length) return out.replaceChildren();
     prev = req;
     tracks.forEach((x) => shown.add(x.id));
@@ -2082,7 +2151,7 @@ function djPage(initial) {
     input.placeholder = 'Change it: "only Arijit", "no remix", "more"…';
     out.replaceChildren(
       h('div', { class: 'chips' }, ['More like this', 'Newer songs', 'No remix', 'Make it sad', 'Also Punjabi'].map((f) => h('button', { class: 'chip', onclick: () => run(f) }, f)),
-        h('button', { class: 'chip', onclick: () => { prev = null; shown.clear(); chat.replaceChildren(); out.replaceChildren(); input.placeholder = 'What do you want to hear?'; } }, 'New chat')),
+        h('button', { class: 'chip', onclick: () => { prev = null; shown.clear(); asked.length = 0; chat.replaceChildren(); out.replaceChildren(); input.placeholder = 'What do you want to hear?'; } }, 'New chat')),
       h('div', { class: 'section' }, title),
       h('div', { class: 'actions' },
         h('button', { class: 'pill primary', onclick: () => Player.play(tracks) }, icon('play'), 'Play'),
@@ -2153,6 +2222,9 @@ function settingsPage() {
     h('div', { class: 'section' }, 'Languages'), langChips, count,
     h('div', { class: 'section' }, 'Audio'),
     h('div', { class: 'setting' }, h('label', null, 'Streaming quality'), quality),
+    toggleRow('Free online AI for the DJ',
+      'The AI DJ also asks a free online AI (LLM7.io: GLM, DeepSeek) for songs. Only songs that really exist are played. It gets your request and the singers you play most.',
+      S.freeAi !== false, (on) => { S.freeAi = on; save(); }),
     h('div', { class: 'section' }, 'YouTube Data API key'),
     h('div', { class: 'setting' }, key),
     h('div', { class: 'note' }, 'Used for search results. Leave empty to turn off.'),

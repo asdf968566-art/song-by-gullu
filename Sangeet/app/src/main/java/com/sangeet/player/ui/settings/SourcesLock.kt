@@ -57,10 +57,15 @@ object SourcesLock {
 }
 
 @Composable
-fun LockedSourcesScreen(nav: NavController) {
+fun LockedSourcesScreen(nav: NavController) =
+    PasswordGate(nav, "Music sources", "Enter the password to change music sources") { SourcesScreen(nav) }
+
+/** A screen behind the owner's password (the same one as Music sources; once per app run). */
+@Composable
+fun PasswordGate(nav: NavController, title: String, message: String, content: @Composable () -> Unit) {
     var open by remember { mutableStateOf(SourcesLock.unlocked) }
     if (open) {
-        SourcesScreen(nav)
+        content()
         return
     }
     val spec = Sangeet.spec
@@ -81,7 +86,7 @@ fun LockedSourcesScreen(nav: NavController) {
     Column(Modifier.fillMaxSize()) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(4.dp)) {
             IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back", tint = spec.onSurface) }
-            Text("Music sources", style = MaterialTheme.typography.titleLarge, color = spec.onSurface)
+            Text(title, style = MaterialTheme.typography.titleLarge, color = spec.onSurface)
         }
         Column(
             Modifier.fillMaxWidth().padding(24.dp),
@@ -89,7 +94,7 @@ fun LockedSourcesScreen(nav: NavController) {
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Icon(Icons.Rounded.Lock, null, tint = spec.accent)
-            Text("Enter the password to change music sources", color = spec.onSurface)
+            Text(message, color = spec.onSurface)
             OutlinedTextField(
                 value = password,
                 onValueChange = { password = it; wrong = false },

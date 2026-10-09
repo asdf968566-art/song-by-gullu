@@ -24,7 +24,7 @@ request the owner made, in order.
   to that day's entry.
 - Flow used for every feature: work on the dev branch → push → wait for CI (Build APK + Web App) → open PR to `main`
   → merge → wait for main's Build APK (emulator test) + Web App deploy → then give the APK link / say site is live.
-  The PRs so far are #1–#24, all merged by Claude after tests passed.
+  The PRs so far are #1–#27, all merged by Claude after tests passed.
 
 ## 2. Secrets — never put these in the repo, tests, commits or chat
 
@@ -126,14 +126,47 @@ request the owner made, in order.
   `MovieScreen`, routes `movies?q=` and `movie?title=&year=&album=`), songs via `OnlineRepository.movieSongs`.
   Tap a name (music director, actor…) to see their other films.
 - **Community** (Oct 9, owner's ask: everyone's data for better feed/catalog/DJ): Android `data/community/Community.kt`
-  uploads once a day after 2 a.m. (WorkManager, setting `shareListening`, default on, Settings → "Help improve
-  suggestions") a random-id snapshot: searches, likes, plays, own playlists (JioSaavn/YouTube only, never phone files)
-  as a deflated base64 issue "sangeet-data <day>" in `DATA_REPO` = `vivekyadav200405-cpu/sangeet-data`, which must be
-  PRIVATE (CI checks; no private repo = nothing is sent). web.yml runs `.github/scripts/community.py`: reads + closes
-  those issues, keeps 60 days of state in catalog-state, publishes `data/community.json` (+ catalog release) with only
-  what ≥2 listeners share (songs played together, top songs, shared searches) and feeds all searches to the next
-  crawl. Used by Android feed (`Recommendations.candidates`), AI DJ, and web suggestions/radio (`Community.scores`).
-  The web app can't upload (a public site can't hold a token).
+  uploads every ~6 h when online, and 2 min after the app opens (WorkManager; setting `shareListening`, default on,
+  Settings → "Help improve suggestions"). The upload is a random-id snapshot: searches, likes, plays, own playlists
+  (JioSaavn/YouTube only, never phone files), sent as a deflated base64 issue "sangeet-data <day>" in `DATA_REPO`.
+  - `DATA_REPO` is picked in CI by `.github/scripts/data-repo.py`. It must be PRIVATE and the token must be able to
+    create issues there (POST {} → 422). Order: `CMS` (owner's choice, Oct 9: "cms wali repo use kar"), then
+    `sangeet-data`, then names with sangeet/song/data, then any. So today it is `vivekyadav200405-cpu/CMS`.
+    No private repo means nothing is sent.
+  - web.yml runs `.github/scripts/community.py`. It reads and closes those issues and keeps 60 days of state in
+    catalog-state. It publishes `data/community.json` (also in the catalog release) with only what ≥2 listeners
+    share: songs played together, top songs, shared searches, and `words` (songs ≥2 listeners put in playlists
+    named with a word like "gym", which the DJ learns). All searches go to the next crawl.
+  - The **owner stats** go to the issue "sangeet-stats" (`SANGEET-STATS v1` + packed JSON) in the data repo:
+    listeners today/week/month, versions, languages, most played, rising (vs last run), top singers/searches, and
+    per listener (random id) their singers, top songs, playlists and searches.
+  - **Folder `sangeet-data/` in the data repo** (owner: "isme new folder bna ke kaam kar"). Every run with new
+    uploads makes one commit (Git Data API) with README.md, stats.json, listeners.json and community.json. This
+    needs a token that can write files there. REPORT_TOKEN can't (Oct 9 probe: contents 403 on CMS). Making it
+    able to would also put CMS's code at risk, because that token ships inside the public APK. So community.py
+    uses the optional CI-only secret **`DATA_TOKEN`** (fine-grained, CMS only, Contents: Read and write). Until the
+    owner adds it, the log says `can't read … add the secret DATA_TOKEN` and the data stays in the issues.
+  - Used by the Android feed (`Recommendations.candidates`), the AI DJ, and the web suggestions/radio
+    (`Community.scores`). The web app can't upload (a public site can't hold a token).
+- **Owner dashboard** (Oct 9): Android Settings → "Owner dashboard", behind the same password as Music sources
+  (`PasswordGate` in `SourcesLock.kt`). `ui/settings/OwnerDashboard.kt` shows:
+  - APK downloads: the count kept across builds in the `stats` release `downloads.json` (build-apk.yml adds the old
+    `latest` asset's `download_count` before replacing it) plus the current build's count;
+  - the "sangeet-stats" issue, read with REPORT_TOKEN.
+  iPhone users aren't counted as downloads (it's a website).
+- **Auto update** (Oct 9, owner: "internet mile, update check ho aur apne aap update ho jaye"):
+  `data/update/AutoUpdate.kt`.
+  - WorkManager runs every 6 h when online, and 1 min after the app opens.
+  - It reads the `latest` release, downloads a newer APK quietly (`AppUpdater.apkFor`, a `.part` file renamed when
+    complete) and checks the package name and versionCode.
+  - It waits while the app is on screen or music plays (re-checks in 20 min).
+  - Then it installs with a PackageInstaller session: `USER_ACTION_NOT_REQUIRED` on Android 12+, plus the
+    `UPDATE_PACKAGES_WITHOUT_USER_ACTION` permission, so it is silent once "Install unknown apps" is allowed. Older
+    Android, or when Android still wants a tap, gets a notification "Sangeet update ready, tap to install".
+  - `MY_PACKAGE_REPLACED` posts "Sangeet updated".
+  - Settings → App update → "Update automatically" (default on). When it's on, the old "New version available"
+    dialog isn't shown on open.
+  The web app already updates itself (service worker skipWaiting).
 - **AI DJ** (Oct 9, owner: "LLM type", no paid key): built-in DJ = `data/ai/DjBrain.kt` (`DjIntent`: languages,
   mood, era, singers, "X jaise"/"songs like X", film name, "bina/no X", count; follow-ups merge into the last intent;
   `describe`/`followUps`) + `AiDj.buildLocal` (mood playlists, singer searches, radio of a song via `aiDj.radio`,
@@ -142,6 +175,24 @@ request the owner made, in order.
   server-side refusal fallback on Haiku 5.5, so none is sent) with the chat history and taste in the prompt; on any
   failure the built-in DJ answers. Web: `DjChat` + `djMix` in app.js (same follow-up idea; singer first names never
   match mood/language words).
+- **Free online AI for the DJ** (Oct 9, owner: "free AI like DeepSeek, not ones that give wrong data").
+  - Android `data/ai/FreeAi.kt` + `AiDj.freeAi`, and web `FreeAi` in app.js. When there's no Anthropic key, the DJ
+    asks LLM7.io's keyless OpenAI-style API (`https://api.llm7.io/v1/chat/completions`, `Bearer unused`, CORS `*`)
+    for 12 "Song - Singer" picks. Model order: `glm-5.2`, `DeepSeek-V4-Flash-0731`, `minimax-m3`, `gemma4:31b`.
+    A 429 (each IP has a small daily quota) or 503 (busy) skips to the next. The whole call is capped at 22 s, and
+    the DJ waits at most 25 s.
+  - **A pick is kept only when the catalogue has that very song by that singer** (JioSaavn search first, then all
+    sources; same title + singer match). So nothing made-up plays. Kept picks take turns with the built-in DJ's songs,
+    and the reply says "(N picked by the online AI)".
+  - The setting is `freeAi` (Settings → "Free online AI", default on; web Settings toggle `S.freeAi`). It sends the
+    request, the chat's earlier requests, top singers and the Community's top songs.
+  - Probes on Oct 9 from CI:
+    - Pollinations' keyless model made up song names → not used.
+    - GitHub Models is gone: models.github.ai answers every request with just "OK", and
+      models.inference.ai.azure.com no longer resolves.
+    - DeepSeek's own API and OpenRouter need keys.
+    - LLM7's DeepSeek was busy (503) and GLM-5.2 named real songs ("Solid Body - KD" for Haryanvi gym).
+  If LLM7 stops working, the DJ just plays the built-in mix (no error).
 - Other platforms checked Oct 9 from CI: Gaana's old open API is gone (404); Wynk, Hungama, Spotify have no open
   streams. JioSaavn + YouTube stay the sources.
 - In-app "Report a problem" got 403 from GitHub. Cause (found Oct 9 from CI: `REPORT_TOKEN fingerprint/account`
@@ -183,20 +234,19 @@ GitHub artifact/blob downloads and dl.google.com (no local Android SDK — build
 the GitHub MCP `get_job_logs` tool; test the web app locally with Playwright (Chromium is preinstalled) by serving
 `SangeetWeb/` plus a copy of gh-pages `data/` and stubbing network routes.
 
-## 6. Status at handoff (2026-10-06 ~13:50 UTC)
+## 6. Status (2026-10-09)
 
-- `main` has everything up to PR #24 (web extras: Wrapped, Blend, lyrics card, Car mode, new songs). Site is live.
-- On branch `claude/eloquent-maxwell-45qmfu`, **not merged yet** (CI was still running):
-  - `ba87ecb` Android: Wrapped, Blend, lyrics card, Car mode, new songs from your singers
-  - `c42d3ee` catalog crawl 3×/day + smarter YouTube→catalog matching (web)
-  - `be5267f` web "YouTube in background (experimental)" + `yt-servers.py`
-  - this handoff commit (CLAUDE.md, docs/, .gitignore)
-- **Next steps:** check the Build APK and Web App runs for those commits (Actions tab). If green: PR to main →
-  merge → wait for main's Build APK + Web App → give the owner the APK link and say the iPhone site updated. If
-  red: read `ui-walk.txt` (ci-shots branch) / job logs and fix. In the Web App log, look for
-  `YT SERVERS: N working` — if 0 for days, the YouTube background mode won't help; tell the owner.
-  First run (2026-10-06 13:50 UTC): **0 working** (public Invidious/Piped are widely blocked by YouTube); the owner
-  was told. The catalog was 11.8 lakh songs at that run (Hindi 7.4 lakh, Punjabi 2.1 lakh, Haryanvi 1.16 lakh).
+- `main` has everything up to PR #27 (build 134 was the last APK published).
+- The branch `claude/eloquent-maxwell-45qmfu` has everything listed in section 4 for Oct 8–9: moods, Pahadi,
+  movies, What's new, Community, chat AI DJ, report repo, owner dashboard, auto update, free AI and the CMS data
+  folder. It goes to main as PR #28 once Build APK + Web App are green, then the owner gets the APK link.
+- The owner may still need to:
+  - add the secret `DATA_TOKEN` (for the CMS folder);
+  - allow "Install unknown apps" for Sangeet once (for silent updates).
+- The token inside the APK (REPORT_TOKEN, account vivekyadav200405-cpu) can create issues in all that account's
+  repos. Advised the owner to limit it to day1 + CMS, Issues only.
+- YouTube background mode (web): look for `YT SERVERS: N working` in the Web App log; it was 0 on Oct 6 (public
+  Invidious/Piped are blocked by YouTube) and the owner knows.
 - Ideas the owner was offered but hasn't asked for: Navidrome/Subsonic option on the iPhone web app (Android has it).
 - Owner asked about hosting all catalog songs on their own server: advised against it (copyright takedowns could
   hit the GitHub account; ~400–500 GB per lakh songs; no gain since JioSaavn CDN already serves them).

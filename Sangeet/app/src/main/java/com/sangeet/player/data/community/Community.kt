@@ -18,7 +18,6 @@ import com.sangeet.player.ui.search.RecentItem
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.text.SimpleDateFormat
-import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.UUID
@@ -55,7 +54,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 /**
  * Listening data shared between the app's listeners, so suggestions, the catalog and the DJ learn from everyone:
  *
- * - Upload: once a day (after 2 a.m., when online) the phone sends what it searched, liked, played and put in
+ * - Upload: every few hours when online (at most every 6 hours) the phone sends what it searched, liked, played and put in
  *   playlists, under a random id (no name, number or contacts; phone files are never sent), as an issue in a
  *   private GitHub repo ([BuildConfig.DATA_REPO]). Settings → "Help improve suggestions" turns it off.
  * - Download: the catalog build merges everyone's data into community.json (only what two or more listeners
@@ -75,17 +74,19 @@ object Community {
             wm.cancelUniqueWork(WORK)
             return
         }
-        // First run tonight between 2 and 3 a.m., then once a day (whenever there's internet).
-        val now = Calendar.getInstance()
-        val next = (now.clone() as Calendar).apply {
-            set(Calendar.HOUR_OF_DAY, 2); set(Calendar.MINUTE, Random.nextInt(60)); set(Calendar.SECOND, 0)
-            if (before(now)) add(Calendar.DAY_OF_YEAR, 1)
-        }
-        val req = PeriodicWorkRequestBuilder<UploadWorker>(24, TimeUnit.HOURS)
-            .setInitialDelay(next.timeInMillis - now.timeInMillis, TimeUnit.MILLISECONDS)
-            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+        // Any time there's internet, every few hours (owner: "not only at night"); the worker skips it when the
+        // last upload is under 6 hours old. Also once soon after the app opens.
+        val online = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+        val req = PeriodicWorkRequestBuilder<UploadWorker>(6, TimeUnit.HOURS)
+            .setInitialDelay(Random.nextLong(5, 30), TimeUnit.MINUTES)
+            .setConstraints(online)
             .build()
         wm.enqueueUniquePeriodicWork(WORK, ExistingPeriodicWorkPolicy.KEEP, req)
+        wm.enqueueUniqueWork(
+            "${WORK}_now",
+            androidx.work.ExistingWorkPolicy.KEEP,
+            androidx.work.OneTimeWorkRequestBuilder<UploadWorker>().setInitialDelay(2, TimeUnit.MINUTES).setConstraints(online).build(),
+        )
     }
 
     class UploadWorker(appContext: Context, params: WorkerParameters) : CoroutineWorker(appContext, params) {
@@ -95,12 +96,12 @@ object Community {
             if (!s.shareListening || s.offlineMode || BuildConfig.DATA_REPO.isBlank() || BuildConfig.REPORT_TOKEN.isBlank()) return Result.success()
             val prefs = applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
-            if (prefs.getString("sent_day", null) == today) return Result.success()
+            if (System.currentTimeMillis() - prefs.getLong("sent_at", 0L) < 6 * 3_600_000L) return Result.success()
             return try {
                 val since = prefs.getLong("sent_at", 0L)
                 val body = payload(c, id(applicationContext), today, since)
                 post(today, body)
-                prefs.edit().putString("sent_day", today).putLong("sent_at", System.currentTimeMillis()).apply()
+                prefs.edit().putLong("sent_at", System.currentTimeMillis()).apply()
                 android.util.Log.i("Sangeet", "community: sent ${body.length} chars")
                 Result.success()
             } catch (e: Exception) {
@@ -180,7 +181,13 @@ object Community {
 
     // ------------------------------------------------------------ download (what everyone listens to)
 
-    class Data(val tracks: List<Track>, private val together: Map<String, IntArray>, private val top: IntArray) {
+    class Data(
+        val tracks: List<Track>,
+        private val together: Map<String, IntArray>,
+        private val top: IntArray,
+        /** Words listeners name playlists with ("gym", "drive") -> songs two or more of them put there. */
+        private val words: Map<String, IntArray> = emptyMap(),
+    ) {
         private val index = tracks.withIndex().associate { (i, t) -> t.id to i }
 
         /** Songs that listeners of [ids] also play / like, most shared first. */
@@ -196,6 +203,9 @@ object Community {
 
         /** What the most listeners play right now. */
         fun popular(): List<Track> = top.map { tracks[it] }
+
+        /** Songs listeners keep under this word in their playlists' names (what the DJ learned from them). */
+        fun learned(word: String): List<Track> = words[word.lowercase()]?.map { tracks[it] }.orEmpty()
     }
 
     @Volatile private var data: Data? = null
@@ -246,6 +256,9 @@ object Community {
             v.jsonArray.mapNotNull { it.jsonPrimitive.intOrNull }.filter { it in tracks.indices }.toIntArray()
         }
         val top = root["top"]?.jsonArray.orEmpty().mapNotNull { it.jsonPrimitive.intOrNull }.filter { it in tracks.indices }.toIntArray()
-        return Data(tracks, together, top)
+        val words = root["words"]?.jsonObject.orEmpty().mapValues { (_, v) ->
+            v.jsonArray.mapNotNull { it.jsonPrimitive.intOrNull }.filter { it in tracks.indices }.toIntArray()
+        }
+        return Data(tracks, together, top, words)
     }
 }

@@ -67,12 +67,9 @@ jobs:
             else echo "::warning::REPORT_TOKEN can't create issues in any repo. Give it Issues: Read and write on one of its account's repos (see CLAUDE.md)"; fi
             echo "REPORT_REPO=$REPORT_REPO" >> "$GITHUB_ENV"
             # Listening data (Community) goes only to a PRIVATE repo of the token's account.
-            D=vivekyadav200405-cpu/sangeet-data
-            if curl -s -H "Authorization: Bearer $REPORT_TOKEN" "https://api.github.com/repos/$D" | grep -q '"private": *true' && [ "$(can "$D")" = 422 ]; then
-              export DATA_REPO=$D; echo "DATA_REPO: listening data goes to $D (private) ✅"
-            else
-              echo "::warning::DATA_REPO: no private repo $D the token can write to, so the app won't send listening data"
-            fi
+            DATA_REPO=$(python3 ../.github/scripts/data-repo.py)  # (this step runs inside Sangeet/)
+            if [ -n "$DATA_REPO" ]; then export DATA_REPO; echo "DATA_REPO: listening data goes to $DATA_REPO (private) ✅"
+            else echo "::warning::DATA_REPO: no private repo the token can write to, so the app won't send listening data"; fi
             echo "DATA_REPO=$DATA_REPO" >> "$GITHUB_ENV"
           fi
           chmod +x gradlew
@@ -121,6 +118,21 @@ jobs:
         run: |
           cp Sangeet/app/build/outputs/apk/release/app-release.apk Sangeet.apk
           cp Sangeet/app/build/outputs/bundle/release/app-release.aab Sangeet.aab
+          # Downloads of the APK being replaced join the running total (release "stats", read by the admin page).
+          OLD=$(gh api "repos/${{ github.repository }}/releases/tags/latest" --jq '[.assets[] | select(.name=="Sangeet.apk") | .download_count] | add // 0' 2>/dev/null || echo 0)
+          mkdir -p st && (gh release download stats -p downloads.json -D st 2>/dev/null || true)
+          python3 - "$OLD" "${{ github.run_number }}" <<'PY'
+          import json, sys, time
+          try: d = json.load(open("st/downloads.json"))
+          except Exception: d = {"total": 0, "builds": []}
+          old = int(sys.argv[1] or 0)
+          d["total"] = d.get("total", 0) + old
+          d["builds"] = (d.get("builds", []) + [{"replaced_at": int(time.time()), "downloads": old, "next_build": int(sys.argv[2])}])[-200:]
+          json.dump(d, open("st/downloads.json", "w"))
+          print("APK downloads so far:", d["total"], "(+", old, "from the build being replaced)")
+          PY
+          gh release view stats >/dev/null 2>&1 || gh release create stats --prerelease --title "App stats" --notes "How many times the APK was downloaded, kept across builds (the admin page reads it)."
+          gh release upload stats st/downloads.json --clobber
           gh release delete latest --yes --cleanup-tag || true
           # App ka updater title se "build N" padhta hai (and only picks the .apk).
           # Release notes: the newest "What's new" entry (the app's update dialog shows it).

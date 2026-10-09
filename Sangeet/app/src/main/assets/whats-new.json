@@ -1,8 +1,16 @@
 [
   {
     "date": "2026-10-09",
-    "title": "Movies, Pahadi songs, real moods and a smarter AI DJ",
+    "title": "Updates by itself, Movies, Pahadi songs, real moods and a smarter AI DJ",
     "items": [
+      {
+        "on": "android",
+        "text": "🔄 Updates by itself: when there's internet, a new version downloads and installs on its own while you're not using the app. Turn it off in Settings → App update."
+      },
+      {
+        "on": "both",
+        "text": "🤖 The AI DJ also asks a free online AI (GLM, DeepSeek) for songs. Only songs that really exist are played (Settings → Free online AI)."
+      },
       {
         "on": "both",
         "text": "🎬 Movies: every Indian film with its release year, music director, producers, director and cast. Filter by language and decade, or search any name (\"Pritam\", \"Yash Raj Films\", \"Shah Rukh Khan\")."
@@ -29,7 +37,7 @@
       },
       {
         "on": "android",
-        "text": "🤝 Help improve suggestions: once a day (after 2 a.m., with internet) the app shares what you search, like, play and keep in playlists, with no name, number or phone files, so For You, radio and the AI DJ learn from all Sangeet listeners. Turn it off in Settings."
+        "text": "🤝 Help improve suggestions: now and then, when there's internet, the app shares what you search, like, play and keep in playlists, with no name, number or phone files, so For You, radio and the AI DJ learn from all Sangeet listeners. Turn it off in Settings."
       },
       {
         "on": "iphone",

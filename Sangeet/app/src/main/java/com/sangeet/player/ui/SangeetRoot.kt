@@ -120,6 +120,7 @@ object Routes {
     const val IMPORT = "import"
     const val DOWNLOADS = "downloads"
     const val REPORT = "report"
+    const val OWNER = "settings/owner"
     const val PLAYLIST = "playlist/{id}"
     const val LIST = "list/{kind}?arg={arg}"
     const val MOVIES = "movies?q={q}"
@@ -255,6 +256,7 @@ fun SangeetRoot() {
                 composable(Routes.THEMES) { ThemePickerScreen(nav) }
                 composable(Routes.SOURCES) { com.sangeet.player.ui.settings.LockedSourcesScreen(nav) }
                 composable(Routes.REPORT) { com.sangeet.player.ui.settings.ReportScreen(nav) }
+                composable(Routes.OWNER) { com.sangeet.player.ui.settings.OwnerDashboard(nav) }
                 composable(Routes.EQUALIZER) { EqualizerScreen(nav) }
                 composable(Routes.IMPORT) { ImportPlaylistScreen(nav) }
                 composable(Routes.DOWNLOADS) { com.sangeet.player.ui.library.DownloadsScreen(nav) }
