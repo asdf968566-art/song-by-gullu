@@ -20,6 +20,8 @@ android {
         versionName = "1.0.$build"
         vectorDrawables { useSupportLibrary = true }
         buildConfigField("String", "UPDATE_REPO", "\"asdf968566-art/song-by-gullu\"")
+        // Where "Report a problem" creates issues: CI picks a repo the report token can write to.
+        buildConfigField("String", "REPORT_REPO", "\"${System.getenv("REPORT_REPO")?.takeIf { it.isNotBlank() } ?: "asdf968566-art/song-by-gullu"}\"")
         buildConfigField(
             "String",
             "YOUTUBE_API_KEY",

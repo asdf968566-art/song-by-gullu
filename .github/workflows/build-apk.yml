@@ -45,10 +45,23 @@ jobs:
             echo "REPORT_TOKEN fingerprint: $(printf %s "$REPORT_TOKEN" | sha256sum | cut -c1-12)"
             curl -s -D /tmp/rt.h -o /tmp/rt.u -H "Authorization: Bearer $REPORT_TOKEN" https://api.github.com/user
             echo "REPORT_TOKEN account: $(grep -o '"login": *"[^"]*"' /tmp/rt.u | head -1)  $(grep -i '^github-authentication-token-expiration' /tmp/rt.h | tr -d '\r')"
-            CODE=$(curl -s -o /tmp/rt.json -w '%{http_code}' -X POST -H "Authorization: Bearer $REPORT_TOKEN" \
-              -H "Accept: application/vnd.github+json" -d '{}' "https://api.github.com/repos/${{ github.repository }}/issues")
-            if [ "$CODE" = 422 ]; then echo "REPORT_TOKEN: can create issues ✅"
-            else echo "::warning::REPORT_TOKEN can't create issues (GitHub said $CODE: $(grep -o '"message": *"[^"]*"' /tmp/rt.json | head -1)). Make a new token: see CLAUDE.md"; fi
+            can() {  # 422 = allowed (an issue without a title is refused, nothing is created); 401/403 = not allowed
+              curl -s -o /tmp/rt.json -w '%{http_code}' -X POST -H "Authorization: Bearer $REPORT_TOKEN" \
+                -H "Accept: application/vnd.github+json" -H "Content-Type: application/json" -d '{}' "https://api.github.com/repos/$1/issues"
+            }
+            # Reports go to this repo, or else to a repo of the token's own account (e.g. Vivek's): a fine-grained
+            # token can't create issues in another account's repo, even for a collaborator.
+            if [ "$(can "${{ github.repository }}")" = 422 ]; then REPORT_REPO="${{ github.repository }}"
+            else
+              echo "REPORT_TOKEN can't create issues here: $(grep -o '"message": *"[^"]*"' /tmp/rt.json | head -1)"
+              for R in $(curl -s -H "Authorization: Bearer $REPORT_TOKEN" "https://api.github.com/user/repos?affiliation=owner&per_page=100" \
+                  | python3 -c 'import json,sys; d=json.load(sys.stdin); d=d if isinstance(d,list) else []; d.sort(key=lambda r: 0 if any(w in r["name"].lower() for w in ("sangeet","song","report")) else 1); print(" ".join(r["full_name"] for r in d if r.get("has_issues")))'); do
+                if [ "$(can "$R")" = 422 ]; then REPORT_REPO="$R"; break; fi
+              done
+            fi
+            if [ -n "$REPORT_REPO" ]; then echo "REPORT_TOKEN: reports go to $REPORT_REPO ✅"; export REPORT_REPO
+            else echo "::warning::REPORT_TOKEN can't create issues in any repo. Give it Issues: Read and write on one of its account's repos (see CLAUDE.md)"; fi
+            echo "REPORT_REPO=$REPORT_REPO" >> "$GITHUB_ENV"
           fi
           chmod +x gradlew
           ./gradlew --no-daemon assembleRelease

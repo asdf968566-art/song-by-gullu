@@ -96,7 +96,7 @@ object CrashReporter {
             put("body", body)
         }.toString()
         val req = Request.Builder()
-            .url("https://api.github.com/repos/${BuildConfig.UPDATE_REPO}/issues")
+            .url("https://api.github.com/repos/${BuildConfig.REPORT_REPO}/issues")
             .header("Authorization", "Bearer ${BuildConfig.REPORT_TOKEN}")
             .header("Accept", "application/vnd.github+json")
             .post(json.toRequestBody("application/json".toMediaType()))

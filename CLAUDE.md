@@ -121,12 +121,14 @@ request the owner made, in order.
   Tap a name (music director, actor…) to see their other films.
 - Other platforms checked Oct 9 from CI: Gaana's old open API is gone (404); Wynk, Hungama, Spotify have no open
   streams. JioSaavn + YouTube stay the sources.
-- In-app "Report a problem" got 403 from GitHub: the `REPORT_TOKEN` secret can't create issues. The Build APK log
-  says `REPORT_TOKEN: can create issues ✅` or a warning. Oct 9 result: 403 "Resource not accessible by personal
-  access token" (the token works but has no Issues permission). Fix = edit that token on GitHub and add
-  Issues: Read and write (the token value stays the same, no secret change), or make a new fine-grained token on the
-  **asdf968566-art** account, repository `song-by-gullu`, permission **Issues: Read and write**, and saves it as the
-  `REPORT_TOKEN` secret. Until then the app opens Share instead.
+- In-app "Report a problem" got 403 from GitHub. Cause (found Oct 9 from CI: `REPORT_TOKEN fingerprint/account`
+  lines): the token belongs to the owner's **other** account, `vivekyadav200405-cpu`, and a fine-grained token can't
+  create issues in another account's repo (even as a collaborator). The owner chose: send reports to a repo of
+  the Vivek account. CI now picks the report repo itself (`REPORT_REPO`, BuildConfig.REPORT_REPO): this repo if
+  the token can create issues here, else the first repo of the token's own account where it can (names with
+  sangeet/song/report first). Log line: `REPORT_TOKEN: reports go to <repo> ✅` or a warning. If no repo works, the
+  owner edits the token on the Vivek account: Repository access → that repo, Issues: Read and write. Until then
+  the app opens Share instead.
 
 ## 5. Problems hit and how they were solved (why the code looks like it does)
 
