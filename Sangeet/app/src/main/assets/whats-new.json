@@ -6,82 +6,72 @@
       {
         "on": "both",
         "type": "new",
-        "text": "Sync with another phone: your liked songs and playlists stay the same on Android and iPhone (Settings → Sync with another phone)."
+        "text": "Sync your library between phones, Android and iPhone"
       },
       {
         "on": "android",
         "type": "new",
-        "text": "Alarm: wake up to your liked songs, a playlist or a For You mix (Settings → Alarm)."
+        "text": "Wake-up alarm with your songs"
       },
       {
         "on": "android",
         "type": "new",
-        "text": "New song alerts: a notification when a singer you listen to releases a new song."
+        "text": "Alerts for new songs from your favourite singers"
       },
       {
         "on": "android",
         "type": "new",
-        "text": "Automatic updates: new versions download and install on their own while you aren't using the app."
+        "text": "Automatic app updates"
       },
       {
         "on": "both",
         "type": "new",
-        "text": "Movies: browse Indian films by language and decade, with music director and cast. Search a film's name to play its whole album in order."
+        "text": "Movies: browse films and play full albums"
       },
       {
         "on": "both",
         "type": "new",
-        "text": "AI DJ: talk to it like a person (\"sad Punjabi songs\", then \"only Arijit\" or \"no remix\"). Now powered by Google Gemini, and it plays only songs that really exist."
+        "text": "Smarter AI DJ, powered by Google Gemini"
       },
       {
         "on": "both",
         "type": "new",
-        "text": "Search in Hindi or Punjabi script, by typing or by voice."
+        "text": "Search in Hindi and Punjabi script"
       },
       {
         "on": "both",
         "type": "new",
-        "text": "Share a song as a link that opens straight in Sangeet."
+        "text": "Share songs as links"
       },
       {
         "on": "both",
         "type": "new",
-        "text": "Pahadi songs: Garhwali, Kumaoni and Himachali music in a new category."
-      },
-      {
-        "on": "android",
-        "type": "new",
-        "text": "For You, radio and the AI DJ now learn from what all Sangeet listeners play. Sharing is anonymous and can be turned off in Settings → Help improve suggestions."
-      },
-      {
-        "on": "iphone",
-        "type": "new",
-        "text": "For You and radio now learn from what other Sangeet listeners play."
+        "text": "Pahadi songs"
       },
       {
         "on": "both",
         "type": "fix",
-        "text": "Moods (Happy, Sad, Party and more) now play songs that truly fit the mood, not songs that only have the word in their name."
+        "text": "Moods now play the right songs"
       },
       {
         "on": "both",
         "type": "fix",
-        "text": "Importing YouTube and YouTube Music playlists works again."
+        "text": "YouTube playlist import works again"
       },
       {
         "on": "android",
         "type": "fix",
-        "text": "YouTube songs play more reliably."
+        "text": "More reliable YouTube playback"
       },
       {
         "on": "android",
         "type": "fix",
-        "text": "Songs you search for now play whatever their language, followed by similar songs."
+        "text": "Searched songs play in any language"
       },
       {
         "on": "android",
         "type": "fix",
-        "text": "Report a problem sends reports again."
+        "text": "Report a problem works again"
       }
     ]
   },
@@ -92,47 +82,42 @@
       {
         "on": "both",
         "type": "new",
-        "text": "Wrapped: your year in music as a card to share (Library → Your Stats)."
+        "text": "Wrapped: your year in music"
       },
       {
         "on": "both",
         "type": "new",
-        "text": "Blend: one playlist made from your taste and a friend's."
+        "text": "Blend: a shared playlist with a friend"
       },
       {
         "on": "both",
         "type": "new",
-        "text": "Share a line from the lyrics as a picture (press and hold a lyrics line)."
+        "text": "Share lyrics as a picture"
       },
       {
         "on": "both",
         "type": "new",
-        "text": "Car mode: big buttons in Now Playing."
+        "text": "Car mode"
       },
       {
         "on": "both",
         "type": "new",
-        "text": "New from your singers on Home."
+        "text": "New songs from your singers on Home"
       },
       {
         "on": "both",
         "type": "new",
-        "text": "More songs: the catalogue now grows three times a day (over 12 lakh songs)."
+        "text": "Over 12 lakh songs"
       },
       {
         "on": "iphone",
         "type": "new",
-        "text": "Download songs to play without internet, and save them to Files."
+        "text": "Offline downloads"
       },
       {
         "on": "iphone",
         "type": "new",
-        "text": "Liquid Glass look (Settings → Look)."
-      },
-      {
-        "on": "iphone",
-        "type": "new",
-        "text": "YouTube in the background (experimental, Settings)."
+        "text": "Liquid Glass look"
       }
     ]
   },
@@ -143,37 +128,32 @@
       {
         "on": "both",
         "type": "new",
-        "text": "Voice search, and search by a line from the lyrics."
+        "text": "Voice search and lyrics search"
       },
       {
         "on": "both",
         "type": "new",
-        "text": "Recent searches in the search bar."
+        "text": "Recent searches"
       },
       {
         "on": "both",
         "type": "new",
-        "text": "A song you pick from search is followed by similar songs."
-      },
-      {
-        "on": "both",
-        "type": "new",
-        "text": "Haryanvi Badmashi category."
+        "text": "Haryanvi Badmashi category"
       },
       {
         "on": "android",
         "type": "new",
-        "text": "Liquid Glass theme, in light and dark."
+        "text": "Liquid Glass theme"
       },
       {
         "on": "iphone",
         "type": "new",
-        "text": "Search by singer's name; lock screen and Dynamic Island controls."
+        "text": "Lock screen controls"
       },
       {
         "on": "android",
         "type": "fix",
-        "text": "The clock and battery icons at the top now stay readable in every theme."
+        "text": "Status bar icons readable in every theme"
       }
     ]
   }
