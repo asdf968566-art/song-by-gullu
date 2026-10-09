@@ -244,7 +244,8 @@ the GitHub MCP `get_job_logs` tool; test the web app locally with Playwright (Ch
   - add the secret `DATA_TOKEN` (for the CMS folder);
   - allow "Install unknown apps" for Sangeet once (for silent updates).
 - The token inside the APK (REPORT_TOKEN, account vivekyadav200405-cpu) can create issues in all that account's
-  repos. Advised the owner to limit it to day1 + CMS, Issues only.
+  repos. Advised the owner to limit it to day1 + CMS, Issues only; the owner said "koi baat nhi" (keeps it as is,
+  like the YouTube key). Don't raise it again.
 - YouTube background mode (web): look for `YT SERVERS: N working` in the Web App log; it was 0 on Oct 6 (public
   Invidious/Piped are blocked by YouTube) and the owner knows.
 - Ideas the owner was offered but hasn't asked for: Navidrome/Subsonic option on the iPhone web app (Android has it).
