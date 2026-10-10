@@ -1968,17 +1968,17 @@ function libraryPage() {
       showPage();
     }),
     h('div', { class: 'section' }, 'More'),
-    link('sparkles', 'AI DJ', null, () => pushPage(() => djPage())),
-    link('clock', 'Recently Played', null, () => pushPage(() => songsPage('Recently Played', recent().slice(0, 300)))),
     link('globe', 'Online Library', Catalog.playlists.length || null, () => pushPage(onlineLibraryPage)),
     link('film', 'Movies', null, () => pushPage(() => moviesPage())),
-    link('radio', 'Live radio', null, () => pushPage(radioPage)),
-    link('people', 'Listen together', Together.room ? Together.room.code : null, () => pushPage(togetherPage)),
+    link('chart', 'Your Stats', null, () => pushPage(statsPage)),
     Offline.only() ? h('div', { class: 'offline-banner', onclick: () => pushPage(downloadsPage) },
       navigator.onLine ? 'Offline mode is on: only downloaded songs play.' : "You're offline. Your downloaded songs still play →") : null,
     link('download', 'Downloads', Offline.ids.size || null, () => pushPage(downloadsPage)),
-    link('chart', 'Your Stats', null, () => pushPage(statsPage)),
     link('heartFill', 'Blend with a friend', null, () => pushPage(blendPage)),
+    link('sparkles', 'AI DJ', null, () => pushPage(() => djPage())),
+    link('clock', 'Recently Played', null, () => pushPage(() => songsPage('Recently Played', recent().slice(0, 300)))),
+    link('radio', 'Live radio', null, () => pushPage(radioPage)),
+    link('people', 'Listen together', Together.room ? Together.room.code : null, () => pushPage(togetherPage)),
     link('plus', 'Import playlist', null, () => pushPage(importPage)),
     madeForYou(),
     charts.length ? h('div', { class: 'section' }, 'Top charts') : null,
@@ -2812,15 +2812,20 @@ const WhatsNew = {
 };
 
 /* ------------------------------------------------------------------ look: Classic or Liquid Glass */
-const LOOKS = [['classic', 'Classic dark'], ['glass-dark', 'Liquid Glass · Dark'], ['glass-light', 'Liquid Glass · Light'], ['glass-auto', 'Liquid Glass · Same as iPhone']];
+const LOOKS = [['classic', 'Classic dark'], ['glass-dark', 'Liquid Glass · Dark'], ['glass-light', 'Liquid Glass · Light'], ['glass-auto', 'Liquid Glass · Same as iPhone'], ['crystal-dark', 'Crystal · Dark'], ['crystal-light', 'Crystal · Light']];
 const lightQuery = matchMedia('(prefers-color-scheme: light)');
 function applyLook() {
   const look = S.look || 'classic';
-  const glass = look !== 'classic';
-  const light = glass && (look === 'glass-light' || (look === 'glass-auto' && lightQuery.matches));
+  // Crystal (owner, Oct 10: "sb kuch transparent"): clear tabs, buttons and cards over the song's cover.
+  const crystal = look.startsWith('crystal');
+  const glass = look.startsWith('glass');
+  const light = look === 'glass-light' || look === 'crystal-light' || (look === 'glass-auto' && lightQuery.matches);
   document.documentElement.style.setProperty('--accent', S.accent || '#ff5c6b');
   document.body.classList.toggle('glass', glass);
+  document.body.classList.toggle('crystal', crystal);
+  document.documentElement.classList.toggle('crystal', crystal);
   document.body.classList.toggle('light', light);
+  Crystal.update();
   // Liquid Glass tab bar: For You, Library and Settings in one glass capsule, Search on its own round button.
   const tabs = $('#tabs');
   const btn = (t) => tabs.querySelector(`button[data-tab="${t}"]`);
@@ -2833,13 +2838,23 @@ function applyLook() {
     ['feed', 'search', 'library', 'settings'].forEach((t) => tabs.append(btn(t)));
     cap.remove();
   }
-  document.querySelector('meta[name="theme-color"]').setAttribute('content', light ? '#f2f2f7' : glass ? '#000000' : '#0b0b0f');
+  document.querySelector('meta[name="theme-color"]').setAttribute('content', light ? '#f2f2f7' : glass ? '#000000' : crystal ? '#0b0e1a' : '#0b0b0f');
   // Status bar text color is read when the app opens (index.html).
   const before = (() => { try { return localStorage.getItem('sangeet-look'); } catch { return null; } })();
   try { localStorage.setItem('sangeet-look', light ? 'light' : 'dark'); } catch {}
   return before != null && before !== (light ? 'light' : 'dark');
 }
 lightQuery.addEventListener?.('change', () => { if (S.look === 'glass-auto') applyLook(); });
+/** Crystal's page backdrop: the playing song's cover, blurred, behind everything. */
+const Crystal = {
+  update() {
+    let bd = document.getElementById('backdrop');
+    if (!document.body.classList.contains('crystal')) { bd?.remove(); return; }
+    if (!bd) { bd = h('div', { id: 'backdrop' }); document.body.prepend(bd); }
+    const t = typeof Player !== 'undefined' ? Player.current : null;
+    bd.style.backgroundImage = t && t.img ? `url("${art(t, true)}")` : '';
+  },
+};
 
 /* ------------------------------------------------------------------ mini player + now playing */
 const UI = {
@@ -2856,6 +2871,7 @@ const UI = {
     if (this.np) this.np.err.textContent = Player.error;
   },
   trackChanged() {
+    Crystal.update();
     document.querySelectorAll('.row.playing').forEach((r) => r.classList.remove('playing'));
     document.querySelectorAll(`.row[data-id="${CSS.escape(Player.current?.id || '')}"]`).forEach((r) => r.classList.add('playing'));
     Feed.follow();
@@ -2931,6 +2947,8 @@ const UI = {
           h('div', { class: 'meta', style: 'flex:1;min-width:0' },
             h('div', { style: 'font-size:22px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis' }, t.title),
             h('div', { style: 'color:rgba(255,255,255,.7);white-space:nowrap;overflow:hidden;text-overflow:ellipsis' }, t.artist)),
+          // Add to playlist, right next to Like (a tester's report, Oct 10).
+          t.src === 'radio' ? null : h('button', { class: 'icon-btn', 'aria-label': 'Add to playlist', onclick: () => playlistPicker(t) }, icon('plus')),
           likeBtn(t)),
         seek, ctr, err,
         h('div', { class: 'row-icons' }, shuffleBtn, repeatBtn, speedBtn, sleepBtn, lyricsBtn, queueBtn),

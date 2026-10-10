@@ -14,9 +14,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.windowInsetsTopHeight
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -30,6 +27,7 @@ import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Button
@@ -294,13 +292,6 @@ fun DiscoverScreen(nav: NavController) {
             }
         }
 
-        // A dark band behind the status bar so the time, network and battery stay readable on any cover.
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .windowInsetsTopHeight(WindowInsets.statusBars)
-                .background(Color.Black.copy(alpha = 0.55f))
-        )
         // Upar ka title + mood buttons
         Column(Modifier.fillMaxWidth().statusBarsPadding()) {
             Row(
@@ -375,6 +366,9 @@ private fun FeedPage(
 ) {
     val t = suggestion.track
     val spec = Sangeet.spec
+    // "Add to playlist" right next to Like (a tester's report, Oct 10).
+    var addTo by remember { mutableStateOf(false) }
+    if (addTo) com.sangeet.player.ui.components.AddToPlaylistDialog(listOf(t)) { addTo = false }
     // Right swipe = like, left swipe = "aisa mat dikhao"
     var dragX by remember { mutableFloatStateOf(0f) }
     Box(
@@ -463,16 +457,20 @@ private fun FeedPage(
                 overflow = TextOverflow.Ellipsis,
             )
             Spacer(Modifier.height(20.dp))
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                IconButton(onClick = onLike) {
+            // Six controls must fit a small phone (320 dp): 40 dp buttons, no gaps.
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onLike, modifier = Modifier.size(40.dp)) {
                     Icon(
                         if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                         "Like",
                         tint = if (liked) spec.accent else Color.White,
-                        modifier = Modifier.size(30.dp),
+                        modifier = Modifier.size(28.dp),
                     )
                 }
-                IconButton(onClick = onPrev) {
+                IconButton(onClick = { addTo = true }, modifier = Modifier.size(40.dp)) {
+                    Icon(Icons.Rounded.PlaylistAdd, "Add to playlist", tint = Color.White, modifier = Modifier.size(28.dp))
+                }
+                IconButton(onClick = onPrev, modifier = Modifier.size(40.dp)) {
                     Icon(Icons.Rounded.SkipPrevious, "Previous", tint = Color.White, modifier = Modifier.size(34.dp))
                 }
                 Box(
@@ -489,11 +487,11 @@ private fun FeedPage(
                         modifier = Modifier.size(36.dp),
                     )
                 }
-                IconButton(onClick = onNext) {
+                IconButton(onClick = onNext, modifier = Modifier.size(40.dp)) {
                     Icon(Icons.Rounded.SkipNext, "Next", tint = Color.White, modifier = Modifier.size(34.dp))
                 }
-                IconButton(onClick = onMore) {
-                    Icon(Icons.Rounded.MoreVert, "Options", tint = Color.White, modifier = Modifier.size(30.dp))
+                IconButton(onClick = onMore, modifier = Modifier.size(40.dp)) {
+                    Icon(Icons.Rounded.MoreVert, "Options", tint = Color.White, modifier = Modifier.size(28.dp))
                 }
             }
             if (lyrics != null) {

@@ -312,6 +312,27 @@ request the owner made, in order.
   - Hidden for phone files, links, live radio and the Play version. With no video (or YouTube refusing), the app
     says "No video for this song" and goes back to Song. In CI YouTube usually refuses, so the UI walk only checks
     that the switch works.
+- **Crystal theme** (Oct 10, owner: "ek new theme bna sb kuch transparent, saare tab saare button"):
+  - Android `ThemeStyle.CRYSTAL`: surfaces are clear glass (white 8% / black 6%) with a hairline edge
+    (`themedCard`). The play button is a clear circle with a white ring.
+  - The page behind is the playing song's cover, blurred, under a veil (`CrystalBackdrop` in `ThemedBackground`;
+    `Modifier.blur` on Android 12+). With nothing playing, the glass gradient is shown instead.
+  - The tab bar and mini player are transparent. Filled Material buttons and chosen chips use clear glass
+    (`colorScheme.primary` and `ThemeSpec.selectedFill`). Sheets and dialogs are 90% opaque so they stay
+    readable.
+  - Web: Theme → "Crystal · Dark / Light" (`body.crystal`, `html.crystal`, `#backdrop` with the cover, the
+    `Crystal.update()` hook in `applyLook` / `trackChanged`).
+  - The UI walk screenshots it (`crystal-*.png`).
+- **Phone details in reports** (Oct 10, owner: "kisi specific phone me problem aaye to us problem ke liye data le
+  sakta hai, koi sensitive mt lena"): `data/Diagnostics.kt`, added to every report by `CrashReporter.build`.
+  - It sends: maker / model / Android / ROM build, screen dp and density, font scale, the phone's dark mode,
+    status bar / cutout / navigation bar sizes, the navigation mode, and the status bar icon colour the app set
+    per screen.
+  - It also sends the theme / dark mode / accent, offline mode and YouTube on or off, online or not, which source
+    is playing, and the last 6 screen route patterns.
+  - It never sends songs, playlists, searches, names, accounts, files or location. Reports go to day1, which is
+    public.
+  - SangeetRoot fills in the bar sizes and icon colours.
 - **Owner's app reports of Oct 10** (build 174, realme Android 16; issues #32–#34, copied from day1):
   - "aidj nhi chal rha" / "ai ko dubara check kr" (log: `Gemini: timeout`): Gemini was asked first and alone, its
     free tier used the whole 22 s, so LLM7 was never tried and the DJ showed nothing for 25 s.
@@ -331,12 +352,27 @@ request the owner made, in order.
   - Issue #35 (LAVA LXX525, Android 16), four asks:
     - "theme ka effect har page pe aur tiles par bhi": Library tiles take the theme's card style (`themedCard`)
       and are tinted to its accent (`lerp` with `spec.accent`); shelf covers (`ShelfCard`) use `themedCard` too.
-    - "for you page par time, network, battery sahi se show nahi": a dark band behind the status bar on For You.
-      SangeetRoot also sets the icon colors again on every ON_RESUME, because some phones reset them.
+    - "for you page par time, network, battery sahi se show nahi" (again in #38, build 184). The real cause: every
+      page starts below the status bar (Scaffold padding on the NavHost), so the theme's background shows behind the
+      time and battery. For You sets light icons because the page is black, so on a light theme they were light
+      on light. Build 184's band inside For You sat below the status bar and didn't help. Now SangeetRoot draws a
+      black strip behind the status bar while For You is shown (`windowInsetsTopHeight(WindowInsets.statusBars)`
+      in ThemedBackground, under the Scaffold). It also sets the icon colors again on every ON_RESUME. The UI
+      walk screenshots For You in Liquid Glass light (`light-ForYou.png` on ci-shots). CI used dark themes, so it
+      never showed this.
     - "library me user ki khud ki playlist top me": Liked Songs and your playlists come first, on both apps.
     - "playlist se hamesha first song": Play on playlists, mixes and lists (`CollectionHeader(playShuffled = true)`;
       web `songsPage`) starts at a random song, shuffled. Shuffle used to start at the first song; now it is random
       too. Albums, films and artists still play in order.
+  - Issue #38 (same LAVA tester, build 184):
+    - The status bar again (see above).
+    - "add to playlist besides like": a PlaylistAdd button next to Like on For You (the six controls are 40 dp
+      with no gaps, to fit 320 dp) and in Now Playing. On the web it is a plus button in Now Playing.
+    - Library order and "thumbnail instead of list": the Playlists tab is a two-column tile grid
+      (`LazyVerticalGrid`, `LibraryTile`). Order: Liked Songs and your own playlists, then Online Library,
+      Movies, Your Stats, Downloads, Blend, On this phone, then the auto playlists (names starting with ✨),
+      Recently played, Live radio and Listen together. Albums and Artists are tiles too. The web keeps its list in
+      the same order.
   - Web Settings redesign (owner: "setting ka ui shi se bna"): grouped cards like the iPhone's Settings
     (`setGroup` / `setRow` / `setSwitch`, coloured icon tiles, values with chevrons).
     - Languages and Sync have their own pages (`languagesPage`, `syncPage`, `syncBox` in the same style).

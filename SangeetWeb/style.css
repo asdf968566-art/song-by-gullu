@@ -306,3 +306,34 @@ body.np-open #toast { bottom: auto; top: calc(env(safe-area-inset-top) + 56px); 
 .set-swatches { display: flex; gap: 8px; flex-wrap: wrap; padding: 0 12px 14px 56px; }
 .set-swatches .swatch { width: 28px; height: 28px; }
 .set-foot { text-align: center; color: var(--muted); font-size: 12px; padding: 0 16px 24px; }
+
+/* ---------- Crystal (Settings → Theme): everything see-through over the playing song's blurred cover */
+html.crystal {
+  background: radial-gradient(circle at 20% 15%, color-mix(in srgb, var(--accent) 55%, transparent), transparent 55%),
+    radial-gradient(circle at 85% 60%, rgba(124, 77, 255, .5), transparent 55%),
+    radial-gradient(circle at 30% 90%, rgba(79, 195, 247, .45), transparent 55%), #0b0e1a;
+}
+body.crystal {
+  --bg: #0b0e1a; --surface: rgba(255, 255, 255, .08); --line: rgba(255, 255, 255, .22); --text: #fff; --muted: rgba(255, 255, 255, .72);
+  --clear: rgba(255, 255, 255, .18); --edge: rgba(255, 255, 255, .55); --sheet: rgba(18, 20, 32, .84);
+  background: transparent;
+}
+html.crystal:has(body.light) {
+  background: radial-gradient(circle at 20% 15%, color-mix(in srgb, var(--accent) 35%, transparent), transparent 55%),
+    radial-gradient(circle at 85% 60%, rgba(124, 77, 255, .28), transparent 55%),
+    radial-gradient(circle at 30% 90%, rgba(79, 195, 247, .3), transparent 55%), #eff3fa;
+}
+body.crystal.light {
+  --bg: #eff3fa; --surface: rgba(0, 0, 0, .05); --line: rgba(0, 0, 0, .12); --text: #0e1222; --muted: #4a5068;
+  --clear: rgba(0, 0, 0, .08); --edge: rgba(0, 0, 0, .35); --sheet: rgba(250, 251, 255, .86); color-scheme: light;
+}
+#backdrop { position: fixed; inset: -60px; z-index: -1; background-size: cover; background-position: center; filter: blur(44px) saturate(1.3); }
+#backdrop::after { content: ''; position: absolute; inset: 0; background: rgba(0, 0, 0, .42); }
+body.crystal.light #backdrop::after { background: rgba(255, 255, 255, .55); }
+body.crystal #tabs { background: rgba(255, 255, 255, .04); border-top: 1px solid var(--line); }
+body.crystal #mini { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; left: 8px; right: 8px; }
+body.crystal .pill, body.crystal .chip, body.crystal input, body.crystal select, body.crystal .set-card { background: var(--surface); border: 1px solid var(--line); }
+body.crystal .pill.primary, body.crystal .chip.on { background: var(--clear); color: var(--text); border-color: var(--edge); }
+body.crystal .switch.on { background: var(--clear); box-shadow: inset 0 0 0 1px var(--edge); }
+body.crystal .menu .box { background: var(--sheet); -webkit-backdrop-filter: blur(24px); backdrop-filter: blur(24px); border: 1px solid var(--line); }
+body.crystal .row:active, body.crystal .set-row.tap:active { background: var(--surface); }

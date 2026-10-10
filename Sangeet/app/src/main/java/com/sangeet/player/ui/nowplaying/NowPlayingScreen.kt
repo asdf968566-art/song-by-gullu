@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Mic
+import androidx.compose.material.icons.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
@@ -118,6 +119,8 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
     var showLyricsMenu by remember { mutableStateOf(false) }
     var carMode by remember { mutableStateOf(false) }
     var singAlong by remember { mutableStateOf(false) }
+    var addToPlaylist by remember { mutableStateOf(false) }
+    if (addToPlaylist) com.sangeet.player.ui.components.AddToPlaylistDialog(listOf(track)) { addToPlaylist = false }
     // Song | Video (like YouTube Music): stays on for the next songs until switched off.
     var showVideo by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     // Phone files, links and live radio have no video; the Play version has no YouTube.
@@ -172,7 +175,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
 
     val textColor = if (spec.isDark) Color.White else spec.onSurface
     val muted = textColor.copy(alpha = 0.7f)
-    val glassy = spec.style in setOf(ThemeStyle.GLASS, ThemeStyle.AURORA, ThemeStyle.NEUMORPHISM)
+    val glassy = spec.style in setOf(ThemeStyle.GLASS, ThemeStyle.AURORA, ThemeStyle.NEUMORPHISM, ThemeStyle.CRYSTAL)
     val quality = c.online.streamingQuality()
     val qualityText = when {
         downloads[track.id]?.filePath != null -> "Downloaded • ${downloads[track.id]?.quality?.label}"
@@ -260,6 +263,10 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                     Text(track.artist, color = muted, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 val liked = track.id in favorites
+                // Add to playlist, right next to Like (a tester's report, Oct 10).
+                IconButton(onClick = { addToPlaylist = true }) {
+                    Icon(Icons.Rounded.PlaylistAdd, "Add to playlist", tint = textColor, modifier = Modifier.size(28.dp))
+                }
                 IconButton(onClick = { scope.launch { c.library.toggleFavorite(track) } }) {
                     Icon(
                         if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,

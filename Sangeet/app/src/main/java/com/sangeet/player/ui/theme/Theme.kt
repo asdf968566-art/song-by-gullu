@@ -45,6 +45,10 @@ val LocalThemeSpec = staticCompositionLocalOf {
     )
 }
 
+/** The fill of a chosen chip or tab: the accent, or clear glass on Crystal. */
+val ThemeSpec.selectedFill: Color
+    get() = if (style == ThemeStyle.CRYSTAL) onSurface.copy(alpha = 0.22f) else accent
+
 object Sangeet {
     val spec: ThemeSpec
         @Composable get() = LocalThemeSpec.current
@@ -84,6 +88,14 @@ private fun specFor(style: ThemeStyle, dark: Boolean, accent: Color, scheme: Col
         style, false, accent, Color(0xFFF2F2F7), Color(0xFFFFFFFF), Color(0xFF000000), Color(0xFF6C6C70), Color(0x00000000),
     )
 
+    // Crystal (owner, Oct 10: "sb kuch transparent, saare tab saare button"): every surface is clear glass with a
+    // hairline edge; the page behind is the playing song's cover, blurred (Surfaces.crystalBackdrop).
+    ThemeStyle.CRYSTAL -> if (dark) ThemeSpec(
+        style, true, accent, Color(0xFF0B0E1A), Color(0x14FFFFFF), Color.White, Color(0xB3FFFFFF), Color(0x00000000),
+    ) else ThemeSpec(
+        style, false, accent, Color(0xFFEFF3FA), Color(0x0F000000), Color(0xFF0E1222), Color(0xFF4A5068), Color(0x00000000),
+    )
+
     ThemeStyle.AMOLED -> ThemeSpec(
         style, true, accent, Color.Black, Color(0xFF0E0E0E), Color.White, Color(0xFF9E9E9E), Color.Black,
     )
@@ -114,9 +126,11 @@ fun SangeetTheme(settings: AppSettings, styleOverride: ThemeStyle? = null, conte
     val spec = specFor(style, dark, accent, dynamic)
 
     val base = dynamic ?: if (dark) darkColorScheme() else lightColorScheme()
+    // Crystal: filled buttons and chosen chips are clear glass too, with the page's own text color on them.
+    val crystal = style == ThemeStyle.CRYSTAL
     val scheme = base.copy(
-        primary = spec.accent,
-        onPrimary = if (dark || style == ThemeStyle.SPOTIFY) Color.Black else Color.White,
+        primary = if (crystal) spec.onSurface.copy(alpha = 0.22f) else spec.accent,
+        onPrimary = if (crystal) spec.onSurface else if (dark || style == ThemeStyle.SPOTIFY) Color.Black else Color.White,
         secondary = spec.accent,
         background = spec.background,
         onBackground = spec.onSurface,
@@ -126,8 +140,8 @@ fun SangeetTheme(settings: AppSettings, styleOverride: ThemeStyle? = null, conte
         onSurfaceVariant = spec.muted,
         surfaceContainer = spec.surface,
         // Sheets, menus and dialogs: a solid shade of this theme's own background (not the same grey everywhere).
-        surfaceContainerHigh = sheetColor(spec, 0.09f),
-        surfaceContainerHighest = sheetColor(spec, 0.14f),
+        surfaceContainerHigh = sheetColor(spec, 0.09f).let { if (crystal) it.copy(alpha = 0.9f) else it },
+        surfaceContainerHighest = sheetColor(spec, 0.14f).let { if (crystal) it.copy(alpha = 0.92f) else it },
         outline = spec.muted.copy(alpha = 0.5f),
     ).let { if (style == ThemeStyle.MATERIAL_YOU && dynamic != null) dynamic else it }
 

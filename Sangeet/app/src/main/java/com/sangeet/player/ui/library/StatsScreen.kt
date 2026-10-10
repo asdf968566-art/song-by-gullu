@@ -41,6 +41,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.sangeet.player.ui.theme.selectedFill
 import com.sangeet.player.data.db.ArtistTime
 import com.sangeet.player.data.db.TrackTime
 import com.sangeet.player.ui.LocalAppContainer
@@ -110,7 +111,7 @@ fun StatsScreen(nav: NavController) {
                         label = { Text(label) },
                         shape = RoundedCornerShape(50),
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = spec.accent,
+                            selectedContainerColor = spec.selectedFill,
                             selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
                         ),
                     )

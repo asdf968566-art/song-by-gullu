@@ -46,6 +46,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavController
+import com.sangeet.player.ui.theme.selectedFill
 import com.sangeet.player.AppContainer
 import com.sangeet.player.data.Categories
 import com.sangeet.player.data.Festivals
@@ -250,7 +251,7 @@ fun HomeScreen(nav: NavController) {
                         label = { Text(label) },
                         shape = RoundedCornerShape(50),
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = spec.accent,
+                            selectedContainerColor = spec.selectedFill,
                             selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
                             containerColor = spec.surface,
                             labelColor = spec.onSurface,
