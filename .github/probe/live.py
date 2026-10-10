@@ -4,12 +4,12 @@ import json, time, urllib.parse, urllib.request
 ORIGIN = "https://asdf968566-art.github.io"
 
 
-def go(method, url, data=None, headers=None, timeout=25):
+def go(method, url, data=None, headers=None, timeout=25, limit=None):
     t = time.time()
     req = urllib.request.Request(url, method=method, data=data, headers={"User-Agent": "Sangeet/1.0", "Origin": ORIGIN, **(headers or {})})
     try:
         with urllib.request.urlopen(req, timeout=timeout) as r:
-            return r.status, r.read(), dict(r.headers), time.time() - t
+            return r.status, (r.read(limit) if limit else r.read()), dict(r.headers), time.time() - t
     except urllib.error.HTTPError as e:
         return e.code, e.read(), dict(e.headers), time.time() - t
     except Exception as e:
@@ -39,7 +39,7 @@ try:
         print(f"  '{want}': {len(hit)} {hit[:6]}")
     # Does one https stream answer (first bytes)?
     for x in https[:5]:
-        s2, b2, h2, secs2 = go("GET", x["url_resolved"], headers={"Range": "bytes=0-2000"}, timeout=10)
+        s2, b2, h2, secs2 = go("GET", x["url_resolved"], timeout=10, limit=2000)  # a live stream never ends
         print(f"  stream {x['name'][:30]!r}: HTTP {s2} {secs2:.1f}s type={h2.get('Content-Type')} cors={cors(h2)} {len(b2)} bytes")
 except Exception as e:
     print("  parse", e, body[:200])
