@@ -297,6 +297,8 @@ private fun LibraryTile(
         // Tiles follow the theme: its card style (glass, soft shadows…) and its accent color.
         if (gradient != null && icon != null) {
             val tinted = listOf(lerp(gradient.first(), spec.accent, 0.6f), lerp(gradient.last(), spec.accent, 0.35f))
+                // Crystal: the tile is see-through too, only lightly tinted.
+                .map { if (spec.style == com.sangeet.player.data.settings.ThemeStyle.CRYSTAL) it.copy(alpha = 0.3f) else it }
             Box(
                 Modifier
                     .fillMaxWidth()
