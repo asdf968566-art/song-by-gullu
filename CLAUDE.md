@@ -297,6 +297,24 @@ request the owner made, in order.
     - Phone files and radio can't be shared; the guest sees a note.
     - Playwright test with a local ntfy stand-in: the guest stayed within 0.3 s, and pause, a new song and seeks
       followed.
+- **Owner's app reports of Oct 10** (build 174, realme Android 16; issues #32–#34, copied from day1):
+  - "aidj nhi chal rha" / "ai ko dubara check kr" (log: `Gemini: timeout`): Gemini was asked first and alone, its
+    free tier used the whole 22 s, so LLM7 was never tried and the DJ showed nothing for 25 s.
+    - CI probe (Oct 10, real key): `gemini-3.8-flash` answers in ~19 s with or without thinking
+      (`thinkingBudget: 0` gives no thoughts but is not faster). `thinkingLevel: "minimal"` is a 400 on these
+      models, and 503 "high demand" is common. So thinking settings are not used.
+    - Fix: `FreeAi.race` on both apps (Android: cancellable OkHttp calls; web: AbortController) asks Gemini and
+      the keyless models at the same time; the first useful answer wins and the others are cancelled. This is
+      used for the DJ and for lyrics meanings (25 s).
+    - The DJ plays the built-in mix at once (`AiDj.make(waitForFreeAi = false)`). The online AI's real songs come
+      later (`AiDj.freePicks`, `AiDjViewModel.mixInAi`; web `mix.later` in `djPage`) and go between the songs still
+      to come (`PlayerConnection.mixIntoQueue`; web `Player.queue.splice`), only while that mix still plays. The
+      reply then gets "(N picked by the online AI.)".
+  - "home me refresh button kaam nhi kr rha": tapping refresh showed nothing and brought the same shelves. Now the
+    icon spins until every shelf has loaded (`Ui.refreshing`). Each tap brings other suggestions (the ones on screen
+    are excluded), the next featured-playlist page, the next categories and shuffled trending.
+  - The `App reports` cron ("23 * * * *") ran only a few times a day. Run it by hand (workflow_dispatch) to read new
+    reports.
 - Other platforms checked Oct 9 from CI: Gaana's old open API is gone (404); Wynk, Hungama, Spotify have no open
   streams. JioSaavn + YouTube stay the sources.
 - In-app "Report a problem" got 403 from GitHub. Cause (found Oct 9 from CI: `REPORT_TOKEN fingerprint/account`
@@ -356,7 +374,7 @@ the GitHub MCP `get_job_logs` tool; test the web app locally with Playwright (Ch
   like the YouTube key). Don't raise it again.
 - YouTube background mode (web): look for `YT SERVERS: N working` in the Web App log; it was 0 on Oct 6 (public
   Invidious/Piped are blocked by YouTube) and the owner knows.
-- Oct 10 batch (above) is in PR #32. The owner left out suggestion 7 (Data saver) and 9 (a repo
+- Oct 10 batch and the report fixes (above) are in PR #35 (issues #32–#34 took the earlier numbers). The owner left out suggestion 7 (Data saver) and 9 (a repo
   `asdf968566-art.github.io` for verified App Links).
 - Ideas the owner was offered but hasn't asked for: Navidrome/Subsonic option on the iPhone web app (Android has it).
 - Owner asked about hosting all catalog songs on their own server: advised against it (copyright takedowns could

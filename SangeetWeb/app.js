@@ -2382,7 +2382,6 @@ const FreeAi = {
       + (singers.length ? `The listener plays these singers most: ${singers.join(', ')}. ` : '')
       + (history.length ? `Earlier in this chat: ${history.slice(-4).map((x) => `"${x}"`).join(' | ')}. Treat the request as a change to that mix if it reads like one. ` : '')
       + `Request: ${text}`;
-    const until = Date.now() + 22000;
     const fromText = async (content, who) => {
       const plan = JSON.parse(content.slice(content.indexOf('{'), content.lastIndexOf('}') + 1));
       const names = (plan.songs || []).map((x) => (typeof x === 'string' ? x : x && x.title ? `${x.title} - ${x.artist || x.singer || ''}` : ''))
@@ -2392,24 +2391,37 @@ const FreeAi = {
       return found;
     };
     const key = this.geminiKey();
-    if (key) {
-      const ctl = new AbortController();
-      const timer = setTimeout(() => ctl.abort(), 22000);
-      try { const text = await this.askGemini(key, user, ctl.signal); if (text) return await fromText(text, 'Gemini'); } catch {} finally { clearTimeout(timer); }
-    }
+    return (await this.race([
+      async (signal) => (key ? fromText(await this.askGemini(key, user, signal), 'Gemini') : null),
+      (signal) => this.keyless(this.SYSTEM, user, 3000, signal, (content, model) => fromText(content, model)),
+    ], 22000)) || [];
+  },
+  /**
+   * Runs [fns] at the same time and gives the first answer that isn't empty (null if none); the others are stopped.
+   * Gemini's free tier takes ~19 s and is often busy (CI probe, Oct 10), so it no longer goes first and alone.
+   */
+  race(fns, ms) {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), ms);
+    return new Promise((done) => {
+      let left = fns.length;
+      const take = (v) => { if (v && v.length) done(v); else if (--left === 0) done(null); };
+      fns.forEach((fn) => Promise.resolve().then(() => fn(ctl.signal)).then(take, () => take(null)));
+    }).finally(() => { clearTimeout(timer); ctl.abort(); });
+  },
+  /** The keyless models in turn (a busy or used-up one is skipped) until [use] makes something of an answer. */
+  async keyless(system, user, maxTokens, signal, use) {
     for (const model of this.MODELS) {
-      const left = until - Date.now();
-      if (left < 3000) break;
-      const ctl = new AbortController();
-      const timer = setTimeout(() => ctl.abort(), left);
+      if (signal.aborted) break;
       try {
-        const r = await fetch(this.URL, { method: 'POST', signal: ctl.signal, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer unused' },
-          body: JSON.stringify({ model, temperature: 0.4, max_tokens: 3000, messages: [{ role: 'system', content: this.SYSTEM }, { role: 'user', content: user }] }) });
+        const r = await fetch(this.URL, { method: 'POST', signal, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer unused' },
+          body: JSON.stringify({ model, temperature: 0.4, max_tokens: maxTokens, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] }) });
         if (!r.ok) continue;
-        return await fromText((await r.json()).choices?.[0]?.message?.content || '', model);
-      } catch {} finally { clearTimeout(timer); }
+        const v = await use((await r.json()).choices?.[0]?.message?.content || '', model);
+        if (v && v.length) return v;
+      } catch {}
     }
-    return [];
+    return null;
   },
   MEANING: 'You explain Indian song lyrics to listeners. Reply in simple English, in at most 3 short sentences, with no heading '
     + 'and no markdown. If the line is not in English (Hindi, Punjabi, Haryanvi or another language), first give its English '
@@ -2418,29 +2430,19 @@ const FreeAi = {
   async meaning(line, t) {
     if (!navigator.onLine) return null;
     const user = `Song: "${t.title}" by ${(t.artist || '').split(',')[0]}.\nLine: "${line.slice(0, 300)}"`;
-    const until = Date.now() + 20000;
     const key = this.geminiKey();
-    const timed = async (fn) => { const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), Math.max(1000, until - Date.now())); try { return await fn(ctl.signal); } catch { return ''; } finally { clearTimeout(tm); } };
-    if (key) {
-      const text = await timed(async (signal) => {
+    const clean = (text) => (text || '').replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+    return this.race([
+      async (signal) => {
+        if (!key) return null;
         const model = await this.geminiModel(key, signal);
-        if (!model) return '';
+        if (!model) return null;
         const r = await fetch(`${this.GEMINI}/${model}:generateContent?key=${key}`, { method: 'POST', signal, headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ systemInstruction: { parts: [{ text: this.MEANING }] }, contents: [{ role: 'user', parts: [{ text: user }] }], generationConfig: { temperature: 0.4, maxOutputTokens: 1500 } }) });
-        return r.ok ? ((await r.json()).candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('').trim() : '';
-      });
-      if (text) return text;
-    }
-    for (const model of this.MODELS) {
-      if (until - Date.now() < 3000) break;
-      const text = await timed(async (signal) => {
-        const r = await fetch(this.URL, { method: 'POST', signal, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer unused' },
-          body: JSON.stringify({ model, temperature: 0.4, max_tokens: 1500, messages: [{ role: 'system', content: this.MEANING }, { role: 'user', content: user }] }) });
-        return r.ok ? ((await r.json()).choices?.[0]?.message?.content || '').replace(/<think>[\s\S]*?<\/think>/g, '').trim() : '';
-      });
-      if (text) return text;
-    }
-    return null;
+        return r.ok ? clean(((await r.json()).candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('')) : null;
+      },
+      (signal) => this.keyless(this.MEANING, user, 1500, signal, (content) => clean(content)),
+    ], 25000);
   },
   /** The catalog's song for "Song - Singer", or null when there is no such song by that singer. */
   async find(line) {
@@ -2502,49 +2504,71 @@ async function djMix(req, shown, history = []) {
       if (moodless && moodless !== lean) tracks = (await aiDj(moodless)).tracks;
     }
   }
-  // The free AI's songs (real ones only) and the built-in DJ's, taking turns; in the asked languages.
+  // The built-in DJ's songs now; the free AI's (real ones only, in the asked languages) when they come
+  // (out.later), for the DJ page to mix in while the songs play (owner's report, Oct 10: the DJ waited for a slow AI).
   const langsAsked = ALL_LANGS.filter((l) => t.includes(` ${l} `));
-  const ai = (await fromAi).filter((x) => !langsAsked.length || !x.lang || langsAsked.includes(x.lang));
-  const mixed = [];
-  for (let i = 0; i < Math.max(ai.length, tracks.length); i++) { if (ai[i]) mixed.push(ai[i]); if (tracks[i]) mixed.push(tracks[i]); }
   const bad = (x) => req.without.some((w) => norm(`${x.title} ${x.artist}`).includes(w));
   const seen = new Set();
-  const out = mixed.filter((x) => !shown.has(x.id) && !bad(x) && !seen.has(x.id) && seen.add(x.id));
-  out.ai = new Set(ai.map((x) => x.id));
+  const out = tracks.filter((x) => !shown.has(x.id) && !bad(x) && !seen.has(x.id) && seen.add(x.id));
+  out.later = fromAi.then((ai) => ai.filter((x) => (!langsAsked.length || !x.lang || langsAsked.includes(x.lang)) && !bad(x) && !shown.has(x.id) && !seen.has(x.id)))
+    .catch(() => []);
   return out;
 }
 function djPage(initial) {
   const out = h('div'), chat = h('div');
   const input = h('input', { type: 'text', placeholder: 'What do you want to hear?', enterkeyhint: 'go' });
-  let prev = null;
+  let prev = null, turn = 0;
   const shown = new Set(), asked = [];
   const run = async (text) => {
     if (!text.trim()) return;
     input.value = '';
     input.blur();
     const req = DjChat.next(text, prev);
+    const mine = ++turn;
     out.replaceChildren(h('div', { class: 'spinner' }));
-    const mix = await djMix(req, req.more ? shown : new Set(), asked);
-    const tracks = mix.slice(0, 60);
-    const picked = tracks.filter((x) => mix.ai.has(x.id)).length;
-    const aiNote = picked ? ` · ${picked} picked by the online AI` : '';
+    const past = asked.slice();
+    const mix = await djMix(req, req.more ? shown : new Set(), past);
+    if (mine !== turn) return;
+    let tracks = mix.slice(0, 60);
     const title = req.base.trim().replace(/^./, (c) => c.toUpperCase()).slice(0, 40);
-    chat.append(h('div', { class: 'note', style: 'padding:4px 16px' }, `You: ${text}`),
-      h('div', { class: 'note', style: 'padding:0 16px 8px;opacity:.8' }, tracks.length ? `DJ: ${req.more ? `${tracks.length} more` : `${title} · ${tracks.length} songs`}${req.without.length ? ` (no ${req.without.join(', ')})` : ''}${aiNote}` : "DJ: I couldn't find songs for that. Try other words."));
+    const line = h('div', { class: 'note', style: 'padding:0 16px 8px;opacity:.8' }, tracks.length ? `DJ: ${req.more ? `${tracks.length} more` : `${title} · ${tracks.length} songs`}${req.without.length ? ` (no ${req.without.join(', ')})` : ''}` : "DJ: I couldn't find songs for that. Try other words.");
+    chat.append(h('div', { class: 'note', style: 'padding:4px 16px' }, `You: ${text}`), line);
     asked.push(text);
-    if (!tracks.length) return out.replaceChildren();
+    if (!tracks.length) {
+      // Nothing built in: the online AI may still find some.
+      const ai = (await mix.later).slice(0, 30);
+      if (mine !== turn || !ai.length) return out.replaceChildren();
+      tracks = ai;
+      line.textContent = `DJ: ${title} · ${ai.length} songs · picked by the online AI`;
+    }
     prev = req;
     tracks.forEach((x) => shown.add(x.id));
     Player.play(tracks);
     input.placeholder = 'Change it: "only Arijit", "no remix", "more"…';
+    const list = h('div', null, trackList(tracks));
     out.replaceChildren(
       h('div', { class: 'chips' }, ['More like this', 'Newer songs', 'No remix', 'Make it sad', 'Also Punjabi'].map((f) => h('button', { class: 'chip', onclick: () => run(f) }, f)),
-        h('button', { class: 'chip', onclick: () => { prev = null; shown.clear(); asked.length = 0; chat.replaceChildren(); out.replaceChildren(); input.placeholder = 'What do you want to hear?'; } }, 'New chat')),
+        h('button', { class: 'chip', onclick: () => { turn++; prev = null; shown.clear(); asked.length = 0; chat.replaceChildren(); out.replaceChildren(); input.placeholder = 'What do you want to hear?'; } }, 'New chat')),
       h('div', { class: 'section' }, title),
       h('div', { class: 'actions' },
         h('button', { class: 'pill primary', onclick: () => Player.play(tracks) }, icon('play'), 'Play'),
         h('button', { class: 'pill', onclick: () => { S.playlists.unshift({ id: String(Date.now()), name: title, tracks: tracks.map(slim) }); save(); toast('Saved to your playlists'); } }, icon('plus'), 'Save')),
-      trackList(tracks));
+      list);
+    // The online AI's songs, when they come: between the DJ's songs still to come, if this mix still plays.
+    const ai = await mix.later;
+    const queued = new Set(Player.queue.map((x) => x.id));
+    if (mine !== turn || !tracks.some((x) => queued.has(x.id))) return;
+    const extra = ai.filter((x) => !queued.has(x.id)).slice(0, 20);
+    if (!extra.length) return;
+    let at = Player.i + 1;
+    extra.forEach((x) => { Player.queue.splice(Math.min(at, Player.queue.length), 0, x); at += 2; shown.add(x.id); });
+    const cur = Math.max(0, tracks.findIndex((x) => x.id === Player.current?.id));
+    const rest = tracks.slice(cur + 1), merged = tracks.slice(0, cur + 1);
+    for (let i = 0; i < Math.max(extra.length, rest.length); i++) { if (extra[i]) merged.push(extra[i]); if (rest[i]) merged.push(rest[i]); }
+    tracks = merged;
+    fill(list, trackList(tracks));
+    line.textContent += ` · ${extra.length} picked by the online AI`;
+    UI.update();
   };
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter') run(input.value); });
   const examples = ['Sad Punjabi songs for a night drive', '90s Bollywood romantic', 'Arijit Singh latest', 'Kesariya jaise gaane', 'Gym workout Hindi', 'Rainy day chill'];

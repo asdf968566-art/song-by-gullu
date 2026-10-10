@@ -56,6 +56,7 @@ import com.sangeet.player.ui.components.LoadingBox
 import com.sangeet.player.ui.components.TrackOptionsSheet
 import com.sangeet.player.ui.components.TrackRow
 import com.sangeet.player.ui.theme.Sangeet
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -79,13 +80,20 @@ class AiDjViewModel(private val c: AppContainer) : ViewModel() {
     private val shown = LinkedHashSet<String>()
     private val history = ArrayList<String>()
 
+    private var late: Job? = null
+
     fun ask(request: String) {
         val q = request.trim()
         if (q.isEmpty() || _ui.value.working) return
         _ui.value = _ui.value.copy(working = true, error = null)
+        late?.cancel()
         viewModelScope.launch {
+            val before = shown.toSet()
+            val past = history.toList()
+            var made: DjResult? = null
             _ui.value = try {
-                val r = c.aiDj.make(q, intent, shown.toSet(), history.toList())
+                // The built-in DJ answers at once; the online AI's songs come in while it plays (mixInAi).
+                val r = c.aiDj.make(q, intent, before, past, waitForFreeAi = false)
                 val chat = (_ui.value.chat + Turn(q, r.plan.reply.ifBlank { r.plan.title })).takeLast(12)
                 if (r.tracks.isEmpty()) _ui.value.copy(working = false, error = "No songs found for that. Try different words.", chat = chat)
                 else {
@@ -94,16 +102,41 @@ class AiDjViewModel(private val c: AppContainer) : ViewModel() {
                     shown += r.tracks.map { it.id }
                     // Start playing right away, like a real DJ.
                     c.player.play(r.tracks)
+                    made = r
                     Ui(result = r, chat = chat)
                 }
             } catch (e: Exception) {
                 _ui.value.copy(working = false, error = e.message ?: "Something went wrong.")
             }
+            made?.let { r -> late = launch { mixInAi(q, r, before, past) } }
         }
+    }
+
+    /** The online AI's real songs for [r], put between the DJ's songs still to come (when that mix still plays). */
+    private suspend fun mixInAi(q: String, r: DjResult, before: Set<String>, past: List<String>) {
+        val picks = c.aiDj.freePicks(q, r, before, past)
+        if (picks.isEmpty() || _ui.value.result !== r) return
+        val ps = c.player.state.value
+        val playing = ps.queue.map { it.id }.toSet()
+        if (r.tracks.none { it.id in playing }) return // the listener moved on to other music
+        val extra = picks.filter { it.id !in playing }.distinctBy { it.id }.take(20)
+        if (extra.isEmpty()) return
+        c.player.mixIntoQueue(extra)
+        shown += extra.map { it.id }
+        // The list on screen in the order they'll play: after the current song, an AI pick, then a DJ song…
+        val at = r.tracks.indexOfFirst { it.id == ps.current?.id }.coerceAtLeast(0)
+        val rest = r.tracks.drop(at + 1)
+        val tracks = r.tracks.take(at + 1) +
+            (0 until maxOf(extra.size, rest.size)).flatMap { n -> listOfNotNull(extra.getOrNull(n), rest.getOrNull(n)) }
+        val note = " (${extra.size} picked by the online AI.)"
+        val chat = _ui.value.chat.toMutableList()
+        chat.lastOrNull()?.let { chat[chat.lastIndex] = it.copy(answer = it.answer + note) }
+        _ui.value = _ui.value.copy(result = r.copy(tracks = tracks, usedAi = true), chat = chat)
     }
 
     /** Start over: the next message is a new request. */
     fun newChat() {
+        late?.cancel()
         intent = null
         shown.clear()
         history.clear()

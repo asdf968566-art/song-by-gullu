@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -26,6 +27,7 @@ import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -90,6 +92,8 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
         val festivals: List<Pair<com.sangeet.player.data.Festival, List<Track>>> = emptyList(),
         /** New songs (this year) by the singers you listen to most. */
         val newFromSingers: List<Track> = emptyList(),
+        /** The refresh button was tapped and Home is still loading (its icon spins). */
+        val refreshing: Boolean = false,
     )
 
     private val _ui = MutableStateFlow(Ui())
@@ -108,14 +112,21 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
     }
 
     private var job: Job? = null
+    /** How many times refresh was tapped: each tap brings other songs, playlists and categories. */
+    private var round = 0
 
     /** [force] = user ne refresh dabaya: mixes aur auto playlists bhi abhi naye banao. */
     fun refresh(force: Boolean = false) {
         job?.cancel()
+        if (force) round++
+        val turn = round
+        // Tapped refresh: new picks instead of the ones on screen (owner's report, Oct 10: "refresh kaam nhi kr rha").
+        val onScreen = if (force) _ui.value.suggestions.map { it.track.id }.toSet() else emptySet()
         job = viewModelScope.launch {
-            _ui.value = _ui.value.copy(loading = true)
+            _ui.value = _ui.value.copy(loading = true, refreshing = force)
             launch {
-                val picks = runCatching { c.recommendations.suggestions(limit = 20) }.getOrDefault(emptyList())
+                val picks = runCatching { c.recommendations.suggestions(limit = 20, exclude = onScreen) }.getOrDefault(emptyList())
+                    .ifEmpty { runCatching { c.recommendations.suggestions(limit = 20) }.getOrDefault(emptyList()) }
                 _ui.value = _ui.value.copy(suggestions = picks)
             }
             launch {
@@ -123,7 +134,8 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
                 _ui.value = _ui.value.copy(charts = charts)
             }
             launch {
-                val pls = runCatching { c.online.saavn.featuredPlaylists(c.settings.current, 1) }.getOrDefault(emptyList())
+                val pls = runCatching { c.online.saavn.featuredPlaylists(c.settings.current, 1 + turn % 3) }.getOrDefault(emptyList())
+                    .ifEmpty { runCatching { c.online.saavn.featuredPlaylists(c.settings.current, 1) }.getOrDefault(emptyList()) }
                 _ui.value = _ui.value.copy(playlists = pls.take(20))
             }
             // Lower shelves come a moment later, from JioSaavn only (one quick call each instead of every source),
@@ -152,7 +164,9 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
                 delay(800)
                 val langs = c.settings.current.languages
                 // Special categories (Haryanvi Badmashi) always get a row when their language is chosen.
-                val cats = (Categories.ordered(langs).filter { it.language in langs }.take(4) +
+                val ordered = Categories.ordered(langs).filter { it.language in langs }
+                val shift = if (ordered.isEmpty()) 0 else (turn * 4) % ordered.size
+                val cats = ((ordered.drop(shift) + ordered.take(shift)).take(4) +
                     Categories.all.filter { (it.more.isNotEmpty() || it.youtube.isNotEmpty()) && it.language in langs }).distinct()
                 val rows = cats.map { cat ->
                     async {
@@ -174,9 +188,14 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
                 }
             }
             val langs = c.settings.current.languages
-            val results = c.online.trending().map { r -> r.copy(tracks = r.tracks.filter { it.inLanguages(langs) }) }
+            val results = c.online.trending().map { r ->
+                r.copy(tracks = r.tracks.filter { it.inLanguages(langs) }.let { if (turn > 0) it.shuffled() else it })
+            }
             _ui.value = _ui.value.copy(loading = false, trending = results)
         }
+        val mine = job
+        // The spinner stops when every shelf has loaded.
+        mine?.invokeOnCompletion { if (job === mine) _ui.value = _ui.value.copy(loading = false, refreshing = false) }
     }
 }
 
@@ -214,7 +233,10 @@ fun HomeScreen(nav: NavController) {
             ) {
                 Text(greeting(), style = MaterialTheme.typography.headlineMedium, color = spec.onSurface, modifier = Modifier.weight(1f))
                 IconButton(onClick = { showLanguages = true }) { Icon(Icons.Rounded.Language, "Song languages", tint = spec.onSurface) }
-                IconButton(onClick = { vm.refresh(force = true) }) { Icon(Icons.Rounded.Refresh, "Refresh", tint = spec.onSurface) }
+                IconButton(onClick = { if (!ui.refreshing) vm.refresh(force = true) }) {
+                    if (ui.refreshing) CircularProgressIndicator(Modifier.size(20.dp), color = spec.onSurface, strokeWidth = 2.dp)
+                    else Icon(Icons.Rounded.Refresh, "Refresh", tint = spec.onSurface)
+                }
                 IconButton(onClick = { nav.navigate(Routes.DJ) }) { Icon(Icons.Rounded.AutoAwesome, "AI DJ", tint = spec.onSurface) }
                 IconButton(onClick = { nav.navigate(Routes.SETTINGS) }) { Icon(Icons.Rounded.Settings, "Settings", tint = spec.onSurface) }
             }

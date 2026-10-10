@@ -32,6 +32,16 @@
         "on": "android",
         "type": "new",
         "text": "Crash reports sent automatically"
+      },
+      {
+        "on": "both",
+        "type": "fix",
+        "text": "AI DJ plays right away"
+      },
+      {
+        "on": "android",
+        "type": "fix",
+        "text": "Home refresh button"
       }
     ]
   },

@@ -82,12 +82,14 @@ class AiDj(
      * A mix for [request]. [previous] is what the chat asked before, so a follow-up ("aur", "sirf Arijit",
      * "naye wale", "remix hata do") changes that mix; [shown] are songs already given (for "more").
      * [history]: the earlier requests of this chat (for Claude).
+     * [waitForFreeAi] false: answer with the built-in DJ at once; [freePicks] brings the online AI's songs later.
      */
     suspend fun make(
         request: String,
         previous: DjIntent? = null,
         shown: Set<String> = emptySet(),
         history: List<String> = emptyList(),
+        waitForFreeAi: Boolean = true,
     ): DjResult = coroutineScope {
         val intent = DjBrain.understand(request, previous, settings.current.languages)
         val followUps = DjBrain.followUps(intent)
@@ -104,7 +106,7 @@ class AiDj(
         }
         // The free online AI (no key needed) thinks of songs while the built-in DJ works; only songs the catalogue
         // really has are kept.
-        val free: kotlinx.coroutines.Deferred<List<Track>>? = if (key.isEmpty() && settings.current.freeAi) async {
+        val free: kotlinx.coroutines.Deferred<List<Track>>? = if (waitForFreeAi && usesFreeAi()) async {
             runCatching { withTimeoutOrNull(FREE_AI_WAIT_MS) { freeAi(request, intent, shown, history) } }.getOrNull().orEmpty()
         } else null
         // The built-in DJ: playlists made for the mood, the singers' songs, a song's radio, a film's album.
@@ -131,6 +133,20 @@ class AiDj(
             } + if (picked > 0) " ($picked picked by the online AI.)" else ""
         }
         DjResult(plan, tracks.take(intent.count), picked > 0, intent, followUps)
+    }
+
+    /** The free online AI is used when there's no Anthropic key and it's on in Settings. */
+    fun usesFreeAi() = settings.current.anthropicApiKey.isBlank() && settings.current.freeAi
+
+    /**
+     * The online AI's songs for a mix the built-in DJ already made ([r]), for the DJ to mix in while it plays
+     * (owner's report, Oct 10: "aidj nhi chal rha": the DJ waited up to 25 s for a slow AI before playing anything).
+     */
+    suspend fun freePicks(request: String, r: DjResult, shown: Set<String>, history: List<String>): List<Track> {
+        if (!usesFreeAi()) return emptyList()
+        val intent = r.intent ?: DjBrain.understand(request, null, settings.current.languages)
+        val have = shown + r.tracks.map { it.id }
+        return runCatching { withTimeoutOrNull(FREE_AI_WAIT_MS) { freeAi(request, intent, have, history) } }.getOrNull().orEmpty()
     }
 
     /**

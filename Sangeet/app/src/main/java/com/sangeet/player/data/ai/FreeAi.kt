@@ -1,7 +1,15 @@
 package com.sangeet.player.data.ai
 
 import com.sangeet.player.data.remote.Http
+import java.io.IOException
+import java.util.concurrent.TimeUnit
+import kotlin.coroutines.cancellation.CancellationException
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -13,8 +21,11 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
+import okhttp3.Call
+import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
+import okhttp3.Response
 import okhttp3.RequestBody.Companion.toRequestBody
 
 /**
@@ -58,19 +69,39 @@ object FreeAi {
     private const val GEMINI = "https://generativelanguage.googleapis.com/v1beta"
     @Volatile private var geminiModel: String? = null
 
+    /**
+     * Sends [req] and returns the response. Cancelling the coroutine cancels the call, so when one AI answers the
+     * others stop at once instead of holding the DJ up.
+     */
+    private suspend fun send(req: Request, timeoutMs: Long): Response {
+        val client = Http.client.newBuilder().callTimeout(timeoutMs.coerceAtLeast(1_000), TimeUnit.MILLISECONDS).build()
+        return suspendCancellableCoroutine { cont ->
+            val call = client.newCall(req)
+            cont.invokeOnCancellation { call.cancel() }
+            call.enqueue(object : Callback {
+                override fun onFailure(call: Call, e: IOException) {
+                    if (cont.isActive) cont.resumeWithException(e)
+                }
+
+                override fun onResponse(call: Call, response: Response) {
+                    if (cont.isActive) cont.resume(response) else response.close()
+                }
+            })
+        }
+    }
+
+    private fun version(name: String) = Regex("gemini-(\\d+(?:\\.\\d+)?)").find(name)?.groupValues?.get(1)?.toDoubleOrNull() ?: 0.0
+
     /** The best Flash model this key may use ("models/gemini-…-flash"), asked once per app run. */
-    private fun geminiModelFor(key: String, timeoutMs: Long): String? {
+    private suspend fun geminiModelFor(key: String, timeoutMs: Long): String? {
         geminiModel?.let { return it }
-        val client = Http.client.newBuilder().callTimeout(timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS).build()
-        val req = Request.Builder().url("$GEMINI/models?pageSize=200&key=$key").build()
-        val names = client.newCall(req).execute().use { res ->
+        val names = send(Request.Builder().url("$GEMINI/models?pageSize=200&key=$key").build(), timeoutMs).use { res ->
             if (!res.isSuccessful) { android.util.Log.w("Sangeet", "Gemini models: HTTP ${res.code}"); return null }
             (Http.json.parseToJsonElement(res.body?.string().orEmpty()).jsonObject["models"] as? JsonArray).orEmpty()
                 .mapNotNull { it as? JsonObject }
                 .filter { m -> (m["supportedGenerationMethods"] as? JsonArray).orEmpty().any { (it as? JsonPrimitive)?.contentOrNull == "generateContent" } }
                 .mapNotNull { (it["name"] as? JsonPrimitive)?.contentOrNull }
         }
-        fun version(n: String) = Regex("gemini-(\\d+(?:\\.\\d+)?)").find(n)?.groupValues?.get(1)?.toDoubleOrNull() ?: 0.0
         val plain = Regex("^models/gemini-\\d+(\\.\\d+)?-flash(-latest)?$")
         // A plain "Flash" (knows songs best for its speed), newest first; else Flash-Lite; else any Flash.
         val pick = names.filter { plain.matches(it) }.maxByOrNull(::version)
@@ -80,7 +111,7 @@ object FreeAi {
         return pick?.also { geminiModel = it }
     }
 
-    private fun askGemini(key: String, user: String, timeoutMs: Long, system: String = SYSTEM, json: Boolean = true): String? {
+    private suspend fun askGemini(key: String, user: String, timeoutMs: Long, system: String = SYSTEM, json: Boolean = true): String? {
         val started = System.currentTimeMillis()
         val model = geminiModelFor(key, timeoutMs) ?: return null
         val left = timeoutMs - (System.currentTimeMillis() - started)
@@ -98,9 +129,9 @@ object FreeAi {
         val req = Request.Builder().url("$GEMINI/$model:generateContent?key=$key")
             .post(body.toString().toRequestBody("application/json".toMediaType()))
             .build()
-        val client = Http.client.newBuilder().callTimeout(left, java.util.concurrent.TimeUnit.MILLISECONDS).build()
-        client.newCall(req).execute().use { res ->
+        send(req, left).use { res ->
             if (!res.isSuccessful) {
+                // 503 "high demand" is common on the free tier (CI probe, Oct 10).
                 android.util.Log.w("Sangeet", "Gemini: HTTP ${res.code}")
                 if (res.code == 404) geminiModel = null // the model went away: pick again next time
                 return null
@@ -113,38 +144,62 @@ object FreeAi {
         }
     }
 
+    /** [block]'s value, or null when it fails (a cancelled coroutine still stops). */
+    private inline fun <T> attempt(what: String, block: () -> T?): T? = try {
+        block()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        android.util.Log.w("Sangeet", "$what: ${e.message}")
+        null
+    }
+
+    /**
+     * Asks Gemini (with a key) and the keyless models at the same time and returns the first answer [accept] takes.
+     * Gemini's free tier takes ~19 s and is often busy (CI probe, Oct 10: thinking less didn't make it faster), and
+     * asking one after the other let a slow Gemini use up all the time (owner's report: "Gemini: timeout").
+     */
+    private suspend fun <T> race(user: String, system: String, json: Boolean, geminiKey: String, timeoutMs: Long, accept: (String) -> T?): T? =
+        withContext(Dispatchers.IO) {
+            val until = System.currentTimeMillis() + timeoutMs
+            val answers = Channel<T?>(Channel.UNLIMITED)
+            val askers = buildList {
+                if (geminiKey.isNotBlank()) add(launch {
+                    val v = attempt("Gemini") { askGemini(geminiKey, user, until - System.currentTimeMillis(), system, json)?.let(accept) }
+                    if (v != null) android.util.Log.i("Sangeet", "free AI: Gemini answered")
+                    answers.send(v)
+                })
+                add(launch {
+                    var v: T? = null
+                    for (p in PROVIDERS) {
+                        val left = until - System.currentTimeMillis()
+                        if (left < 3_000) break
+                        v = attempt("free AI ${p.name}") { ask(p, user, left, system)?.let(accept) }
+                        if (v != null) { android.util.Log.i("Sangeet", "free AI: ${p.name} answered"); break }
+                    }
+                    answers.send(v)
+                })
+            }
+            var got: T? = null
+            repeat(askers.size) { if (got == null) got = answers.receive() }
+            askers.forEach { it.cancel() }
+            got
+        }
+
     /**
      * A plan for [request], or null. [about]: the listener's languages, singers and what's trending. With a Gemini
-     * key ([geminiKey]: Settings, else the app's built-in one) Gemini is asked first, then the keyless models.
+     * key ([geminiKey]: Settings, else the app's built-in one) Gemini is asked too, at the same time as the others.
      */
-    suspend fun plan(request: String, about: String, history: List<String>, geminiKey: String = ""): DjPlan? = withContext(Dispatchers.IO) {
+    suspend fun plan(request: String, about: String, history: List<String>, geminiKey: String = ""): DjPlan? {
         val earlier = if (history.isEmpty()) "" else
             "Earlier in this chat: " + history.takeLast(4).joinToString(" | ") { "\"${it.take(80)}\"" } +
                 ". Treat the request as a change to that mix if it reads like one.\n"
         val user = about.take(500) + "\n" + earlier + "Request: " + request.take(200)
-        val until = System.currentTimeMillis() + 22_000
-        if (geminiKey.isNotBlank()) {
-            runCatching { askGemini(geminiKey, user, until - System.currentTimeMillis()) }
-                .onFailure { android.util.Log.w("Sangeet", "Gemini: ${it.message}") }
-                .getOrNull()?.let(::parse)?.let {
-                    android.util.Log.i("Sangeet", "free AI: Gemini answered")
-                    return@withContext it
-                }
-        }
-        for (p in PROVIDERS) {
-            val left = until - System.currentTimeMillis()
-            if (left < 3_000) break
-            val text = runCatching { ask(p, user, left) }.getOrNull() ?: continue
-            parse(text)?.let {
-                android.util.Log.i("Sangeet", "free AI: ${p.name} answered")
-                return@withContext it
-            }
-        }
-        null
+        return race(user, SYSTEM, json = true, geminiKey = geminiKey, timeoutMs = 22_000) { parse(it)?.takeIf { p -> p.songs.isNotEmpty() } }
     }
 
-    /** One model's answer, or null. [timeoutMs] bounds the whole call (a blocking call can't be cancelled). */
-    private fun ask(p: Provider, user: String, timeoutMs: Long, system: String = SYSTEM): String? {
+    /** One keyless model's answer, or null. [timeoutMs] bounds the whole call. */
+    private suspend fun ask(p: Provider, user: String, timeoutMs: Long, system: String = SYSTEM): String? {
         val body = buildJsonObject {
             put("model", p.model)
             put("temperature", 0.4)
@@ -158,8 +213,7 @@ object FreeAi {
             .header("Authorization", "Bearer ${p.key}")
             .post(body.toString().toRequestBody("application/json".toMediaType()))
             .build()
-        val client = Http.client.newBuilder().callTimeout(timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS).build()
-        client.newCall(req).execute().use { res ->
+        send(req, timeoutMs).use { res ->
             if (!res.isSuccessful) {
                 android.util.Log.w("Sangeet", "free AI ${p.name}: HTTP ${res.code}")
                 return null
@@ -177,20 +231,11 @@ object FreeAi {
         "language), first give its English translation in quotes, then what it means in the song."
 
     /** What [line] of "[title]" by [artist] means, or null (no internet, every AI busy). */
-    suspend fun meaning(line: String, title: String, artist: String, geminiKey: String = ""): String? = withContext(Dispatchers.IO) {
+    suspend fun meaning(line: String, title: String, artist: String, geminiKey: String = ""): String? {
         val user = "Song: \"$title\" by ${artist.substringBefore(",")}.\nLine: \"${line.take(300)}\""
-        val until = System.currentTimeMillis() + 20_000
-        if (geminiKey.isNotBlank()) {
-            runCatching { askGemini(geminiKey, user, until - System.currentTimeMillis(), MEANING, json = false) }.getOrNull()
-                ?.trim()?.takeIf { it.isNotBlank() }?.let { return@withContext it }
+        return race(user, MEANING, json = false, geminiKey = geminiKey, timeoutMs = 25_000) {
+            it.replace(Regex("(?s)<think>.*?</think>"), "").trim().takeIf { t -> t.isNotBlank() }
         }
-        for (p in PROVIDERS) {
-            val left = until - System.currentTimeMillis()
-            if (left < 3_000) break
-            runCatching { ask(p, user, left, MEANING) }.getOrNull()
-                ?.replace(Regex("(?s)<think>.*?</think>"), "")?.trim()?.takeIf { it.isNotBlank() }?.let { return@withContext it }
-        }
-        null
     }
 
     /** The JSON plan inside [body] (it can come wrapped in ``` fences or text), or null. */

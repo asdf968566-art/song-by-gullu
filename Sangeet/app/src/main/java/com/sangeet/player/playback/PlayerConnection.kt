@@ -290,6 +290,20 @@ class PlayerConnection(
         }
     }
 
+    /** Puts [tracks] into the songs still to come, taking turns with them: the AI DJ's late picks. */
+    fun mixIntoQueue(tracks: List<Track>) = scope.launch {
+        if (tracks.isEmpty()) return@launch
+        library.remember(tracks)
+        withController { c ->
+            var at = c.currentMediaItemIndex + 1
+            for (t in tracks) {
+                val pos = at.coerceIn(0, c.mediaItemCount)
+                c.addMediaItem(pos, MediaItems.fromTrack(t))
+                at = pos + 2
+            }
+        }
+    }
+
     fun togglePlay() = withController { c ->
         if (c.isPlaying) c.pause() else {
             if (c.playbackState == Player.STATE_IDLE) c.prepare()
