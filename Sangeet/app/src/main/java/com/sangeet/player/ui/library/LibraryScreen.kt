@@ -61,6 +61,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import com.sangeet.player.ui.theme.selectedFill
 import com.sangeet.player.ui.LocalAppContainer
 import com.sangeet.player.ui.Routes
 import com.sangeet.player.ui.audioPermission
@@ -139,7 +140,7 @@ fun LibraryScreen(nav: NavController) {
                         label = { Text(label) },
                         shape = RoundedCornerShape(50),
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = spec.accent,
+                            selectedContainerColor = spec.selectedFill,
                             selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
                             containerColor = spec.surface,
                             labelColor = spec.onSurface,

@@ -28,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.sangeet.player.ui.theme.selectedFill
 import com.sangeet.player.data.Categories
 import com.sangeet.player.ui.LocalAppContainer
 import com.sangeet.player.ui.theme.Sangeet
@@ -77,7 +78,7 @@ fun LanguageChooser(modifier: Modifier = Modifier) {
                     } else null,
                     shape = RoundedCornerShape(50),
                     colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = spec.accent,
+                        selectedContainerColor = spec.selectedFill,
                         selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
                         selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimary,
                     ),

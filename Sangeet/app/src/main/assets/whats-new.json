@@ -65,6 +65,11 @@
       },
       {
         "on": "both",
+        "type": "new",
+        "text": "Crystal theme: everything see-through"
+      },
+      {
+        "on": "both",
         "type": "fix",
         "text": "AI DJ plays right away"
       },

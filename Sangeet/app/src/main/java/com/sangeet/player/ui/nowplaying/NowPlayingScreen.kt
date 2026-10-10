@@ -175,7 +175,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
 
     val textColor = if (spec.isDark) Color.White else spec.onSurface
     val muted = textColor.copy(alpha = 0.7f)
-    val glassy = spec.style in setOf(ThemeStyle.GLASS, ThemeStyle.AURORA, ThemeStyle.NEUMORPHISM)
+    val glassy = spec.style in setOf(ThemeStyle.GLASS, ThemeStyle.AURORA, ThemeStyle.NEUMORPHISM, ThemeStyle.CRYSTAL)
     val quality = c.online.streamingQuality()
     val qualityText = when {
         downloads[track.id]?.filePath != null -> "Downloaded • ${downloads[track.id]?.quality?.label}"

@@ -22,7 +22,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.draw.blur
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.Dp
@@ -43,6 +46,7 @@ fun ThemedBackground(modifier: Modifier = Modifier, content: @Composable BoxScop
                 when (spec.style) {
                     ThemeStyle.AURORA -> Modifier.auroraBackdrop(spec)
                     ThemeStyle.GLASS -> Modifier.glassBackdrop(spec)
+                    ThemeStyle.CRYSTAL -> Modifier.glassBackdrop(spec)
                     ThemeStyle.SPOTIFY -> Modifier.background(
                         Brush.verticalGradient(
                             0f to spec.accent.copy(alpha = if (spec.isDark) 0.22f else 0.12f),
@@ -52,8 +56,31 @@ fun ThemedBackground(modifier: Modifier = Modifier, content: @Composable BoxScop
                     else -> Modifier
                 }
             ),
-        content = content,
+    ) {
+        if (spec.style == ThemeStyle.CRYSTAL) CrystalBackdrop(spec)
+        content()
+    }
+}
+
+/**
+ * Crystal: the playing song's cover fills the page, blurred, under a soft veil, so the clear tabs, buttons and
+ * cards show its colors through them. With nothing playing, the colorful glass backdrop stays.
+ */
+@Composable
+private fun BoxScope.CrystalBackdrop(spec: ThemeSpec) {
+    val c = com.sangeet.player.ui.LocalAppContainer.current
+    val state by c.player.state.collectAsStateWithLifecycle()
+    val art = state.current?.artworkUrl ?: return
+    // A tiny copy stretched over the screen is already soft; Android 12+ blurs it properly too.
+    com.sangeet.player.ui.components.Artwork(
+        art.replace("500x500", "150x150"),
+        modifier = Modifier
+            .matchParentSize()
+            .then(if (android.os.Build.VERSION.SDK_INT >= 31) Modifier.blur(36.dp) else Modifier),
+        shape = RectangleShape,
+        seed = art,
     )
+    Box(Modifier.matchParentSize().background(if (spec.isDark) Color.Black.copy(alpha = 0.42f) else Color.White.copy(alpha = 0.5f)))
 }
 
 /** Aurora: dheere-dheere ghoomte hue rang ke badal. */
@@ -135,6 +162,11 @@ fun Modifier.themedCard(
         .clip(shape)
         .background(spec.surface)
         .border(1.dp, Color(0xFF1C1C1C), shape)
+    // Crystal: clear, with only a bright hairline edge.
+    ThemeStyle.CRYSTAL -> this
+        .clip(shape)
+        .background(spec.surface)
+        .border(1.dp, if (spec.isDark) Color.White.copy(alpha = 0.3f) else Color.Black.copy(alpha = 0.12f), shape)
     // Liquid Glass keeps content plain (glass is only for the controls floating above it).
     ThemeStyle.LIQUID_GLASS -> this
         .clip(shape)
@@ -182,6 +214,10 @@ fun Modifier.playButtonStyle(spec: ThemeSpec, size: Dp): Modifier = when (spec.s
         .clip(RoundedCornerShape(50))
         .background(spec.accent)
         .glassRim(spec, RoundedCornerShape(50))
+    ThemeStyle.CRYSTAL -> this
+        .clip(RoundedCornerShape(50))
+        .background(spec.onSurface.copy(alpha = 0.12f))
+        .border(1.5.dp, spec.onSurface.copy(alpha = 0.7f), RoundedCornerShape(50))
     else -> this
         .clip(RoundedCornerShape(50))
         .background(spec.accent)
@@ -192,6 +228,7 @@ fun playIconColor(spec: ThemeSpec): Color = when (spec.style) {
     ThemeStyle.NEUMORPHISM -> spec.accent
     ThemeStyle.GLASS -> if (spec.isDark) Color.White else Color(0xFF1C1433)
     ThemeStyle.AURORA -> Color.White
+    ThemeStyle.CRYSTAL -> spec.onSurface
     else -> if (spec.accent.luminance() > 0.45f) Color.Black else Color.White
 }
 

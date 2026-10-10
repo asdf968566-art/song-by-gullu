@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.sangeet.player.ui.theme.selectedFill
 import com.sangeet.player.ui.theme.Sangeet
 import com.sangeet.player.ui.theme.themedCard
 
@@ -119,7 +120,7 @@ fun <T> ChoiceRow(title: String, subtitle: String?, options: List<T>, selected: 
                     label = { Text(label(o)) },
                     shape = RoundedCornerShape(50),
                     colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = spec.accent,
+                        selectedContainerColor = spec.selectedFill,
                         selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
                     ),
                 )

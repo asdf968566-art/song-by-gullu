@@ -22,6 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.sangeet.player.ui.theme.selectedFill
 import com.sangeet.player.data.remote.LiveRadio
 import com.sangeet.player.ui.LocalAppContainer
 import com.sangeet.player.ui.components.LoadingBox
@@ -57,7 +58,7 @@ fun RadioScreen(nav: NavController) {
                         onClick = { filter = l },
                         label = { Text(if (l == "all") "All" else l.replaceFirstChar(Char::uppercase)) },
                         shape = RoundedCornerShape(50),
-                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = spec.accent, selectedLabelColor = MaterialTheme.colorScheme.onPrimary),
+                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = spec.selectedFill, selectedLabelColor = MaterialTheme.colorScheme.onPrimary),
                     )
                 }
             }

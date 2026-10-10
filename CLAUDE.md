@@ -312,6 +312,17 @@ request the owner made, in order.
   - Hidden for phone files, links, live radio and the Play version. With no video (or YouTube refusing), the app
     says "No video for this song" and goes back to Song. In CI YouTube usually refuses, so the UI walk only checks
     that the switch works.
+- **Crystal theme** (Oct 10, owner: "ek new theme bna sb kuch transparent, saare tab saare button"):
+  - Android `ThemeStyle.CRYSTAL`: surfaces are clear glass (white 8% / black 6%) with a hairline edge
+    (`themedCard`). The play button is a clear circle with a white ring.
+  - The page behind is the playing song's cover, blurred, under a veil (`CrystalBackdrop` in `ThemedBackground`;
+    `Modifier.blur` on Android 12+). With nothing playing, the glass gradient is shown instead.
+  - The tab bar and mini player are transparent. Filled Material buttons and chosen chips use clear glass
+    (`colorScheme.primary` and `ThemeSpec.selectedFill`). Sheets and dialogs are 90% opaque so they stay
+    readable.
+  - Web: Theme → "Crystal · Dark / Light" (`body.crystal`, `html.crystal`, `#backdrop` with the cover, the
+    `Crystal.update()` hook in `applyLook` / `trackChanged`).
+  - The UI walk screenshots it (`crystal-*.png`).
 - **Owner's app reports of Oct 10** (build 174, realme Android 16; issues #32–#34, copied from day1):
   - "aidj nhi chal rha" / "ai ko dubara check kr" (log: `Gemini: timeout`): Gemini was asked first and alone, its
     free tier used the whole 22 s, so LLM7 was never tried and the DJ showed nothing for 25 s.

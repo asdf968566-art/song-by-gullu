@@ -48,6 +48,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import android.widget.Toast
 import androidx.navigation.NavController
+import com.sangeet.player.ui.theme.selectedFill
 import com.sangeet.player.BuildConfig
 import com.sangeet.player.data.model.Track
 import com.sangeet.player.data.remote.Http
@@ -177,7 +178,7 @@ fun MoviesScreen(nav: NavController, initial: String) {
                     FilterChip(
                         selected = lang == l, onClick = { lang = l; shown = 60 },
                         label = { Text(l.ifEmpty { "All languages" }) },
-                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = spec.accent),
+                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = spec.selectedFill),
                     )
                 }
             }
@@ -188,7 +189,7 @@ fun MoviesScreen(nav: NavController, initial: String) {
                     FilterChip(
                         selected = decade == i, onClick = { decade = i; shown = 60 },
                         label = { Text(name) },
-                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = spec.accent),
+                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = spec.selectedFill),
                     )
                 }
             }
