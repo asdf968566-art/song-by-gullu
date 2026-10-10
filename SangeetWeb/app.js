@@ -39,6 +39,14 @@ const ICONS = {
   close: 'M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z',
   mic: 'M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z',
   clock: 'M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z',
+  chevron: 'M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z',
+  palette: 'M12 3a9 9 0 0 0 0 18c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z',
+  key: 'M12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z',
+  bug: 'M20 8h-2.81c-.45-.78-1.07-1.45-1.82-1.96L17 4.41 15.59 3l-2.17 2.17C12.96 5.06 12.49 5 12 5s-.96.06-1.41.17L8.41 3 7 4.41l1.62 1.63C7.88 6.55 7.26 7.22 6.81 8H4v2h2.09c-.05.33-.09.66-.09 1v1H4v2h2v1c0 .34.04.67.09 1H4v2h2.81c1.04 1.79 2.97 3 5.19 3s4.15-1.21 5.19-3H20v-2h-2.09c.05-.33.09-.66.09-1v-1h2v-2h-2v-1c0-.34-.04-.67-.09-1H20V8zm-6 8h-4v-2h4v2zm0-4h-4v-2h4v2z',
+  info: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z',
+  refresh: 'M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z',
+  phone: 'M15.5 1h-8C6.12 1 5 2.12 5 3.5v17C5 21.88 6.12 23 7.5 23h8c1.38 0 2.5-1.12 2.5-2.5v-17C18 2.12 16.88 1 15.5 1zm-4 21c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm4.5-4H7V4h9v14z',
+  sync: 'M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0 0 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 0 0 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z',
   radio: 'M3.24 6.15C2.51 6.43 2 7.17 2 8v12c0 1.1.89 2 2 2h16c1.11 0 2-.9 2-2V8c0-1.11-.89-2-2-2H8.3l8.26-3.34L15.88 1 3.24 6.15zM7 20c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm13-8h-2v-2h-2v2H4V8h16v4z',
   people: 'M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z',
   film: 'M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z',
@@ -1949,8 +1957,18 @@ function libraryPage() {
   return h('div', null,
     header('Library'),
     songOfTheDay(),
-    link('sparkles', 'AI DJ', null, () => pushPage(() => djPage())),
+    // Your own playlists first (a report, Oct 10: "user ki khud ki playlist top me").
     link('heartFill', 'Liked Songs', S.liked.length, () => pushPage(() => songsPage('Liked Songs', S.liked))),
+    S.playlists.map((p) => link('list', p.name, p.tracks.length, () => pushPage(() => songsPage(p.name, p.tracks, p)))),
+    link('plus', 'New playlist', null, () => {
+      const name = prompt('Playlist name');
+      if (!name) return;
+      S.playlists.unshift({ id: String(Date.now()), name, tracks: [] });
+      save();
+      showPage();
+    }),
+    h('div', { class: 'section' }, 'More'),
+    link('sparkles', 'AI DJ', null, () => pushPage(() => djPage())),
     link('clock', 'Recently Played', null, () => pushPage(() => songsPage('Recently Played', recent().slice(0, 300)))),
     link('globe', 'Online Library', Catalog.playlists.length || null, () => pushPage(onlineLibraryPage)),
     link('film', 'Movies', null, () => pushPage(() => moviesPage())),
@@ -1962,15 +1980,6 @@ function libraryPage() {
     link('chart', 'Your Stats', null, () => pushPage(statsPage)),
     link('heartFill', 'Blend with a friend', null, () => pushPage(blendPage)),
     link('plus', 'Import playlist', null, () => pushPage(importPage)),
-    h('div', { class: 'section' }, 'Your playlists'),
-    S.playlists.map((p) => link('list', p.name, p.tracks.length, () => pushPage(() => songsPage(p.name, p.tracks, p)))),
-    link('plus', 'New playlist', null, () => {
-      const name = prompt('Playlist name');
-      if (!name) return;
-      S.playlists.unshift({ id: String(Date.now()), name, tracks: [] });
-      save();
-      showPage();
-    }),
     madeForYou(),
     charts.length ? h('div', { class: 'section' }, 'Top charts') : null,
     charts.length ? h('div', { class: 'grid' }, charts.slice(0, 12).map(playlistCard)) : null);
@@ -2153,7 +2162,8 @@ function downloadsPage() {
 
 function songsPage(title, tracks, mine, online) {
   const actions = tracks.length ? h('div', { class: 'actions' },
-    h('button', { class: 'pill primary', onclick: () => Player.play(tracks) }, icon('play'), 'Play'),
+    // Play starts at a random song (a report, Oct 10: "har baar random song"), like Shuffle.
+    h('button', { class: 'pill primary', onclick: () => Player.play(shuffle(tracks)) }, icon('play'), 'Play'),
     h('button', { class: 'pill', onclick: () => Player.play(shuffle(tracks)) }, icon('shuffle'), 'Shuffle'),
     h('button', { class: 'pill', onclick: () => Offline.add(tracks) }, icon('download'), 'Download'),
     online ? h('button', { class: 'pill', onclick: () => { S.playlists.unshift({ id: String(Date.now()), name: title, tracks: tracks.map(slim) }); save(); toast('Saved to your playlists'); } }, icon('plus'), 'Save') : null,
@@ -2578,12 +2588,6 @@ function djPage(initial) {
 }
 
 const ACCENTS = [['Coral', '#ff5c6b'], ['Green', '#1db954'], ['Violet', '#8b5cf6'], ['Blue', '#3b82f6'], ['Teal', '#14b8a6'], ['Orange', '#f97316'], ['Pink', '#ec4899'], ['Red', '#ef4444']];
-function toggleRow(label, note, on, change) {
-  const sw = h('button', { class: 'switch' + (on ? ' on' : ''), role: 'switch', 'aria-label': label, 'aria-checked': String(on), onclick: () => {
-    on = !on; sw.classList.toggle('on', on); sw.setAttribute('aria-checked', String(on)); change(on);
-  } }, h('span'));
-  return h('div', { class: 'setting toggle' }, h('div', null, h('label', null, label), h('div', { class: 'note', style: 'padding:2px 0 0' }, note)), sw);
-}
 /** "Report a problem": the user writes what happened; it is shared (WhatsApp, email…) with app details. */
 function reportProblem() {
   const what = prompt('What went wrong?');
@@ -2597,34 +2601,79 @@ function reportProblem() {
 function syncBox() {
   const box = h('div');
   const say = (text) => { toast(text); draw(); };
+  const sendLink = (code) => {
+    const url = CloudSync.link(code);
+    if (navigator.share) navigator.share({ title: 'Sangeet sync', url }).catch(() => {});
+    else navigator.clipboard?.writeText(url).then(() => toast('Link copied'));
+  };
   const draw = () => {
     const code = CloudSync.code;
     if (!code) {
-      const input = h('input', { type: 'text', placeholder: 'Sync link or code from your other phone', autocapitalize: 'off', spellcheck: false, style: 'width:100%' });
-      fill(box, h('div', { class: 'section' }, 'Sync with another phone'),
-        h('div', { class: 'note' }, 'Liked songs and playlists stay the same on both phones (iPhone or Android). No account needed.'),
-        h('button', { class: 'pill primary', style: 'margin:8px 16px', onclick: async () => {
-          try { const c = await CloudSync.start(); const url = CloudSync.link(c); if (navigator.share) navigator.share({ title: 'Sangeet sync', url }).catch(() => {}); else navigator.clipboard?.writeText(url); say('Sync is on. Open the link on your other phone.'); } catch (e) { say(`Didn't work: ${e.message}`); }
-        } }, 'Start sync'),
-        h('div', { class: 'setting', style: 'display:block' }, input),
-        h('button', { class: 'pill', style: 'margin:0 16px 8px', onclick: async () => {
-          try { const [l, p] = await CloudSync.join(input.value); say(`Synced: ${l} liked songs, ${p} playlists`); } catch (e) { say(e.message || "Didn't work"); }
-        } }, 'Join'));
+      const input = h('input', { type: 'text', placeholder: 'Sync link or code', autocapitalize: 'off', spellcheck: false });
+      fill(box,
+        h('div', { class: 'note', style: 'padding:0 22px 14px' }, 'Liked songs and playlists stay the same on both phones (iPhone or Android).'),
+        setGroup('',
+          setRow({ ic: 'sync', color: 'teal', label: 'Start sync', sub: 'Makes a link for your other phone', onclick: async () => {
+            try { const c = await CloudSync.start(); sendLink(c); say('Sync is on. Open the link on your other phone.'); } catch (e) { say(`Didn't work: ${e.message}`); }
+          } })),
+        setGroup('Or join your other phone',
+          h('div', { class: 'set-row' }, h('div', { class: 'set-main' }, input)),
+          setRow({ label: 'Join', onclick: async () => {
+            try { const [l, p] = await CloudSync.join(input.value); say(`Synced: ${l} liked songs, ${p} playlists`); } catch (e) { say(e.message || "Didn't work"); }
+          } })));
     } else {
-      fill(box, h('div', { class: 'section' }, 'Sync with another phone'),
-        h('div', { class: 'note' }, `Sync is on (code ${code.slice(0, 8)}…). Changes go to your other phone by themselves.`),
-        h('div', { class: 'actions' },
-          h('button', { class: 'pill', onclick: () => { const url = CloudSync.link(code); if (navigator.share) navigator.share({ title: 'Sangeet sync', url }).catch(() => {}); else navigator.clipboard?.writeText(url).then(() => toast('Link copied')); } }, 'Send sync link'),
-          h('button', { class: 'pill', onclick: async () => { try { const r = await CloudSync.sync(); say(r ? `Synced: ${r[0]} liked songs, ${r[1]} playlists` : "This sync code doesn't work any more. Stop and start again."); } catch (e) { say(e.message); } } }, 'Sync now'),
-          h('button', { class: 'pill', onclick: () => { CloudSync.set(null); say('Sync stopped on this phone'); } }, 'Stop')));
+      fill(box, setGroup('Sync is on',
+        setRow({ ic: 'list', color: 'teal', label: 'Send the sync link', sub: 'Open it on your other phone', onclick: () => sendLink(code) }),
+        setRow({ ic: 'sync', color: 'blue', label: 'Sync now', sub: 'Also happens by itself after changes', onclick: async () => {
+          try { const r = await CloudSync.sync(); say(r ? `Synced: ${r[0]} liked songs, ${r[1]} playlists` : "This sync code doesn't work any more. Stop and start again."); } catch (e) { say(e.message); }
+        } }),
+        setRow({ label: 'Stop syncing', danger: true, onclick: () => { CloudSync.set(null); say('Sync stopped on this phone'); } })));
     }
   };
   draw();
   return box;
 }
-function settingsPage() {
-  const langChips = h('div', { class: 'chips' }, ALL_LANGS.map((l) => {
-    const b = h('button', { class: 'chip' + (S.langs.includes(l) ? ' on' : '') }, l[0].toUpperCase() + l.slice(1));
+/* Settings (owner, Oct 10: "setting ka ui shi se bna"): grouped cards like the iPhone's Settings. Each row is an
+ * icon, a name and its value (tap to change) or a switch; longer things open their own page or a small sheet. */
+const SET_COLORS = { blue: '#0a84ff', green: '#30d158', orange: '#ff9f0a', purple: '#bf5af2', pink: '#ff375f', red: '#ff453a', gray: '#8e8e93', teal: '#40c8e0', indigo: '#5e5ce6' };
+function setRow({ ic, color = 'gray', label, sub, value, onclick, right, danger }) {
+  const val = value != null ? h('span', { class: 'set-value' }, value) : null;
+  const row = h('div', { class: 'set-row' + (onclick ? ' tap' : '') + (danger ? ' danger-row' : ''), onclick },
+    ic ? h('span', { class: 'set-ic', style: `background:${SET_COLORS[color] || color}` }, icon(ic)) : null,
+    h('div', { class: 'set-main' }, h('div', { class: 'set-label' }, label), sub ? h('div', { class: 'set-sub' }, sub) : null),
+    val, right || (onclick && !danger ? h('span', { class: 'set-chev' }, icon('chevron')) : null));
+  row.setValue = (v) => { if (val) val.textContent = v; };
+  return row;
+}
+function setSwitch(on, change, label) {
+  const sw = h('button', { class: 'switch' + (on ? ' on' : ''), role: 'switch', 'aria-label': label, 'aria-checked': String(on), onclick: (e) => {
+    e.stopPropagation();
+    on = !on; sw.classList.toggle('on', on); sw.setAttribute('aria-checked', String(on)); change(on);
+  } }, h('span'));
+  return sw;
+}
+function setGroup(title, ...rows) {
+  return h('div', { class: 'set-group' }, title ? h('div', { class: 'set-title' }, title) : null, h('div', { class: 'set-card' }, rows));
+}
+/** A small sheet to type a value (an API key). */
+function editSheet(title, value, placeholder, onSave) {
+  const input = h('input', { type: 'text', value: value || '', placeholder, autocapitalize: 'off', spellcheck: false, style: 'font-family:ui-monospace,monospace;font-size:13px' });
+  const close = () => box.remove();
+  const box = h('div', { class: 'menu', onclick: close },
+    h('div', { class: 'box', onclick: (e) => e.stopPropagation() },
+      h('div', { class: 'title' }, title),
+      h('div', { style: 'padding:4px 16px 4px' }, input),
+      h('div', { class: 'actions' },
+        h('button', { class: 'pill', onclick: close }, 'Cancel'),
+        h('button', { class: 'pill primary', onclick: () => { onSave(input.value.trim()); close(); } }, 'Save'))));
+  document.body.append(box);
+  input.focus();
+}
+const langName = (l) => l[0].toUpperCase() + l.slice(1);
+function languagesPage() {
+  const count = h('div', { class: 'note' }, `${Catalog.total.toLocaleString()} songs in your languages`);
+  const chips = h('div', { class: 'chips', style: 'padding:4px 16px' }, ALL_LANGS.map((l) => {
+    const b = h('button', { class: 'chip' + (S.langs.includes(l) ? ' on' : '') }, langName(l));
     b.onclick = async () => {
       if (S.langs.includes(l)) { if (S.langs.length === 1) return; S.langs = S.langs.filter((x) => x !== l); }
       else S.langs.push(l);
@@ -2636,63 +2685,69 @@ function settingsPage() {
     };
     return b;
   }));
-  const count = h('div', { class: 'note' }, `${Catalog.total.toLocaleString()} songs in your languages`);
-  const quality = h('select', { onchange: (e) => { S.quality = e.target.value; save(); } },
-    [['low', '96 kbps'], ['medium', '160 kbps'], ['high', '320 kbps']].map(([v, l]) => h('option', { value: v, selected: S.quality === v }, l)));
-  const key = h('input', { type: 'text', value: S.ytKey, autocapitalize: 'off', spellcheck: false, style: 'font-family:ui-monospace,monospace;font-size:13px' });
-  key.addEventListener('change', () => { S.ytKey = key.value.trim(); save(); });
+  return h('div', null, header('Song languages', true), chips, count);
+}
+function syncPage() {
+  return h('div', null, header('Sync with another phone', true), syncBox(),
+    setGroup('Or send once', setRow({ ic: 'list', color: 'teal', label: 'Send liked songs and playlists', sub: 'A link to open on the other phone', onclick: () => Sync.share() })));
+}
+function settingsPage() {
   const standalone = navigator.standalone || matchMedia('(display-mode: standalone)').matches;
-  const look = h('select', { onchange: (e) => {
-    S.look = e.target.value;
-    save();
-    if (applyLook() && standalone) toast('Close and reopen the app for the top bar (time, battery) colors', 4500);
-  } }, LOOKS.map(([v, l]) => h('option', { value: v, selected: (S.look || 'classic') === v }, l)));
-  return h('div', null,
+  const QUALITY = [['low', '96 kbps'], ['medium', '160 kbps'], ['high', '320 kbps']];
+  const qualityName = () => (QUALITY.find(([v]) => v === S.quality) || QUALITY[2])[1];
+  const lookName = () => (LOOKS.find(([v]) => v === (S.look || 'classic')) || LOOKS[0])[1];
+  const geminiName = () => (S.geminiKey ? 'Your key' : BUILT_IN_GEMINI.startsWith('__') ? 'Not set' : 'Built in');
+  const ytName = () => (!S.ytKey ? 'Off' : S.ytKey === DEFAULT_YT_KEY ? 'Built in' : 'Your key');
+
+  const quality = setRow({ ic: 'chart', color: 'orange', label: 'Streaming quality', value: qualityName(), onclick: () =>
+    menu('Streaming quality', QUALITY.map(([v, l]) => [`${l}${v === S.quality ? '  ✓' : ''}`, () => { S.quality = v; save(); quality.setValue(qualityName()); }])) });
+  const look = setRow({ ic: 'palette', color: 'purple', label: 'Theme', value: lookName(), onclick: () =>
+    menu('Theme', LOOKS.map(([v, l]) => [`${l}${v === (S.look || 'classic') ? '  ✓' : ''}`, () => {
+      S.look = v; save(); look.setValue(lookName());
+      if (applyLook() && standalone) toast('Close and reopen the app for the top bar colors', 4500);
+    }])) });
+  const swatches = h('div', { class: 'set-swatches' }, ACCENTS.map(([name, c]) => {
+    const b = h('button', { class: 'swatch' + ((S.accent || '#ff5c6b') === c ? ' on' : ''), style: `background:${c}`, 'aria-label': name, onclick: () => {
+      S.accent = c; save(); applyLook();
+      swatches.querySelectorAll('.swatch').forEach((x) => x.classList.toggle('on', x === b));
+    } });
+    return b;
+  }));
+  const gemini = setRow({ ic: 'key', color: 'indigo', label: 'Gemini key', value: geminiName(), onclick: () =>
+    editSheet('Gemini key (free at aistudio.google.com)', S.geminiKey, 'Paste your key', (v) => {
+      S.geminiKey = v; FreeAi.model = null; save(); gemini.setValue(geminiName()); toast(v ? 'Gemini key saved' : 'Gemini key removed');
+    }) });
+  const ytKey = setRow({ ic: 'key', color: 'red', label: 'YouTube key', value: ytName(), onclick: () =>
+    editSheet('YouTube Data API key (empty = off)', S.ytKey, 'Paste a key', (v) => { S.ytKey = v; save(); ytKey.setValue(ytName()); }) });
+
+  return h('div', { class: 'settings' },
     header('Settings'),
-    h('div', { class: 'section' }, 'Look'),
-    h('div', { class: 'setting' }, h('label', null, 'Theme'), look),
-    h('div', { class: 'note' }, 'Liquid Glass: the iOS 26 look, with glass bars floating over the songs.'),
-    h('div', { class: 'setting', style: 'display:block' }, h('label', null, 'Accent color'),
-      h('div', { class: 'swatches' }, ACCENTS.map(([name, c]) => {
-        const b = h('button', { class: 'swatch' + ((S.accent || '#ff5c6b') === c ? ' on' : ''), style: `background:${c}`, 'aria-label': name, onclick: () => {
-          S.accent = c; save(); applyLook();
-          b.parentNode.querySelectorAll('.swatch').forEach((x) => x.classList.toggle('on', x === b));
-        } });
-        return b;
-      }))),
-    h('div', { class: 'section' }, 'Languages'), langChips, count,
-    h('div', { class: 'section' }, 'Audio'),
-    h('div', { class: 'setting' }, h('label', null, 'Streaming quality'), quality),
-    h('div', { class: 'setting', style: 'display:block' }, h('label', null, 'Gemini API key (optional)'), (() => {
-      const k = h('input', { type: 'text', value: S.geminiKey || '', autocapitalize: 'off', spellcheck: false, placeholder: BUILT_IN_GEMINI.startsWith('__') ? 'Free at aistudio.google.com' : 'Built in (or paste your own)', style: 'font-family:ui-monospace,monospace;font-size:13px;width:100%' });
-      k.addEventListener('change', () => { S.geminiKey = k.value.trim(); FreeAi.model = null; save(); toast(S.geminiKey ? 'Gemini key saved' : 'Gemini key removed'); });
-      return k;
-    })()),
-    toggleRow('Free online AI for the DJ',
-      'The AI DJ also asks a free online AI (Gemini with a key, else LLM7.io: GLM, DeepSeek) for songs. Only songs that really exist are played. It gets your request and the singers you play most.',
-      S.freeAi !== false, (on) => { S.freeAi = on; save(); }),
-    h('div', { class: 'section' }, 'YouTube Data API key'),
-    h('div', { class: 'setting' }, key),
-    h('div', { class: 'note' }, 'Used for search results. Leave empty to turn off.'),
-    toggleRow('YouTube in background (experimental)',
-      'YouTube songs keep playing with the screen locked, through free public servers. They are sometimes slow or down; then YouTube plays as before (stops when locked).',
-      !!S.ytAudio, (v) => { S.ytAudio = v; save(); }),
-    h('div', { class: 'section' }, 'Move library'),
-    syncBox(),
-    h('button', { class: 'danger', style: 'color:var(--text)', onclick: () => Sync.share() }, 'Send liked songs and playlists to another phone'),
-    h('div', { class: 'note' }, 'Open the link on the other phone. On Android, paste it in Library → Import playlist.'),
-    h('div', { class: 'section' }, 'Offline'),
-    toggleRow('Offline mode', 'Play only downloaded songs (saves data). Turns on by itself without internet.', !!S.offlineOnly, (v) => { S.offlineOnly = v; save(); }),
-    h('div', { class: 'section' }, 'Help'),
-    h('button', { class: 'danger', style: 'color:var(--text)', onclick: reportProblem }, 'Report a problem'),
-    h('div', { class: 'note' }, 'Write what went wrong and send it with WhatsApp, email or any app.'),
-    h('div', { class: 'section' }, 'Suggestions'),
-    h('button', { class: 'danger', onclick: () => { S.seen = []; seenSet.clear(); save(); Feed.reset(); toast('Done'); } }, 'Reset suggestions'),
-    h('div', { class: 'note' }, "Songs you've heard are never suggested twice."),
-    standalone ? null : h('div', null, h('div', { class: 'section' }, 'Install on iPhone'),
-      h('div', { class: 'note' }, 'In Safari tap Share, then "Add to Home Screen". Sangeet opens full screen like an app.')),
-    h('button', { class: 'danger', style: 'color:var(--text)', onclick: () => WhatsNew.show() }, "What's new"),
-    h('div', { class: 'note' }, `Version ${window.SANGEET_BUILD}`));
+    setGroup('Music',
+      setRow({ ic: 'globe', color: 'blue', label: 'Song languages', value: S.langs.map(langName).join(', '), onclick: () => pushPage(languagesPage) }),
+      quality,
+      setRow({ ic: 'download', color: 'green', label: 'Offline mode', sub: 'Only downloaded songs', right: setSwitch(!!S.offlineOnly, (v) => { S.offlineOnly = v; save(); }, 'Offline mode') })),
+    setGroup('Look',
+      look,
+      h('div', { class: 'set-row' }, h('span', { class: 'set-ic', style: `background:${SET_COLORS.pink}` }, icon('heartFill')),
+        h('div', { class: 'set-main' }, h('div', { class: 'set-label' }, 'Accent color'))),
+      swatches),
+    setGroup('AI DJ',
+      setRow({ ic: 'sparkles', color: 'purple', label: 'Free online AI', sub: 'Finds more songs for the DJ', right: setSwitch(S.freeAi !== false, (on) => { S.freeAi = on; save(); }, 'Free online AI') }),
+      gemini),
+    setGroup('YouTube',
+      setRow({ ic: 'play', color: 'red', label: 'YouTube in background', sub: 'Experimental: plays on with the screen locked', right: setSwitch(!!S.ytAudio, (v) => { S.ytAudio = v; save(); }, 'YouTube in background') }),
+      ytKey),
+    setGroup('Your library',
+      setRow({ ic: 'sync', color: 'teal', label: 'Sync with another phone', value: CloudSync.code ? 'On' : null, onclick: () => pushPage(syncPage) })),
+    setGroup('Help',
+      setRow({ ic: 'info', color: 'blue', label: "What's new", onclick: () => WhatsNew.show() }),
+      setRow({ ic: 'bug', color: 'orange', label: 'Report a problem', onclick: reportProblem }),
+      standalone ? null : setRow({ ic: 'phone', color: 'gray', label: 'Install on iPhone', sub: 'Safari: Share, then Add to Home Screen' }),
+      setRow({ ic: 'refresh', color: 'gray', label: 'Reset suggestions', sub: "Songs you've heard aren't suggested twice", onclick: () => {
+        if (!confirm('Start suggestions over? Songs you heard can come again.')) return;
+        S.seen = []; seenSet.clear(); save(); Feed.reset(); toast('Done');
+      } })),
+    h('div', { class: 'set-foot' }, `Sangeet · version ${window.SANGEET_BUILD}`));
 }
 
 /* ------------------------------------------------------------------ Community: what the app's listeners share */

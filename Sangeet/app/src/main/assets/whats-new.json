@@ -39,6 +39,21 @@
         "text": "Song videos, like YouTube Music"
       },
       {
+        "on": "iphone",
+        "type": "new",
+        "text": "New Settings design"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Themes on every tile"
+      },
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Your playlists at the top of Library"
+      },
+      {
         "on": "both",
         "type": "fix",
         "text": "AI DJ plays right away"
@@ -47,6 +62,16 @@
         "on": "android",
         "type": "fix",
         "text": "Home refresh button"
+      },
+      {
+        "on": "both",
+        "type": "fix",
+        "text": "Play and Shuffle start at a random song"
+      },
+      {
+        "on": "android",
+        "type": "fix",
+        "text": "Status bar icons on For You"
       }
     ]
   },

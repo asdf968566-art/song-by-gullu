@@ -192,7 +192,7 @@ fun OnlinePlaylistScreen(nav: NavController, id: String, title: String) {
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = bottomBarPadding()) {
         item {
-            CollectionHeader(nav, title, if (album) "Movie / album" else "JioSaavn", tracks.orEmpty()) {
+            CollectionHeader(nav, title, if (album) "Movie / album" else "JioSaavn", tracks.orEmpty(), playShuffled = !album) {
                 val list = tracks
                 if (!list.isNullOrEmpty()) {
                     IconButton(onClick = {

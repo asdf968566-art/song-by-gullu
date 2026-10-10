@@ -46,7 +46,7 @@ fun MixScreen(nav: NavController, mixId: String) {
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = bottomBarPadding()) {
         item {
-            CollectionHeader(nav, mix?.title ?: "Mix", mix?.subtitle ?: "Made for you", tracks, artwork = mix?.artworkUrl) {
+            CollectionHeader(nav, mix?.title ?: "Mix", mix?.subtitle ?: "Made for you", tracks, artwork = mix?.artworkUrl, playShuffled = true) {
                 if (mix != null) {
                     IconButton(onClick = {
                         scope.launch {

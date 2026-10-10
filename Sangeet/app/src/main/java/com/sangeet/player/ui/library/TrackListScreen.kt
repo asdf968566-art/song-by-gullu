@@ -80,7 +80,7 @@ fun TrackListScreen(nav: NavController, kind: ListKind, arg: String) {
     menuFor?.let { TrackOptionsSheet(it, onDismiss = { menuFor = null }) }
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = bottomBarPadding()) {
-        item { CollectionHeader(nav, title, subtitle, tracks.orEmpty()) }
+        item { CollectionHeader(nav, title, subtitle, tracks.orEmpty(), playShuffled = true) }
         when {
             tracks == null -> item { LoadingBox() }
             tracks.isEmpty() -> item {

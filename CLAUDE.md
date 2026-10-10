@@ -328,6 +328,19 @@ request the owner made, in order.
   - "home me refresh button kaam nhi kr rha": tapping refresh showed nothing and brought the same shelves. Now the
     icon spins until every shelf has loaded (`Ui.refreshing`). Each tap brings other suggestions (the ones on screen
     are excluded), the next featured-playlist page, the next categories and shuffled trending.
+  - Issue #35 (LAVA LXX525, Android 16), four asks:
+    - "theme ka effect har page pe aur tiles par bhi": Library tiles take the theme's card style (`themedCard`)
+      and are tinted to its accent (`lerp` with `spec.accent`); shelf covers (`ShelfCard`) use `themedCard` too.
+    - "for you page par time, network, battery sahi se show nahi": a dark band behind the status bar on For You.
+      SangeetRoot also sets the icon colors again on every ON_RESUME, because some phones reset them.
+    - "library me user ki khud ki playlist top me": Liked Songs and your playlists come first, on both apps.
+    - "playlist se hamesha first song": Play on playlists, mixes and lists (`CollectionHeader(playShuffled = true)`;
+      web `songsPage`) starts at a random song, shuffled. Shuffle used to start at the first song; now it is random
+      too. Albums, films and artists still play in order.
+  - Web Settings redesign (owner: "setting ka ui shi se bna"): grouped cards like the iPhone's Settings
+    (`setGroup` / `setRow` / `setSwitch`, coloured icon tiles, values with chevrons).
+    - Languages and Sync have their own pages (`languagesPage`, `syncPage`, `syncBox` in the same style).
+    - Theme and quality use `menu()`; keys use `editSheet`. The long notes are gone.
   - The `App reports` cron ("23 * * * *") ran only a few times a day. Run it by hand (workflow_dispatch) to read new
     reports.
 - Other platforms checked Oct 9 from CI: Gaana's old open API is gone (404); Wynk, Hungama, Spotify have no open
@@ -389,7 +402,7 @@ the GitHub MCP `get_job_logs` tool; test the web app locally with Playwright (Ch
   like the YouTube key). Don't raise it again.
 - YouTube background mode (web): look for `YT SERVERS: N working` in the Web App log; it was 0 on Oct 6 (public
   Invidious/Piped are blocked by YouTube) and the owner knows.
-- Oct 10 batch and the report fixes (above) are in PR #35 (issues #32–#34 took the earlier numbers). The owner left out suggestion 7 (Data saver) and 9 (a repo
+- Oct 10 batch and the report fixes (above) are in PR #36 (issues #32–#35 took the earlier numbers). The owner left out suggestion 7 (Data saver) and 9 (a repo
   `asdf968566-art.github.io` for verified App Links).
 - Ideas the owner was offered but hasn't asked for: Navidrome/Subsonic option on the iPhone web app (Android has it).
 - Owner asked about hosting all catalog songs on their own server: advised against it (copyright takedowns could

@@ -187,12 +187,15 @@ fun ShelfCard(
             .width(150.dp)
             .combinedClickableCompat(onClick, onLongClick)
     ) {
+        // The cover takes the theme's card style too (glass rim, soft shadows…), like the other tiles.
+        val shape = if (circle) CircleShape else RoundedCornerShape(10.dp)
         Artwork(
             artwork,
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(1f),
-            shape = if (circle) CircleShape else RoundedCornerShape(10.dp),
+                .aspectRatio(1f)
+                .themedCard(spec, shape, corner = if (circle) 75.dp else 10.dp, elevation = 4.dp),
+            shape = shape,
             seed = title,
         )
         Spacer(Modifier.height(8.dp))

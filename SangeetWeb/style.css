@@ -284,3 +284,25 @@ body.np-open #toast { bottom: auto; top: calc(env(safe-area-inset-top) + 56px); 
 .np-video iframe, .np-video > div { width: 100%; height: 100%; border: 0; pointer-events: none; }
 .np-body .np-video-wait { position: absolute; }
 .np-body:has(.np-video-wait) { position: relative; }
+
+/* ---------- Settings: grouped cards like the iPhone's */
+.settings { padding-bottom: 12px; }
+.set-group { margin: 0 16px 22px; }
+.set-title { font-size: 13px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); padding: 0 6px 7px; }
+.set-card { background: var(--surface); border-radius: 14px; overflow: hidden; }
+.set-row { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 9px 14px; position: relative; }
+.set-row + .set-row::before { content: ''; position: absolute; top: 0; left: 56px; right: 0; border-top: 1px solid var(--line); }
+.set-row.tap { cursor: pointer; }
+.set-row.tap:active { background: color-mix(in srgb, var(--text) 7%, transparent); }
+.set-ic { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; color: #fff; flex: none; }
+.set-ic svg { width: 19px; height: 19px; }
+.set-main { flex: 1; min-width: 0; }
+.set-label { font-size: 16px; }
+.set-sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.set-value { color: var(--muted); font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 48%; }
+.set-chev { color: var(--muted); opacity: .55; margin-left: -6px; }
+.set-chev svg { width: 22px; height: 22px; }
+.danger-row .set-label { color: #ff453a; }
+.set-swatches { display: flex; gap: 8px; flex-wrap: wrap; padding: 0 12px 14px 56px; }
+.set-swatches .swatch { width: 28px; height: 28px; }
+.set-foot { text-align: center; color: var(--muted); font-size: 12px; padding: 0 16px 24px; }

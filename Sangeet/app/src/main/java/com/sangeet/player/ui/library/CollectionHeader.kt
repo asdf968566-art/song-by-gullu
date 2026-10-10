@@ -48,6 +48,8 @@ fun CollectionHeader(
     subtitle: String,
     tracks: List<Track>,
     artwork: String? = tracks.firstOrNull()?.artworkUrl,
+    /** Play starts at a random song, shuffled (playlists; a report on Oct 10: "har baar random song"). */
+    playShuffled: Boolean = false,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     val c = LocalAppContainer.current
@@ -97,14 +99,18 @@ fun CollectionHeader(
             }
             actions()
             Spacer(Modifier.weight(1f))
-            IconButton(onClick = { c.player.play(tracks, 0, shuffle = true) }, enabled = tracks.isNotEmpty()) {
+            // Shuffle starts at a random song too (it used to start at the first one every time).
+            val start = { shuffled: Boolean ->
+                if (shuffled) c.player.play(tracks, kotlin.random.Random.nextInt(tracks.size), shuffle = true) else c.player.play(tracks, 0)
+            }
+            IconButton(onClick = { start(true) }, enabled = tracks.isNotEmpty()) {
                 Icon(Icons.Rounded.Shuffle, "Shuffle", tint = spec.accent, modifier = Modifier.size(28.dp))
             }
             Box(
                 Modifier
                     .size(56.dp)
                     .playButtonStyle(spec, 56.dp)
-                    .clickable(enabled = tracks.isNotEmpty()) { c.player.play(tracks, 0) },
+                    .clickable(enabled = tracks.isNotEmpty()) { start(playShuffled) },
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(Icons.Rounded.PlayArrow, "Play", tint = playIconColor(spec), modifier = Modifier.size(32.dp))

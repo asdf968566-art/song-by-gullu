@@ -204,7 +204,7 @@ fun SangeetRoot() {
     // light icons on dark pages, dark icons on light ones. For You is always dark.
     val view = LocalView.current
     val darkTop = Sangeet.spec.isDark || (onDiscover && !expanded)
-    LaunchedEffect(darkTop) {
+    val applyBars = {
         var ctx = view.context
         while (ctx is ContextWrapper && ctx !is Activity) ctx = ctx.baseContext
         (ctx as? Activity)?.window?.let { w ->
@@ -213,6 +213,18 @@ fun SangeetRoot() {
                 isAppearanceLightNavigationBars = !darkTop
             }
         }
+        Unit
+    }
+    LaunchedEffect(darkTop) { applyBars() }
+    // Some phones reset the icon colors when the app comes back (from the share sheet, a call, the shade):
+    // set them again every time (report from a LAVA phone, Oct 10: time/battery hard to see on For You).
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    androidx.compose.runtime.DisposableEffect(lifecycle, darkTop) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, e ->
+            if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) view.post { applyBars() }
+        }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
     }
 
     // Liquid Glass: the pages run under the floating glass bars, which show them through the glass.
