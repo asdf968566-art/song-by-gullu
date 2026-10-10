@@ -323,6 +323,16 @@ request the owner made, in order.
   - Web: Theme → "Crystal · Dark / Light" (`body.crystal`, `html.crystal`, `#backdrop` with the cover, the
     `Crystal.update()` hook in `applyLook` / `trackChanged`).
   - The UI walk screenshots it (`crystal-*.png`).
+- **Phone details in reports** (Oct 10, owner: "kisi specific phone me problem aaye to us problem ke liye data le
+  sakta hai, koi sensitive mt lena"): `data/Diagnostics.kt`, added to every report by `CrashReporter.build`.
+  - It sends: maker / model / Android / ROM build, screen dp and density, font scale, the phone's dark mode,
+    status bar / cutout / navigation bar sizes, the navigation mode, and the status bar icon colour the app set
+    per screen.
+  - It also sends the theme / dark mode / accent, offline mode and YouTube on or off, online or not, which source
+    is playing, and the last 6 screen route patterns.
+  - It never sends songs, playlists, searches, names, accounts, files or location. Reports go to day1, which is
+    public.
+  - SangeetRoot fills in the bar sizes and icon colours.
 - **Owner's app reports of Oct 10** (build 174, realme Android 16; issues #32–#34, copied from day1):
   - "aidj nhi chal rha" / "ai ko dubara check kr" (log: `Gemini: timeout`): Gemini was asked first and alone, its
     free tier used the whole 22 s, so LLM7 was never tried and the DJ showed nothing for 25 s.

@@ -59,6 +59,8 @@ object CrashReporter {
             appendLine("**What happened:** ${what.ifBlank { "(not described)" }}")
             appendLine()
             appendLine("App ${BuildConfig.VERSION_NAME} · Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}) · ${Build.MANUFACTURER} ${Build.MODEL}")
+            // How this phone and the app are set up (no songs, searches or anything personal).
+            runCatching { Diagnostics.text(context) }.getOrNull()?.let { appendLine(); append(it) }
             if (crash != null) {
                 appendLine()
                 appendLine("**Crash**")

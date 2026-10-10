@@ -1,5 +1,7 @@
 package com.sangeet.player.ui
 
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.WindowInsets
@@ -160,7 +162,10 @@ fun SangeetRoot() {
     val onDiscover = backStack?.destination?.route == Routes.DISCOVER
     // Which screens are used (owner dashboard, through the Community upload).
     val openedRoute = backStack?.destination?.route
-    LaunchedEffect(openedRoute) { com.sangeet.player.data.Usage.opened(context, openedRoute) }
+    LaunchedEffect(openedRoute) {
+        com.sangeet.player.data.Usage.opened(context, openedRoute)
+        com.sangeet.player.data.Diagnostics.opened(openedRoute)
+    }
 
     // Permission pehle se mili ho to phone ke gaane scan karo.
     LaunchedEffect(Unit) {
@@ -214,11 +219,24 @@ fun SangeetRoot() {
             WindowCompat.getInsetsController(w, view).apply {
                 isAppearanceLightStatusBars = !darkTop
                 isAppearanceLightNavigationBars = !darkTop
+                com.sangeet.player.data.Diagnostics.barIcons(if (expanded) "now playing" else openedRoute, isAppearanceLightStatusBars)
             }
         }
         Unit
     }
     LaunchedEffect(darkTop) { applyBars() }
+    // Bar sizes for app reports (Diagnostics): a problem on one phone often comes from its bars or camera cutout.
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val statusTop = WindowInsets.statusBars.getTop(density)
+    val navBottom = WindowInsets.navigationBars.getBottom(density)
+    val cutoutTop = WindowInsets.displayCutout.getTop(density)
+    androidx.compose.runtime.SideEffect {
+        with(density) {
+            com.sangeet.player.data.Diagnostics.statusBarDp = statusTop.toDp().value.toInt()
+            com.sangeet.player.data.Diagnostics.navBarDp = navBottom.toDp().value.toInt()
+            com.sangeet.player.data.Diagnostics.cutoutTopDp = cutoutTop.toDp().value.toInt()
+        }
+    }
     // Some phones reset the icon colors when the app comes back (from the share sheet, a call, the shade):
     // set them again every time (report from a LAVA phone, Oct 10: time/battery hard to see on For You).
     val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
