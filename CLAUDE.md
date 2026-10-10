@@ -378,6 +378,7 @@ request the owner made, in order.
 | CI: ImageMagick missing / pip PEP 668 / gh-pages `.git` race | Runner image | Pillow + `--break-system-packages`; gc off + retry |
 | Kotlin `if (...) async {} else null` won't compile | Type inference | Explicit `Deferred<…>?` type |
 | Baseline profile | Gave no measurable gain on the emulator | Kept (harmless), reported honestly |
+| Main run 184: UI walk "Downloads screen: open" failed (branch run passed) | The check looked for the "Saved on this phone" header, which a LazyColumn doesn't draw when downloading/failed rows push it below the screen | The check reads the always-visible top line "N saved" (N ≥ 1) |
 
 Sandbox notes for Claude Code on the web: the session proxy blocks jiosaavn.com, genius, lrclib, invidious/piped,
 GitHub artifact/blob downloads and dl.google.com (no local Android SDK — build/test only in CI). Read job logs with

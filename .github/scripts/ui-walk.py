@@ -400,8 +400,15 @@ def main():
     # Download status screen: the downloaded song must be listed there.
     fresh()
     go_tab("Your Library")
-    step("Downloads screen: open", lambda: tap("Downloads", scroll=3, wait=4),
-         lambda: (find("Saved on this phone", contains=True) is not None, "saved songs listed"))
+    # The top line ("2 saved • 1 in progress") is always on screen; the "Saved on this phone" list can be below
+    # the fold when songs are still downloading or failed above it (main run 184 failed on that, Oct 10).
+    def saved_listed():
+        top = find(" saved", contains=True)
+        m = re.search(r"(\d+) saved", (top or {}).get("text") or "")
+        if m and int(m.group(1)) > 0:
+            return True, top["text"]
+        return find("Saved on this phone", contains=True) is not None, (top or {}).get("text") or "no saved count"
+    step("Downloads screen: open", lambda: tap("Downloads", scroll=3, wait=4), saved_listed)
     step("Downloads screen: play downloads", lambda: tap("Play downloads", wait=6), lambda: (playing(), f"playing: {now_title()}"))
     back()
 
