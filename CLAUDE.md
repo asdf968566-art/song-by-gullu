@@ -331,12 +331,27 @@ request the owner made, in order.
   - Issue #35 (LAVA LXX525, Android 16), four asks:
     - "theme ka effect har page pe aur tiles par bhi": Library tiles take the theme's card style (`themedCard`)
       and are tinted to its accent (`lerp` with `spec.accent`); shelf covers (`ShelfCard`) use `themedCard` too.
-    - "for you page par time, network, battery sahi se show nahi": a dark band behind the status bar on For You.
-      SangeetRoot also sets the icon colors again on every ON_RESUME, because some phones reset them.
+    - "for you page par time, network, battery sahi se show nahi" (again in #38, build 184). The real cause: every
+      page starts below the status bar (Scaffold padding on the NavHost), so the theme's background shows behind the
+      time and battery. For You sets light icons because the page is black, so on a light theme they were light
+      on light. Build 184's band inside For You sat below the status bar and didn't help. Now SangeetRoot draws a
+      black strip behind the status bar while For You is shown (`windowInsetsTopHeight(WindowInsets.statusBars)`
+      in ThemedBackground, under the Scaffold). It also sets the icon colors again on every ON_RESUME. The UI
+      walk screenshots For You in Liquid Glass light (`light-ForYou.png` on ci-shots). CI used dark themes, so it
+      never showed this.
     - "library me user ki khud ki playlist top me": Liked Songs and your playlists come first, on both apps.
     - "playlist se hamesha first song": Play on playlists, mixes and lists (`CollectionHeader(playShuffled = true)`;
       web `songsPage`) starts at a random song, shuffled. Shuffle used to start at the first song; now it is random
       too. Albums, films and artists still play in order.
+  - Issue #38 (same LAVA tester, build 184):
+    - The status bar again (see above).
+    - "add to playlist besides like": a PlaylistAdd button next to Like on For You (the six controls are 40 dp
+      with no gaps, to fit 320 dp) and in Now Playing. On the web it is a plus button in Now Playing.
+    - Library order and "thumbnail instead of list": the Playlists tab is a two-column tile grid
+      (`LazyVerticalGrid`, `LibraryTile`). Order: Liked Songs and your own playlists, then Online Library,
+      Movies, Your Stats, Downloads, Blend, On this phone, then the auto playlists (names starting with ✨),
+      Recently played, Live radio and Listen together. Albums and Artists are tiles too. The web keeps its list in
+      the same order.
   - Web Settings redesign (owner: "setting ka ui shi se bna"): grouped cards like the iPhone's Settings
     (`setGroup` / `setRow` / `setSwitch`, coloured icon tiles, values with chevrons).
     - Languages and Sync have their own pages (`languagesPage`, `syncPage`, `syncBox` in the same style).

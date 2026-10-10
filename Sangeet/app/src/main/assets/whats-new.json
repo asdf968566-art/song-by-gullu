@@ -55,6 +55,16 @@
       },
       {
         "on": "both",
+        "type": "new",
+        "text": "Add to playlist next to Like"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Library as tiles"
+      },
+      {
+        "on": "both",
         "type": "fix",
         "text": "AI DJ plays right away"
       },

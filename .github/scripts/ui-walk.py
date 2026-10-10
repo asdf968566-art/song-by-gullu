@@ -557,7 +557,8 @@ def main():
             return True
         return act
     step("Liquid Glass: light mode", mode("Light"))
-    for t in ["Home", "Search", "Your Library"]:
+    # For You in a light theme: the status bar must be black there with light icons (reports #35, #38).
+    for t in ["For You", "Home", "Search", "Your Library"]:
         step(f"Liquid Glass light: {t} page", lambda t=t: go_tab(t) and shot("light-" + t.replace(" ", "")))
     step("Liquid Glass light: Now Playing", lambda: open_now_playing() and shot("light-NowPlaying"))
     if find("Close"):

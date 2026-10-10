@@ -1,5 +1,8 @@
 package com.sangeet.player.ui
 
+import androidx.compose.foundation.layout.windowInsetsTopHeight
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -232,6 +235,17 @@ fun SangeetRoot() {
     val glass = rememberGlassSource()
     CompositionLocalProvider(LocalNav provides nav, LocalGlassSource provides glass.takeIf { liquid }) {
     ThemedBackground {
+        // Every page starts below the status bar, so the theme's background shows behind the time and battery.
+        // For You is black with light icons: give the status bar a black strip there too, or light icons sat on
+        // a light theme's background and couldn't be seen (a tester's LAVA phone, reports #35 and #38).
+        if (onDiscover && !expanded) {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .windowInsetsTopHeight(WindowInsets.statusBars)
+                    .background(Color.Black)
+            )
+        }
         Scaffold(
             containerColor = Color.Transparent,
             bottomBar = {

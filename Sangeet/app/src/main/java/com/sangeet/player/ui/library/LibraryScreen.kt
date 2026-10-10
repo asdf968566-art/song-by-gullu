@@ -16,8 +16,11 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -97,12 +100,26 @@ fun LibraryScreen(nav: NavController) {
     val albums = remember(localSongs) { c.local.albums(localSongs) }
     val artists = remember(localSongs) { c.local.artists(localSongs) }
 
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = bottomBarPadding()) {
-        item {
+    // Tiles in two columns, like album covers (a tester's report, Oct 10: "thumbnail instead of list"). Order:
+    // Liked Songs and your own playlists, then Online Library, Movies, Stats, Downloads, Blend, On this phone,
+    // then the rest (auto playlists, recently played, radio, listen together).
+    val full: androidx.compose.foundation.lazy.grid.LazyGridItemSpanScope.() -> GridItemSpan = { GridItemSpan(maxLineSpan) }
+    val own = playlists.filter { !it.name.startsWith("✨") }
+    val auto = playlists.filter { it.name.startsWith("✨") }
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(2),
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+            start = 16.dp, end = 16.dp, bottom = bottomBarPadding().calculateBottomPadding() + 24.dp,
+        ),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        item(span = full) {
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .padding(start = 16.dp, end = 4.dp, top = 12.dp),
+                    .padding(top = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text("Your Library", style = MaterialTheme.typography.headlineMedium, color = spec.onSurface, modifier = Modifier.weight(1f))
@@ -110,11 +127,9 @@ fun LibraryScreen(nav: NavController) {
                 IconButton(onClick = { creating = true }) { Icon(Icons.Rounded.Add, "New playlist", tint = spec.onSurface) }
             }
         }
-        item {
+        item(span = full) {
             Row(
-                Modifier
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                Modifier.horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 listOf("Playlists", "Albums", "Artists").forEachIndexed { i, label ->
@@ -136,10 +151,9 @@ fun LibraryScreen(nav: NavController) {
         }
 
         if (localSongs.isEmpty()) {
-            item {
+            item(span = full) {
                 Column(
                     Modifier
-                        .padding(16.dp)
                         .fillMaxWidth()
                         .themedCard(spec, RoundedCornerShape(14.dp), corner = 14.dp)
                         .padding(16.dp)
@@ -158,111 +172,115 @@ fun LibraryScreen(nav: NavController) {
 
         when (tab) {
             0 -> {
-                // Your own playlists first (report, Oct 10: "user ki khud ki playlist top me").
                 item {
-                    LibraryRow(
+                    LibraryTile(
                         title = "Liked Songs",
-                        subtitle = "Playlist • ${if (favorites.size == 1) "1 song" else "${favorites.size} songs"}",
+                        subtitle = if (favorites.size == 1) "1 song" else "${favorites.size} songs",
                         gradient = listOf(Color(0xFF4A2BD8), Color(0xFF8EC5E8)),
                         icon = Icons.Rounded.Favorite,
                     ) { nav.navigate(Routes.list(ListKind.LIKED)) }
                 }
-                items(playlists, key = { "p${it.id}" }) { p ->
-                    LibraryRow(title = p.name, subtitle = "Playlist • ${if (p.trackCount == 1) "1 song" else "${p.trackCount} songs"}", artwork = p.coverUrl) {
+                items(own, key = { "p${it.id}" }) { p ->
+                    LibraryTile(title = p.name, subtitle = if (p.trackCount == 1) "1 song" else "${p.trackCount} songs", artwork = p.coverUrl) {
                         nav.navigate(Routes.playlist(p.id))
                     }
                 }
                 item {
-                    LibraryRow(
+                    LibraryTile(
                         title = "Online Library",
-                        subtitle = "Charts, playlists and millions of songs",
+                        subtitle = "Charts and playlists",
                         gradient = listOf(Color(0xFFE13300), Color(0xFFF59B23)),
                         icon = Icons.Rounded.Public,
                     ) { nav.navigate(Routes.ONLINE_LIBRARY) }
                 }
                 item {
-                    LibraryRow(
+                    LibraryTile(
                         title = "Movies",
-                        subtitle = "Every film's songs: by year, music director, producer, actor",
+                        subtitle = "Every film's songs",
                         gradient = listOf(Color(0xFFB45309), Color(0xFFF59E0B)),
                         icon = Icons.Rounded.Movie,
                     ) { nav.navigate(Routes.movies()) }
                 }
                 item {
-                    LibraryRow(
-                        title = "Live radio",
-                        subtitle = "Mirchi, Red FM, Vividh Bharati and more, live",
-                        gradient = listOf(Color(0xFF0EA5E9), Color(0xFF6366F1)),
-                        icon = Icons.Rounded.Radio,
-                    ) { nav.navigate(Routes.RADIO) }
-                }
-                item {
-                    LibraryRow(
-                        title = "Listen together",
-                        subtitle = "The same song on your friends' phones",
-                        gradient = listOf(Color(0xFFDB2777), Color(0xFFF97316)),
-                        icon = Icons.Rounded.Groups,
-                    ) { nav.navigate(Routes.together()) }
-                }
-                item {
-                    LibraryRow(
+                    LibraryTile(
                         title = "Your Stats",
-                        subtitle = "Listening time, top artists, streak",
+                        subtitle = "Time, top artists, streak",
                         gradient = listOf(Color(0xFF7C4DFF), Color(0xFF00E5C3)),
                         icon = Icons.Rounded.BarChart,
                     ) { nav.navigate(Routes.STATS) }
                 }
                 item {
-                    LibraryRow(
-                        title = "Blend with a friend",
-                        subtitle = "One playlist from your taste and a friend's",
-                        gradient = listOf(Color(0xFFFF5F6D), Color(0xFFFFC371)),
-                        icon = Icons.Rounded.People,
-                    ) { blendAsk = true }
-                }
-                item {
-                    LibraryRow(
+                    LibraryTile(
                         title = "Downloads",
-                        subtitle = "Offline • ${if (downloaded.size == 1) "1 song" else "${downloaded.size} songs"}" +
+                        subtitle = (if (downloaded.size == 1) "1 song" else "${downloaded.size} songs") +
                             if (activeDownloads > 0) " • $activeDownloads downloading" else "",
                         gradient = listOf(Color(0xFF0B6E4F), Color(0xFF1DB954)),
                         icon = Icons.Rounded.DownloadForOffline,
                     ) { nav.navigate(Routes.DOWNLOADS) }
                 }
                 item {
-                    LibraryRow(
+                    LibraryTile(
+                        title = "Blend with a friend",
+                        subtitle = "Your taste and theirs",
+                        gradient = listOf(Color(0xFFFF5F6D), Color(0xFFFFC371)),
+                        icon = Icons.Rounded.People,
+                    ) { blendAsk = true }
+                }
+                item {
+                    LibraryTile(
                         title = "On this phone",
-                        subtitle = "Local • ${if (localSongs.size == 1) "1 song" else "${localSongs.size} songs"}",
+                        subtitle = if (localSongs.size == 1) "1 song" else "${localSongs.size} songs",
                         gradient = listOf(Color(0xFFB2458C), Color(0xFFF7B267)),
                         icon = Icons.Rounded.PhoneAndroid,
                     ) { nav.navigate(Routes.list(ListKind.LOCAL)) }
                 }
+                items(auto, key = { "p${it.id}" }) { p ->
+                    LibraryTile(title = p.name, subtitle = if (p.trackCount == 1) "1 song" else "${p.trackCount} songs", artwork = p.coverUrl) {
+                        nav.navigate(Routes.playlist(p.id))
+                    }
+                }
                 item {
-                    LibraryRow(
+                    LibraryTile(
                         title = "Recently played",
                         subtitle = "History",
                         gradient = listOf(Color(0xFF2E3A59), Color(0xFF7C8DB5)),
                         icon = Icons.Rounded.History,
                     ) { nav.navigate(Routes.list(ListKind.RECENT)) }
                 }
+                item {
+                    LibraryTile(
+                        title = "Live radio",
+                        subtitle = "Mirchi, Red FM and more",
+                        gradient = listOf(Color(0xFF0EA5E9), Color(0xFF6366F1)),
+                        icon = Icons.Rounded.Radio,
+                    ) { nav.navigate(Routes.RADIO) }
+                }
+                item {
+                    LibraryTile(
+                        title = "Listen together",
+                        subtitle = "With friends' phones",
+                        gradient = listOf(Color(0xFFDB2777), Color(0xFFF97316)),
+                        icon = Icons.Rounded.Groups,
+                    ) { nav.navigate(Routes.together()) }
+                }
             }
             1 -> items(albums, key = { "a${it.id}" }) { a ->
-                LibraryRow(title = a.title, subtitle = "Album • ${a.artist}", artwork = a.artworkUrl) {
+                LibraryTile(title = a.title, subtitle = a.artist, artwork = a.artworkUrl) {
                     nav.navigate(Routes.list(ListKind.ALBUM, a.id.toString()))
                 }
             }
             else -> items(artists, key = { "r${it.name}" }) { a ->
-                LibraryRow(title = a.name, subtitle = "Artist • ${if (a.tracks.size == 1) "1 song" else "${a.tracks.size} songs"}", artwork = a.artworkUrl, circle = true) {
+                LibraryTile(title = a.name, subtitle = if (a.tracks.size == 1) "1 song" else "${a.tracks.size} songs", artwork = a.artworkUrl, circle = true) {
                     nav.navigate(Routes.list(ListKind.ARTIST, a.name))
                 }
             }
         }
-        item { Spacer(Modifier.height(24.dp)) }
     }
 }
 
+/** One square tile: a cover (or the theme-tinted gradient with an icon), then its name and a short line. */
 @Composable
-private fun LibraryRow(
+private fun LibraryTile(
     title: String,
     subtitle: String,
     artwork: String? = null,
@@ -272,33 +290,31 @@ private fun LibraryRow(
     onClick: () -> Unit,
 ) {
     val spec = Sangeet.spec
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 7.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        val shape = if (circle) CircleShape else RoundedCornerShape(6.dp)
+    Column(Modifier.fillMaxWidth().clickable(onClick = onClick)) {
+        val shape = if (circle) CircleShape else RoundedCornerShape(10.dp)
+        val corner = if (circle) 80.dp else 10.dp
         // Tiles follow the theme: its card style (glass, soft shadows…) and its accent color.
-        val corner = if (circle) 32.dp else 6.dp
         if (gradient != null && icon != null) {
             val tinted = listOf(lerp(gradient.first(), spec.accent, 0.6f), lerp(gradient.last(), spec.accent, 0.35f))
             Box(
                 Modifier
-                    .size(64.dp)
-                    .themedCard(spec, shape, corner = corner, elevation = 3.dp)
+                    .fillMaxWidth()
+                    .aspectRatio(1f)
+                    .themedCard(spec, shape, corner = corner, elevation = 4.dp)
                     .background(Brush.linearGradient(tinted), shape),
                 contentAlignment = Alignment.Center,
-            ) { Icon(icon, null, tint = Color.White, modifier = Modifier.size(28.dp)) }
+            ) { Icon(icon, null, tint = Color.White, modifier = Modifier.size(44.dp)) }
         } else {
-            Artwork(artwork, modifier = Modifier.size(64.dp).themedCard(spec, shape, corner = corner, elevation = 3.dp), shape = shape, seed = title)
+            Artwork(
+                artwork,
+                modifier = Modifier.fillMaxWidth().aspectRatio(1f).themedCard(spec, shape, corner = corner, elevation = 4.dp),
+                shape = shape,
+                seed = title,
+            )
         }
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.titleMedium, color = spec.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = spec.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
+        Spacer(Modifier.height(8.dp))
+        Text(title, style = MaterialTheme.typography.titleSmall, color = spec.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(subtitle, style = MaterialTheme.typography.bodySmall, color = spec.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
