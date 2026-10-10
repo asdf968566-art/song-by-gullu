@@ -80,18 +80,19 @@ object FreeAi {
         return pick?.also { geminiModel = it }
     }
 
-    private fun askGemini(key: String, user: String, timeoutMs: Long): String? {
+    private fun askGemini(key: String, user: String, timeoutMs: Long, system: String = SYSTEM, json: Boolean = true): String? {
         val started = System.currentTimeMillis()
         val model = geminiModelFor(key, timeoutMs) ?: return null
         val left = timeoutMs - (System.currentTimeMillis() - started)
         if (left < 2_000) return null
         val body = buildJsonObject {
-            put("systemInstruction", buildJsonObject { putJsonArray("parts") { add(buildJsonObject { put("text", SYSTEM) }) } })
+            put("systemInstruction", buildJsonObject { putJsonArray("parts") { add(buildJsonObject { put("text", system) }) } })
             putJsonArray("contents") {
                 add(buildJsonObject { put("role", "user"); putJsonArray("parts") { add(buildJsonObject { put("text", user) }) } })
             }
             put("generationConfig", buildJsonObject {
-                put("temperature", 0.4); put("maxOutputTokens", 4000); put("responseMimeType", "application/json")
+                put("temperature", 0.4); put("maxOutputTokens", 4000)
+                if (json) put("responseMimeType", "application/json")
             })
         }
         val req = Request.Builder().url("$GEMINI/$model:generateContent?key=$key")
@@ -143,13 +144,13 @@ object FreeAi {
     }
 
     /** One model's answer, or null. [timeoutMs] bounds the whole call (a blocking call can't be cancelled). */
-    private fun ask(p: Provider, user: String, timeoutMs: Long): String? {
+    private fun ask(p: Provider, user: String, timeoutMs: Long, system: String = SYSTEM): String? {
         val body = buildJsonObject {
             put("model", p.model)
             put("temperature", 0.4)
             put("max_tokens", 3000)
             putJsonArray("messages") {
-                add(buildJsonObject { put("role", "system"); put("content", SYSTEM) })
+                add(buildJsonObject { put("role", "system"); put("content", system) })
                 add(buildJsonObject { put("role", "user"); put("content", user) })
             }
         }
@@ -167,6 +168,29 @@ object FreeAi {
             return (o["choices"]?.jsonArray?.firstOrNull()?.jsonObject?.get("message") as? JsonObject)
                 ?.get("content")?.let { (it as? JsonPrimitive)?.contentOrNull }
         }
+    }
+
+    // ------------------------------------------------------------ the meaning of a lyrics line (owner, Oct 10)
+
+    private const val MEANING = "You explain Indian song lyrics to listeners. Reply in simple English, in at most 3 short " +
+        "sentences, with no heading and no markdown. If the line is not in English (Hindi, Punjabi, Haryanvi or another " +
+        "language), first give its English translation in quotes, then what it means in the song."
+
+    /** What [line] of "[title]" by [artist] means, or null (no internet, every AI busy). */
+    suspend fun meaning(line: String, title: String, artist: String, geminiKey: String = ""): String? = withContext(Dispatchers.IO) {
+        val user = "Song: \"$title\" by ${artist.substringBefore(",")}.\nLine: \"${line.take(300)}\""
+        val until = System.currentTimeMillis() + 20_000
+        if (geminiKey.isNotBlank()) {
+            runCatching { askGemini(geminiKey, user, until - System.currentTimeMillis(), MEANING, json = false) }.getOrNull()
+                ?.trim()?.takeIf { it.isNotBlank() }?.let { return@withContext it }
+        }
+        for (p in PROVIDERS) {
+            val left = until - System.currentTimeMillis()
+            if (left < 3_000) break
+            runCatching { ask(p, user, left, MEANING) }.getOrNull()
+                ?.replace(Regex("(?s)<think>.*?</think>"), "")?.trim()?.takeIf { it.isNotBlank() }?.let { return@withContext it }
+        }
+        null
     }
 
     /** The JSON plan inside [body] (it can come wrapped in ``` fences or text), or null. */

@@ -56,6 +56,8 @@ class LibraryRepository(private val db: SangeetDatabase, scope: CoroutineScope) 
     }
 
     suspend fun recordPlay(track: Track) {
+        // Live radio isn't a song you played: it stays out of history, stats and suggestions.
+        if (track.source == com.sangeet.player.data.model.SourceType.URL && track.sourceId.startsWith("radio-")) return
         remember(listOf(track))
         db.historyDao().recordPlay(track.id)
     }

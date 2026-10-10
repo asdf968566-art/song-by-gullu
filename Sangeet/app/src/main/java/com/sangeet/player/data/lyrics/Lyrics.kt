@@ -71,6 +71,7 @@ class LyricsRepository(
     private val online: OnlineRepository,
 ) {
     suspend fun get(track: Track, allowOnline: Boolean = true): Lyrics? {
+        if (track.source == com.sangeet.player.data.model.SourceType.URL && track.sourceId.startsWith("radio-")) return null // live radio
         dao.get(track.id)?.let { return it.toLyrics() }
         sidecar(track)?.let { text ->
             save(track.id, text, "Local .lrc")

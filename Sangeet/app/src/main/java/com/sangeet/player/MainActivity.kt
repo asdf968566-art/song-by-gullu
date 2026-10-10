@@ -49,8 +49,15 @@ class MainActivity : ComponentActivity() {
             CompositionLocalProvider(LocalAppContainer provides container) {
                 SangeetTheme(settings) {
                     SangeetRoot()
-                    // Crashed last time: offer to send the report (only then, never otherwise).
-                    var crash by remember { mutableStateOf(CrashReporter.pendingCrash(this@MainActivity)) }
+                    // Crashed last time: the report goes by itself (owner, Oct 10); only if that fails, ask.
+                    var crash by remember { mutableStateOf<String?>(null) }
+                    androidx.compose.runtime.LaunchedEffect(Unit) {
+                        val pending = CrashReporter.pendingCrash(this@MainActivity) ?: return@LaunchedEffect
+                        val sent = CrashReporter.canSendDirectly && container.online.canGoOnline && runCatching {
+                            CrashReporter.submit(this@MainActivity, "(sent automatically after a crash)", includeLogs = true)
+                        }.onFailure { android.util.Log.w("Sangeet", "auto crash report: ${it.message}") }.isSuccess
+                        if (!sent) crash = pending
+                    }
                     if (crash != null) {
                         AlertDialog(
                             onDismissRequest = { CrashReporter.clear(this@MainActivity); crash = null },
@@ -93,6 +100,12 @@ class MainActivity : ComponentActivity() {
                     com.sangeet.player.data.LibrarySync.songFromLink(uri.toString()) else null
                 if (shared != null) {
                     container.player.startRadio(shared)
+                    return
+                }
+                // A friend's "Listen together" room (#together=… or sangeet://together?code=…): open it, which joins.
+                (uri.fragment?.takeIf { it.startsWith("together=") }?.removePrefix("together=")
+                    ?: uri.getQueryParameter("code")?.takeIf { uri.scheme == "sangeet" && uri.host == "together" })?.let {
+                    container.openRoute.value = com.sangeet.player.ui.Routes.together(it)
                     return
                 }
                 // A sync link from the other phone (#joinsync=…): open Sync, which joins it.

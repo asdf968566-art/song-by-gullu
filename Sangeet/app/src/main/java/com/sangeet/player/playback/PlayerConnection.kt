@@ -298,6 +298,8 @@ class PlayerConnection(
         }
     }
 
+    fun setPlaying(on: Boolean) = withController { if (on) it.play() else it.pause() }
+
     fun next() = withController { it.seekToNext() }
     fun previous() = withController { it.seekToPrevious() }
     fun seekTo(ms: Long) = withController {

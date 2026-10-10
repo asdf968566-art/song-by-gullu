@@ -44,9 +44,13 @@ class YouTubeSource : OnlineSource {
     override val type = SourceType.YOUTUBE
     override val exactQuality = false
 
-    override fun isEnabled(s: AppSettings) = s.youtubeEnabled
+    // The Google Play version has no YouTube at all (Play's rules); the app uses JioSaavn there.
+    private val off = com.sangeet.player.BuildConfig.PLAY_STORE
+
+    override fun isEnabled(s: AppSettings) = s.youtubeEnabled && !off
 
     override suspend fun search(query: String, s: AppSettings): List<Track> {
+        if (off) return emptyList()
         if (s.youtubeApiKey.isNotBlank()) {
             runCatching { return DataApi.search(query, s.youtubeApiKey) }
         }
@@ -54,6 +58,7 @@ class YouTubeSource : OnlineSource {
     }
 
     override suspend fun trending(s: AppSettings, genre: String?): List<Track> {
+        if (off) return emptyList()
         if (genre != null) return byLanguage(genre, s)
         if (s.youtubeApiKey.isNotBlank()) {
             runCatching { DataApi.mostPopularMusic(s.youtubeApiKey) }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { return it }
@@ -75,6 +80,7 @@ class YouTubeSource : OnlineSource {
     }
 
     private fun resolveStream(track: Track, quality: AudioQuality): String {
+        if (off) throw IOException("YouTube is not in this version")
         val key = "${track.sourceId}@${quality.name}"
         streamCache[key]?.takeIf { it.second > System.currentTimeMillis() }?.let { return it.first }
         ensureInit()
@@ -95,6 +101,7 @@ class YouTubeSource : OnlineSource {
      * Great source of variety for the feed and radio.
      */
     suspend fun similar(videoId: String): List<Track> = withContext(Dispatchers.IO) {
+        if (off) return@withContext emptyList()
         ensureInit()
         val info = PlaylistInfo.getInfo(ServiceList.YouTube, "https://www.youtube.com/watch?v=$videoId&list=RD$videoId")
         info.relatedItems.filterIsInstance<StreamInfoItem>().mapNotNull { toTrack(it) }.filter { it.sourceId != videoId }
@@ -105,6 +112,7 @@ class YouTubeSource : OnlineSource {
      * official API reads it (1 quota unit per 50 songs, never blocked); otherwise, or if that fails, NewPipe.
      */
     suspend fun playlist(link: String, key: String = ""): Pair<String, List<Track>>? = withContext(Dispatchers.IO) {
+        if (off) return@withContext null
         val id = Regex("[?&]list=([\\w-]+)").find(link)?.groupValues?.get(1) ?: return@withContext null
         if (key.isNotBlank()) {
             runCatching { DataApi.playlist(id, key) }
@@ -134,7 +142,7 @@ class YouTubeSource : OnlineSource {
 
     /** First YouTube Music result for "title artist" (to start a YouTube radio from any song). */
     suspend fun find(title: String, artist: String): Track? =
-        runCatching { musicSearch("$title $artist").firstOrNull() }.getOrNull()
+        if (off) null else runCatching { musicSearch("$title $artist").firstOrNull() }.getOrNull()
 
     private fun toTrack(item: StreamInfoItem): Track? {
         val id = videoId(item.url) ?: return null

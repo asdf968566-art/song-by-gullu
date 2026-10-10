@@ -253,6 +253,50 @@ request the owner made, in order.
     - Android syncs 20 s after likes/playlists change, and on start; the web does the same through `save()`.
     - restful-api.dev is a free test service. If an object disappears, the app says the code doesn't work and
       the user starts again.
+- **Owner's batch of Oct 10** ("7 aur 9 ko chod kr saare kr de": all suggestions except Data saver and the
+  verified App Links repo).
+  - **Play Store version:** build type `play` (`initWith(release)`, `BuildConfig.PLAY_STORE = true`). CI runs
+    `bundlePlay` → `Sangeet-play.aab` in the `latest` release
+    (https://github.com/asdf968566-art/song-by-gullu/releases/download/latest/Sangeet-play.aab).
+    - No YouTube: `YouTubeSource` is off, and Settings hides the YouTube group.
+    - No self-update: `AutoUpdate` and `AppUpdater` do nothing, and Settings hides App update.
+    - `src/play/AndroidManifest.xml` removes REQUEST_INSTALL_PACKAGES, UPDATE_PACKAGES_WITHOUT_USER_ACTION and the
+      exact-alarm permissions. The alarm then uses an inexact alarm. CI fails if the bundle still asks to install
+      packages.
+    - The APK and `Sangeet.aab` are unchanged (full app).
+  - **Live FM radio:** Android `data/remote/LiveRadio.kt` + `ui/library/RadioScreen.kt` (Library → Live radio,
+    route `radio`); web `Radio` + `radioPage`.
+    - Source: the Radio Browser directory (keyless, CORS `*`; `all/de1/de2.api.radio-browser.info`). CI probe on
+      Oct 10 found ~300 Indian stations (Mirchi, Red FM, Vividh Bharati/AIR as HLS).
+    - Only https streams are used: Android blocks cleartext, and the site is https.
+    - Each station is a `SourceType.URL` track with sourceId `radio-<uuid>` (web `src: 'radio'`). A station isn't
+      recorded as a play, can't be downloaded and has no lyrics.
+    - HLS is flagged with `MimeTypes.APPLICATION_M3U8` (`MediaItems.EXTRA_HLS`).
+  - **Automatic crash reports:** after a crash, MainActivity sends the report by itself (`CrashReporter.submit`,
+    "(sent automatically after a crash)"). It asks only when that fails.
+  - **Sing along:** Android `ui/nowplaying/SingAlong.kt` (mic button in Now Playing when the lyrics are synced);
+    web `singAlong` (lyrics chip "Sing along"). It shows the current line very big, with the lines before and after.
+  - **Lyrics meaning:** long-press a line on Android (`LyricLineDialog`: Meaning / Share as picture), or "Pick a
+    line" on the web. `FreeAi.meaning` asks Gemini (text) first, then LLM7, with a 20 s budget; `<think>` blocks
+    are removed.
+  - **Song of the day:**
+    - Android `data/notify/SongOfTheDay.kt`: a daily worker around 9:00, the first For You song not shown before,
+      tap opens `sangeet://play?song=`. Setting `songOfTheDay`.
+    - Web: a card at the top of Library (`songOfTheDay()`, `S.sotd`).
+  - **Listen together:** Android `data/Together.kt` (`container.together`) + `ui/library/TogetherScreen.kt` (Library
+    → Listen together, route `together?code=`); web `Together` + `togetherPage`. Both apps share one format.
+    - The host makes a 6-letter code (no 0/O/1/I). The link is `#together=<code>`; Android also handles it and
+      `sangeet://together?code=`.
+    - Messages go through **ntfy.sh** (keyless, CORS `*`), topic `sangeet-tg-<code>`:
+      - `{v,k:'s',from,o:<#play song JSON>,n,p:seconds,on}` from the host, on a change (song, play/pause, a seek
+        > 3 s) and every 5 min;
+      - `{k:'h'}` from a guest joining, which the host answers.
+    - ntfy.sh allows ~250 messages a day per IP, so the host sends little.
+    - Guests listen on `/<topic>/sse` (web) or `/<topic>/json` (Android, read timeout 100 s, reconnects). They
+      play the host's song, seek when more than 2.5 s off, and copy play/pause.
+    - Phone files and radio can't be shared; the guest sees a note.
+    - Playwright test with a local ntfy stand-in: the guest stayed within 0.3 s, and pause, a new song and seeks
+      followed.
 - Other platforms checked Oct 9 from CI: Gaana's old open API is gone (404); Wynk, Hungama, Spotify have no open
   streams. JioSaavn + YouTube stay the sources.
 - In-app "Report a problem" got 403 from GitHub. Cause (found Oct 9 from CI: `REPORT_TOKEN fingerprint/account`
@@ -294,7 +338,7 @@ GitHub artifact/blob downloads and dl.google.com (no local Android SDK — build
 the GitHub MCP `get_job_logs` tool; test the web app locally with Playwright (Chromium is preinstalled) by serving
 `SangeetWeb/` plus a copy of gh-pages `data/` and stubbing network routes.
 
-## 6. Status (2026-10-09 ~19:45 UTC)
+## 6. Status (2026-10-10)
 
 - `main` has everything up to PR #30. Latest APK = **build 174** (emulator test passed). The site is live with the
   same features.
@@ -312,6 +356,8 @@ the GitHub MCP `get_job_logs` tool; test the web app locally with Playwright (Ch
   like the YouTube key). Don't raise it again.
 - YouTube background mode (web): look for `YT SERVERS: N working` in the Web App log; it was 0 on Oct 6 (public
   Invidious/Piped are blocked by YouTube) and the owner knows.
+- Oct 10 batch (above) is in PR #32. The owner left out suggestion 7 (Data saver) and 9 (a repo
+  `asdf968566-art.github.io` for verified App Links).
 - Ideas the owner was offered but hasn't asked for: Navidrome/Subsonic option on the iPhone web app (Android has it).
 - Owner asked about hosting all catalog songs on their own server: advised against it (copyright takedowns could
   hit the GitHub account; ~400–500 GB per lakh songs; no gain since JioSaavn CDN already serves them).

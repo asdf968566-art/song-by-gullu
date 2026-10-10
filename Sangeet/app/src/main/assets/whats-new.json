@@ -1,5 +1,41 @@
 [
   {
+    "date": "2026-10-10",
+    "title": "Live radio and listening together",
+    "items": [
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Live FM radio"
+      },
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Listen together with friends"
+      },
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Sing-along mode"
+      },
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Meaning of a lyrics line"
+      },
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Song of the day"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Crash reports sent automatically"
+      }
+    ]
+  },
+  {
     "date": "2026-10-09",
     "title": "Sync, alarm, movies and a smarter AI DJ",
     "items": [

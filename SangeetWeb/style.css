@@ -265,3 +265,15 @@ body.np-open #toast { bottom: auto; top: calc(env(safe-area-inset-top) + 56px); 
 .whats-new li { margin: 6px 0; line-height: 1.35; color: var(--text); }
 
 .whats-new .wn-kind { color: var(--accent); font-size: 13px; font-weight: 600; margin: 8px 20px 0; }
+
+.row.sotd { margin: 4px 12px 8px; border-radius: 14px; background: var(--card, rgba(255,255,255,.06)); }
+.row.sotd .meta .s:first-child { color: var(--accent); font-weight: 600; font-size: 12px; }
+
+.sing-along { position: fixed; inset: 0; z-index: 60; background: #000; color: #fff; display: flex; flex-direction: column; padding: calc(env(safe-area-inset-top) + 12px) 24px calc(env(safe-area-inset-bottom) + 24px); }
+.sing-along .sa-top { display: flex; align-items: center; gap: 8px; opacity: .7; }
+.sing-along .sa-top span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sing-along .sa-top .icon-btn { color: #fff; }
+.sing-along .sa-lines { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; gap: 22px; }
+.sing-along .sa-now { font-size: 36px; line-height: 1.25; font-weight: 800; }
+.sing-along .sa-side { font-size: 22px; line-height: 1.3; opacity: .4; }
+.room-code { font-size: 44px; font-weight: 800; letter-spacing: 6px; text-align: center; margin: 12px 16px; color: var(--accent); }

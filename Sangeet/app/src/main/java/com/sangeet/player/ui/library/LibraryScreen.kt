@@ -29,6 +29,8 @@ import androidx.compose.material.icons.rounded.FileOpen
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.Movie
+import androidx.compose.material.icons.rounded.Groups
+import androidx.compose.material.icons.rounded.Radio
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material3.Button
@@ -170,6 +172,22 @@ fun LibraryScreen(nav: NavController) {
                         gradient = listOf(Color(0xFFB45309), Color(0xFFF59E0B)),
                         icon = Icons.Rounded.Movie,
                     ) { nav.navigate(Routes.movies()) }
+                }
+                item {
+                    LibraryRow(
+                        title = "Live radio",
+                        subtitle = "Mirchi, Red FM, Vividh Bharati and more, live",
+                        gradient = listOf(Color(0xFF0EA5E9), Color(0xFF6366F1)),
+                        icon = Icons.Rounded.Radio,
+                    ) { nav.navigate(Routes.RADIO) }
+                }
+                item {
+                    LibraryRow(
+                        title = "Listen together",
+                        subtitle = "The same song on your friends' phones",
+                        gradient = listOf(Color(0xFFDB2777), Color(0xFFF97316)),
+                        icon = Icons.Rounded.Groups,
+                    ) { nav.navigate(Routes.together()) }
                 }
                 item {
                     LibraryRow(

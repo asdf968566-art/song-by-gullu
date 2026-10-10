@@ -20,6 +20,8 @@ android {
         versionName = "1.0.$build"
         vectorDrawables { useSupportLibrary = true }
         buildConfigField("String", "UPDATE_REPO", "\"asdf968566-art/song-by-gullu\"")
+        // The Google Play version (build type "play"): no YouTube and no self-update (Play's rules). Off here.
+        buildConfigField("boolean", "PLAY_STORE", "false")
         // Private repo for the shared listening data (Community); empty = nothing is sent. CI picks it.
         buildConfigField("String", "DATA_REPO", "\"${System.getenv("DATA_REPO") ?: ""}\"")
         // Where "Report a problem" creates issues: CI picks a repo the report token can write to.
@@ -74,6 +76,13 @@ android {
             // Debug key se sign hota hai taaki release APK seedha install ho sake.
             // Play Store ke liye apni keystore lagayein.
             signingConfig = signingConfigs.findByName("upload") ?: signingConfigs.getByName("debug")
+        }
+        // Sangeet-play.aab for Google Play: the same app without YouTube and without updating itself
+        // (src/play/AndroidManifest.xml removes the install and exact-alarm permissions). CI: bundlePlay.
+        create("play") {
+            initWith(getByName("release"))
+            matchingFallbacks += listOf("release")
+            buildConfigField("boolean", "PLAY_STORE", "true")
         }
     }
 

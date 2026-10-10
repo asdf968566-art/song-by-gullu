@@ -2,6 +2,7 @@ package com.sangeet.player.ui.settings
 
 import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.Autorenew
+import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material.icons.rounded.CloudSync
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.Psychology
@@ -138,6 +139,9 @@ fun SettingsScreen(nav: NavController) {
             SettingsSwitch(Icons.Rounded.NotificationsActive, "New song alerts", "A notification when a singer you play most has a new song", s.newSongAlerts) {
                 scope.launch { c.settings.setNewSongAlerts(it) }
             }
+            SettingsSwitch(Icons.Rounded.WbSunny, "Song of the day", "One song picked for you every morning", s.songOfTheDay) {
+                scope.launch { c.settings.setSongOfTheDay(it) }
+            }
             SettingsSwitch(Icons.Rounded.Subtitles, "Fetch lyrics automatically", "Get lyrics from LRCLIB and save them for offline", s.autoLyrics) {
                 scope.launch { c.settings.setAutoLyrics(it) }
             }
@@ -248,48 +252,53 @@ fun SettingsScreen(nav: NavController) {
         }
 
         SettingsGroup("App update") {
-            SettingsItem(
-                Icons.Rounded.SystemUpdate,
-                "Check for updates",
-                "Current: version ${com.sangeet.player.BuildConfig.VERSION_NAME} (build ${c.updater.currentBuild})",
-                onClick = { scope.launch { c.updater.check() } },
-            )
-            SettingsSwitch(
-                Icons.Rounded.Autorenew,
-                "Update automatically",
-                "When there's internet, new versions download and install by themselves while you're not using the app",
-                s.autoUpdate,
-            ) { scope.launch { c.settings.setAutoUpdate(it) } }
+            // The Google Play version is updated by Google Play.
+            if (!com.sangeet.player.BuildConfig.PLAY_STORE) {
+                SettingsItem(
+                    Icons.Rounded.SystemUpdate,
+                    "Check for updates",
+                    "Current: version ${com.sangeet.player.BuildConfig.VERSION_NAME} (build ${c.updater.currentBuild})",
+                    onClick = { scope.launch { c.updater.check() } },
+                )
+                SettingsSwitch(
+                    Icons.Rounded.Autorenew,
+                    "Update automatically",
+                    "When there's internet, new versions download and install by themselves while you're not using the app",
+                    s.autoUpdate,
+                ) { scope.launch { c.settings.setAutoUpdate(it) } }
+            }
             var showLog by remember { mutableStateOf(false) }
             SettingsItem(Icons.Rounded.NewReleases, "What's new", "What changed in each update", onClick = { showLog = true })
             if (showLog) {
                 val log = remember { com.sangeet.player.data.WhatsNew.all(context) }
                 com.sangeet.player.ui.components.WhatsNewDialog(log) { showLog = false }
             }
-            var token by remember(s.githubToken) { mutableStateOf(s.githubToken) }
-            Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                Text(
-                    "No token is needed while the repo is public. If you make the repo private, enter a " +
-                        "read-only GitHub token here (Contents = Read-only).",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Sangeet.spec.muted,
-                )
-                OutlinedTextField(
-                    value = token,
-                    onValueChange = { token = it },
-                    label = { Text("GitHub token (optional)") },
-                    leadingIcon = { androidx.compose.material3.Icon(Icons.Rounded.Key, null) },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                )
-                TextButton(onClick = {
-                    scope.launch {
-                        c.settings.setGithubToken(token)
-                        c.updater.check()
-                    }
-                }) { Text("Save & check for updates") }
+            if (!com.sangeet.player.BuildConfig.PLAY_STORE) {
+                var token by remember(s.githubToken) { mutableStateOf(s.githubToken) }
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    Text(
+                        "No token is needed while the repo is public. If you make the repo private, enter a " +
+                            "read-only GitHub token here (Contents = Read-only).",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Sangeet.spec.muted,
+                    )
+                    OutlinedTextField(
+                        value = token,
+                        onValueChange = { token = it },
+                        label = { Text("GitHub token (optional)") },
+                        leadingIcon = { androidx.compose.material3.Icon(Icons.Rounded.Key, null) },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    )
+                    TextButton(onClick = {
+                        scope.launch {
+                            c.settings.setGithubToken(token)
+                            c.updater.check()
+                        }
+                    }) { Text("Save & check for updates") }
+                }
             }
         }
 

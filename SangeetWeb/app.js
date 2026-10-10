@@ -39,6 +39,8 @@ const ICONS = {
   close: 'M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z',
   mic: 'M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z',
   clock: 'M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z',
+  radio: 'M3.24 6.15C2.51 6.43 2 7.17 2 8v12c0 1.1.89 2 2 2h16c1.11 0 2-.9 2-2V8c0-1.11-.89-2-2-2H8.3l8.26-3.34L15.88 1 3.24 6.15zM7 20c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm13-8h-2v-2h-2v2H4V8h16v4z',
+  people: 'M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z',
   film: 'M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z',
   globe: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z',
   list: 'M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z',
@@ -247,6 +249,7 @@ function toggleLike(t) {
   refreshLikes();
 }
 function recordPlay(t) {
+  if (t.src === 'radio') return; // live radio stays out of history and suggestions
   const r = S.history[t.id] || { t: slim(t), c: 0, last: 0 };
   r.c++;
   r.last = Date.now();
@@ -269,6 +272,7 @@ document.addEventListener('error', (e) => {
   if (el.tagName === 'IMG' && el.src !== PLACEHOLDER) el.src = PLACEHOLDER;
 }, true);
 function streamUrl(t) {
+  if (t.src === 'radio') return t.media; // a live station's own stream
   const kb = S.quality === 'low' ? '96' : S.quality === 'medium' ? '160' : t.hq ? '320' : '160';
   return t.media.startsWith('http') ? t.media.replace(/_(96|160|320)\.mp4/, `_${kb}.mp4`) : `${AAC}${t.media}_${kb}.mp4`;
 }
@@ -971,7 +975,7 @@ const Player = {
     recordPlay(t);
     this.updateSession(t);
     UI.trackChanged();
-    if (this.queue.length - this.i <= 3) this.autoplay(false);
+    if (this.queue.length - this.i <= 3 && t.src !== 'radio') this.autoplay(false);
   },
   next() {
     if (this.i + 1 < this.queue.length) return this.load(this.i + 1);
@@ -1147,7 +1151,7 @@ function trackMenu(t) {
     ['Add to queue', () => Player.addToQueue(t)],
     [isLiked(t) ? 'Remove from Liked' : 'Like', () => toggleLike(t)],
     ['Add to playlist', () => playlistPicker(t)],
-    ...(Offline.has(t)
+    ...(t.src === 'radio' ? [] : Offline.has(t)
       ? [['Save to Files (iPhone)', () => Offline.saveToFiles(t)], ['Remove download', () => Offline.remove(t.id).then(() => toast('Download removed'))]]
       : [['Download', () => Offline.add([t])]]),
     ...(t.artist && t.src === 'js' ? [['Go to artist', () => openArtist(splitArtists(t.artist)[0] || t.artist)]] : []),
@@ -1722,16 +1726,236 @@ function openArtist(name) {
   pushPage(() => artistPage(name));
 }
 
+/* Live FM radio (owner, Oct 10): India's stations from the free, keyless Radio Browser directory (CORS *; CI-probed:
+ * ~300 working stations, most over https; Vividh Bharati / AIR are HLS, which the iPhone plays). Only https streams
+ * (the site is https). Same source as Android's LiveRadio. */
+const Radio = {
+  HOSTS: ['all.api.radio-browser.info', 'de1.api.radio-browser.info', 'de2.api.radio-browser.info'],
+  async stations() {
+    if (this.list && Date.now() - this.at < 3600000) return this.list;
+    for (const host of this.HOSTS) {
+      try {
+        const r = await fetch(`https://${host}/json/stations/search?countrycode=IN&hidebroken=true&order=clickcount&reverse=true&limit=300`);
+        if (!r.ok) continue;
+        const seen = new Set();
+        this.list = (await r.json()).filter((x) => (x.url_resolved || '').startsWith('https://') && x.name && !seen.has(x.name.toLowerCase()) && seen.add(x.name.toLowerCase()))
+          .map((x) => {
+            const langs = (x.language || '').toLowerCase().split(/[,;]/).map((l) => l.trim()).filter(Boolean);
+            return { id: `radio:${x.stationuuid}`, src: 'radio', sid: x.stationuuid, title: x.name.replace(/\s+/g, ' ').trim(),
+              artist: `Live radio${langs[0] ? ' · ' + langs[0][0].toUpperCase() + langs[0].slice(1) : ''}`, album: 'Live radio',
+              img: (x.favicon || '').startsWith('https://') ? x.favicon : '', media: x.url_resolved, dur: 0, lang: langs[0] || '', langs };
+          });
+        this.at = Date.now();
+        return this.list;
+      } catch {}
+    }
+    return [];
+  },
+};
+function radioPage() {
+  const list = h('div', null, h('div', { class: 'spinner' }));
+  const chips = h('div', { class: 'chips' });
+  Radio.stations().then((all) => {
+    if (!all.length) return fill(list, h('div', { class: 'empty' }, "Couldn't load radio stations. Check your internet."));
+    const count = {};
+    all.forEach((x) => x.langs.forEach((l) => { count[l] = (count[l] || 0) + 1; }));
+    const langs = [...new Set([...S.langs, ...Object.keys(count).sort((a, b) => count[b] - count[a])])].filter((l) => count[l]).slice(0, 10);
+    const show = (l) => {
+      chips.querySelectorAll('.chip').forEach((b) => b.classList.toggle('on', b.dataset.l === l));
+      fill(list, trackList(l === 'all' ? all : all.filter((x) => x.langs.includes(l))));
+    };
+    fill(chips, ['all', ...langs].map((l) => h('button', { class: 'chip', 'data-l': l, onclick: () => show(l) }, l === 'all' ? 'All' : l[0].toUpperCase() + l.slice(1))));
+    show('all');
+  });
+  return h('div', null, header('Live radio', true), chips, list);
+}
+/* Listen together (owner, Oct 10): phones in one room play the same song at the same moment. Same messages as
+ * Android's Together.kt, through ntfy.sh (free, keyless, CORS *; topic "sangeet-tg-<code>"):
+ * {v:1, k:'s', from, o: <song, as in #play links>, n: title, p: seconds, on: playing} from the host, on a change and
+ * every 5 minutes (ntfy allows ~250 messages a day), and {v:1, k:'h', from} when a guest joins (the host answers). */
+const Together = {
+  NTFY: 'https://ntfy.sh',
+  LETTERS: 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', // no 0/O, 1/I
+  room: null, // { code, host, note }
+  me: Math.random().toString(36).slice(2, 10),
+  topic(code) { return 'sangeet-tg-' + code.toLowerCase(); },
+  link(code) { return location.origin + location.pathname + '#together=' + code; },
+  /** "ABC234", "abc 234" or a link with #together=ABC234 → "ABC234"; null when it isn't a code. */
+  clean(text) {
+    const m = String(text || '').match(/together=([A-Za-z0-9]+)/);
+    const c = (m ? m[1] : String(text || '').replace(/[^A-Za-z0-9]/g, '')).toUpperCase();
+    return c.length === 6 ? c : null;
+  },
+  start() {
+    const code = Array.from({ length: 6 }, () => this.LETTERS[Math.floor(Math.random() * this.LETTERS.length)]).join('');
+    this.open({ code, host: true, note: 'Send the code or link to your friends' });
+  },
+  join(text) {
+    const code = this.clean(text);
+    if (!code) return false;
+    if (this.room?.code === code) return true;
+    this.open({ code, host: false, note: 'Waiting for the host…' });
+    this.send({ k: 'h' });
+    return true;
+  },
+  leave() {
+    this.es?.close();
+    this.es = null;
+    clearInterval(this.timer);
+    clearInterval(this.seekTimer);
+    this.room = null;
+    this.following = null;
+    this.changed();
+  },
+  open(room) {
+    this.leave();
+    this.room = room;
+    this.es = new EventSource(`${this.NTFY}/${this.topic(room.code)}/sse`);
+    this.es.onmessage = (e) => {
+      try {
+        const ev = JSON.parse(e.data);
+        if (ev.event && ev.event !== 'message') return;
+        const m = JSON.parse(ev.message);
+        if (m.from === this.me || this.room?.code !== room.code) return;
+        if (m.k === 'h' && this.room.host) this.send(this.state());
+        else if (m.k === 's' && !this.room.host) this.follow(m);
+      } catch {}
+    };
+    if (room.host) {
+      let last = {};
+      this.timer = setInterval(() => {
+        const t = Player.current;
+        if (!t) return;
+        const on = Player.playing || Player.loading;
+        const pos = Player.time();
+        const now = Date.now();
+        const expected = last.on ? last.pos + (now - last.at) / 1000 : last.pos;
+        if (t.id !== last.id || on !== last.on || Math.abs(pos - expected) > 3 || now - (this.sentAt || 0) > 300000) {
+          last = { id: t.id, on, pos, at: now };
+          this.send(this.state());
+        }
+      }, 1500);
+    }
+    this.changed();
+  },
+  state() {
+    const t = Player.current;
+    return { k: 's', o: t ? Sync.encode(t) : null, n: t?.title || '', p: Player.time(), on: Player.playing || Player.loading };
+  },
+  send(msg) {
+    if (!this.room) return;
+    this.sentAt = Date.now();
+    fetch(`${this.NTFY}/${this.topic(this.room.code)}`, { method: 'POST', body: JSON.stringify({ v: 1, from: this.me, ...msg }) }).catch(() => {});
+  },
+  /** A guest: play the host's song from where the host is. */
+  follow(m) {
+    const t = m.o && Sync.decode(m.o);
+    if (!t) return this.note(`The host is playing ${m.n || 'a song'}, which can't be shared (a phone file or radio)`);
+    this.note('Playing with the host');
+    const got = Date.now();
+    const target = () => (m.p || 0) + (m.on ? 0.4 + (Date.now() - got) / 1000 : 0); // the message is a moment old
+    const same = this.following === t.id && Player.current && (Player.current.id === t.id || Player.current.id === this.followingNow);
+    if (!same) {
+      this.following = t.id;
+      this.followingNow = null;
+      Player.play([Catalog.byId.get(t.id) || t], 0);
+      // Once it has loaded (a YouTube song may become the catalog's copy): jump to the host's spot, pause if the host has.
+      let tries = 0;
+      clearInterval(this.seekTimer);
+      this.seekTimer = setInterval(() => {
+        this.followingNow = Player.current?.id;
+        if (++tries > 40 || this.following !== t.id) return clearInterval(this.seekTimer);
+        if (Player.loading || !(Player.duration() > 0)) return;
+        clearInterval(this.seekTimer);
+        if (Math.abs(Player.time() - target()) > 2) Player.seek(target());
+        if (!m.on) Player.pause();
+      }, 500);
+      return;
+    }
+    if (Math.abs(Player.time() - target()) > 2.5) Player.seek(target());
+    if (m.on && !Player.playing && !Player.loading) Player.resume();
+    if (!m.on && Player.playing) Player.pause();
+  },
+  note(text) {
+    if (!this.room) return;
+    this.room.note = text;
+    this.changed();
+  },
+  changed() {
+    this.onchange?.();
+    UI.update?.();
+  },
+  /** Opened a friend's room link (#together=ABC234). */
+  fromHash() {
+    const m = location.hash.match(/together=([A-Za-z0-9]+)/);
+    if (!m) return;
+    history.replaceState(null, '', location.pathname);
+    this.join(m[1]);
+    if (tab !== 'library') document.querySelector('#tabs button[data-tab="library"]')?.click();
+    pushPage(togetherPage);
+  },
+};
+function togetherPage() {
+  const box = h('div');
+  const draw = () => {
+    const r = Together.room;
+    if (!r) {
+      const input = h('input', { type: 'text', placeholder: 'Room code or link', autocapitalize: 'characters', spellcheck: false, style: 'width:100%' });
+      fill(box,
+        h('div', { class: 'note' }, "Play the same song at the same moment on your friends' phones (iPhone or Android)."),
+        h('button', { class: 'pill primary', style: 'margin:8px 16px', onclick: () => Together.start() }, 'Start a room'),
+        h('div', { class: 'section' }, 'Or join a friend'),
+        h('div', { class: 'setting', style: 'display:block' }, input),
+        h('button', { class: 'pill', style: 'margin:0 16px 8px', onclick: () => { if (!Together.join(input.value)) toast('A room code has 6 letters and numbers'); } }, 'Join'));
+      return;
+    }
+    const invite = () => {
+      const url = Together.link(r.code);
+      if (navigator.share) navigator.share({ title: 'Listen with me on Sangeet', url }).catch(() => {});
+      else navigator.clipboard?.writeText(url).then(() => toast('Link copied'));
+    };
+    fill(box,
+      h('div', { class: 'section' }, r.host ? 'Your room' : "In a friend's room"),
+      h('div', { class: 'room-code' }, r.code),
+      h('div', { class: 'note' }, r.note || ''),
+      h('div', { class: 'actions' },
+        r.host ? h('button', { class: 'pill primary', onclick: invite }, 'Invite friends') : null,
+        h('button', { class: 'pill', onclick: () => Together.leave() }, 'Leave')));
+  };
+  Together.onchange = () => { if (box.isConnected) draw(); };
+  draw();
+  return h('div', null, header('Listen together', true), box);
+}
+/** "Song of the day": one song picked for you each day (from your suggestions, never the same one twice). */
+function songOfTheDay() {
+  const day = new Date().toDateString();
+  if (!S.sotd || S.sotd.day !== day) {
+    const shown = new Set(S.sotdShown || []);
+    const pick = suggestions(30).find((t) => !shown.has(t.id) && !isLiked(t));
+    if (!pick) return null;
+    S.sotd = { day, t: slim(pick) };
+    S.sotdShown = [...(S.sotdShown || []), pick.id].slice(-400);
+    save();
+  }
+  const t = S.sotd.t;
+  return h('div', { class: 'row sotd', onclick: () => Player.playRadio(t) },
+    h('img', { class: 'art', src: art(t), loading: 'lazy', alt: '' }),
+    h('div', { class: 'meta' }, h('div', { class: 's' }, 'Song of the day'), h('div', { class: 't' }, t.title), h('div', { class: 's' }, t.artist)),
+    h('button', { class: 'icon-btn', 'aria-label': 'Play', onclick: (e) => { e.stopPropagation(); Player.playRadio(t); } }, icon('play')));
+}
 function libraryPage() {
   const link = (ic, label, count, fn) => h('div', { class: 'link-row', onclick: fn }, icon(ic), label, count != null ? h('span', { class: 'count' }, count) : null);
   const charts = Catalog.playlists.filter((p) => p.chart);
   return h('div', null,
     header('Library'),
+    songOfTheDay(),
     link('sparkles', 'AI DJ', null, () => pushPage(() => djPage())),
     link('heartFill', 'Liked Songs', S.liked.length, () => pushPage(() => songsPage('Liked Songs', S.liked))),
     link('clock', 'Recently Played', null, () => pushPage(() => songsPage('Recently Played', recent().slice(0, 300)))),
     link('globe', 'Online Library', Catalog.playlists.length || null, () => pushPage(onlineLibraryPage)),
     link('film', 'Movies', null, () => pushPage(() => moviesPage())),
+    link('radio', 'Live radio', null, () => pushPage(radioPage)),
+    link('people', 'Listen together', Together.room ? Together.room.code : null, () => pushPage(togetherPage)),
     Offline.only() ? h('div', { class: 'offline-banner', onclick: () => pushPage(downloadsPage) },
       navigator.onLine ? 'Offline mode is on: only downloaded songs play.' : "You're offline. Your downloaded songs still play →") : null,
     link('download', 'Downloads', Offline.ids.size || null, () => pushPage(downloadsPage)),
@@ -2186,6 +2410,37 @@ const FreeAi = {
       } catch {} finally { clearTimeout(timer); }
     }
     return [];
+  },
+  MEANING: 'You explain Indian song lyrics to listeners. Reply in simple English, in at most 3 short sentences, with no heading '
+    + 'and no markdown. If the line is not in English (Hindi, Punjabi, Haryanvi or another language), first give its English '
+    + 'translation in quotes, then what it means in the song.',
+  /** What a lyrics line means (Gemini first, then the keyless models), or null. Same prompt as Android. */
+  async meaning(line, t) {
+    if (!navigator.onLine) return null;
+    const user = `Song: "${t.title}" by ${(t.artist || '').split(',')[0]}.\nLine: "${line.slice(0, 300)}"`;
+    const until = Date.now() + 20000;
+    const key = this.geminiKey();
+    const timed = async (fn) => { const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), Math.max(1000, until - Date.now())); try { return await fn(ctl.signal); } catch { return ''; } finally { clearTimeout(tm); } };
+    if (key) {
+      const text = await timed(async (signal) => {
+        const model = await this.geminiModel(key, signal);
+        if (!model) return '';
+        const r = await fetch(`${this.GEMINI}/${model}:generateContent?key=${key}`, { method: 'POST', signal, headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ systemInstruction: { parts: [{ text: this.MEANING }] }, contents: [{ role: 'user', parts: [{ text: user }] }], generationConfig: { temperature: 0.4, maxOutputTokens: 1500 } }) });
+        return r.ok ? ((await r.json()).candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('').trim() : '';
+      });
+      if (text) return text;
+    }
+    for (const model of this.MODELS) {
+      if (until - Date.now() < 3000) break;
+      const text = await timed(async (signal) => {
+        const r = await fetch(this.URL, { method: 'POST', signal, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer unused' },
+          body: JSON.stringify({ model, temperature: 0.4, max_tokens: 1500, messages: [{ role: 'system', content: this.MEANING }, { role: 'user', content: user }] }) });
+        return r.ok ? ((await r.json()).choices?.[0]?.message?.content || '').replace(/<think>[\s\S]*?<\/think>/g, '').trim() : '';
+      });
+      if (text) return text;
+    }
+    return null;
   },
   /** The catalog's song for "Song - Singer", or null when there is no such song by that singer. */
   async find(line) {
@@ -2648,6 +2903,7 @@ setInterval(() => { UI.tick(); if (Player.playing) Stats.add(500); Sleep.check()
 /* ------------------------------------------------------------------ synced lyrics (LRCLIB, free) */
 const lyricsCache = new Map();
 async function getLyrics(t) {
+  if (t.src === 'radio') return []; // live radio has no lyrics
   if (lyricsCache.has(t.id)) return lyricsCache.get(t.id);
   const artist = splitArtists(t.artist)[0] || t.artist;
   const q = new URLSearchParams({ track_name: t.title, artist_name: artist });
@@ -2680,13 +2936,16 @@ async function showLyrics(t, body, state) {
   const pick = h('button', { class: 'chip lyric-pick', onclick: () => {
     picking = !picking;
     pick.classList.toggle('on', picking);
-    pick.textContent = picking ? 'Tap a line to share it' : '🖼 Share a line';
-  } }, '🖼 Share a line');
+    pick.textContent = picking ? 'Tap a line' : 'Pick a line';
+  } }, 'Pick a line');
+  const sing = h('button', { class: 'chip lyric-pick', onclick: () => singAlong(t, lines) }, 'Sing along');
+  // A picked line: what it means (Gemini, else the free AI), or share it as a picture.
+  const lineMenu = (line) => menu(line, [['Meaning', () => lineMeaning(t, line)], ['Share as picture', () => shareLyric(t, line)]]);
   const box = h('div', { class: 'lyrics' }, lines.map((l) => h('p', { onclick: () => {
-    if (picking && l.text) { picking = false; pick.classList.remove('on'); pick.textContent = '🖼 Share a line'; return shareLyric(t, l.text); }
+    if (picking && l.text) { picking = false; pick.classList.remove('on'); pick.textContent = 'Pick a line'; return lineMenu(l.text); }
     Player.seek(l.time);
   } }, l.text || '♪')));
-  body.replaceChildren(h('div', { class: 'lyrics-wrap' }, pick, box));
+  body.replaceChildren(h('div', { class: 'lyrics-wrap' }, h('div', { class: 'chips' }, sing, pick), box));
   let last = -1;
   state.lyricsTick = () => {
     const now = Player.time() + 0.3;
@@ -2699,6 +2958,44 @@ async function showLyrics(t, body, state) {
     if (el) { el.classList.add('on'); el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
   };
   state.lyricsTick();
+}
+
+/** Sing along: the line being sung, very big; the one before and the next one around it. */
+function singAlong(t, lines) {
+  const before = h('div', { class: 'sa-side' }), now = h('div', { class: 'sa-now' }), next = h('div', { class: 'sa-side' });
+  const close = () => { clearInterval(timer); box.remove(); };
+  const playBtn = h('button', { class: 'icon-btn', 'aria-label': 'Play or pause', onclick: () => Player.toggle() });
+  let shown = null;
+  const box = h('div', { class: 'sing-along' },
+    h('div', { class: 'sa-top' }, h('span', null, t.title), playBtn, h('button', { class: 'icon-btn', 'aria-label': 'Close', onclick: close }, '✕')),
+    h('div', { class: 'sa-lines' }, before, now, next));
+  let last = -2;
+  const tick = () => {
+    if (Player.current?.id !== t.id) return close();
+    if (shown !== Player.playing) { shown = Player.playing; fill(playBtn, [icon(shown ? 'pause' : 'play')]); }
+    const at = Player.time() + 0.3;
+    let i = -1;
+    for (let k = 0; k < lines.length && lines[k].time <= at; k++) i = k;
+    if (i === last) return;
+    last = i;
+    before.textContent = lines[i - 1]?.text || '';
+    now.textContent = (i >= 0 && lines[i].text) || '♪';
+    next.textContent = lines[i + 1]?.text || '';
+  };
+  const timer = setInterval(tick, 250);
+  document.body.append(box);
+  tick();
+}
+/** What a lyrics line means, from Gemini (with a key) or the free AI. */
+async function lineMeaning(t, line) {
+  const text = h('p', null, 'Finding the meaning…');
+  const box = h('div', { class: 'menu', onclick: () => box.remove() },
+    h('div', { class: 'box', onclick: (e) => e.stopPropagation() }, h('h3', { style: 'margin:12px 20px 4px' }, line),
+      h('div', { style: 'padding:0 20px 8px' }, text),
+      h('button', { class: 'pill primary', style: 'margin:8px 20px 16px', onclick: () => box.remove() }, 'OK')));
+  document.body.append(box);
+  const m = await FreeAi.meaning(line, t);
+  text.textContent = m || "Couldn't get the meaning right now. Try again in a minute.";
 }
 
 /* ------------------------------------------------------------------ picture cards (Wrapped, lyrics) shared to Instagram / WhatsApp */
@@ -3072,7 +3369,8 @@ const Visits = {
   Blend.fromHash();
   SongLink.fromHash();
   CloudSync.fromHash();
-  window.addEventListener('hashchange', () => { Sync.importFromHash(); Blend.fromHash(); SongLink.fromHash(); CloudSync.fromHash(); });
+  Together.fromHash();
+  window.addEventListener('hashchange', () => { Sync.importFromHash(); Blend.fromHash(); SongLink.fromHash(); CloudSync.fromHash(); Together.fromHash(); });
   if (CloudSync.code) setTimeout(() => CloudSync.sync().catch(() => {}), 3000);
   setTimeout(() => WhatsNew.check(), 1500);
   Community.load().catch(() => {});
