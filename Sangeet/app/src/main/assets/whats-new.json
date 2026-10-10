@@ -35,6 +35,11 @@
       },
       {
         "on": "both",
+        "type": "new",
+        "text": "Song videos, like YouTube Music"
+      },
+      {
+        "on": "both",
         "type": "fix",
         "text": "AI DJ plays right away"
       },

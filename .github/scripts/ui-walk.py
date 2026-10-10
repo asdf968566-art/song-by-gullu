@@ -325,6 +325,9 @@ def main():
     fresh(play=True)
     step("Now Playing: open", open_now_playing, lambda: (find("Speed") is not None or find("Queue") is not None, "player screen"))
     step("Now Playing: Shuffle on/off", lambda: tap("Shuffle", wait=1) and tap("Shuffle", wait=1))
+    # Song | Video: YouTube often refuses the CI's address, so the video may not come; the screen must stay fine.
+    step("Now Playing: Video, then Song", lambda: tap("Video", wait=10) and (tap("Song", wait=2) or True),
+         lambda: (find("Song") is not None and find("Video") is not None, "switch still there"))
 
     def speed_125():
         if not tap("Speed", wait=2):

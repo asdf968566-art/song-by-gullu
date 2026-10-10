@@ -118,6 +118,11 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
     var showLyricsMenu by remember { mutableStateOf(false) }
     var carMode by remember { mutableStateOf(false) }
     var singAlong by remember { mutableStateOf(false) }
+    // Song | Video (like YouTube Music): stays on for the next songs until switched off.
+    var showVideo by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    // Phone files, links and live radio have no video; the Play version has no YouTube.
+    val canVideo = !com.sangeet.player.BuildConfig.PLAY_STORE &&
+        track.source !in setOf(com.sangeet.player.data.model.SourceType.LOCAL, com.sangeet.player.data.model.SourceType.URL)
     val room by c.together.room.collectAsStateWithLifecycle()
     // Long-press a lyrics line: its meaning, or share it on the song's cover as a picture.
     var lineMenu by remember { mutableStateOf<String?>(null) }
@@ -224,16 +229,27 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                     onShareLine = shareLine,
                 )
             } else {
-                Spacer(Modifier.height(24.dp))
-                Artwork(
-                    track.artworkUrl,
-                    modifier = Modifier
-                        .padding(horizontal = 28.dp)
-                        .fillMaxWidth()
-                        .aspectRatio(1f),
-                    shape = RoundedCornerShape(10.dp),
-                    seed = track.title,
-                )
+                Spacer(Modifier.height(if (canVideo) 6.dp else 24.dp))
+                if (canVideo) {
+                    SongVideoSwitch(showVideo, textColor) { showVideo = it }
+                    Spacer(Modifier.height(14.dp))
+                }
+                if (canVideo && showVideo) {
+                    SongVideo(track, Modifier.padding(horizontal = 28.dp).fillMaxWidth()) {
+                        showVideo = false
+                        Toast.makeText(context, "No video for this song", Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    Artwork(
+                        track.artworkUrl,
+                        modifier = Modifier
+                            .padding(horizontal = 28.dp)
+                            .fillMaxWidth()
+                            .aspectRatio(1f),
+                        shape = RoundedCornerShape(10.dp),
+                        seed = track.title,
+                    )
+                }
                 Spacer(Modifier.height(28.dp))
             }
 

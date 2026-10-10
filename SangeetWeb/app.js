@@ -2832,6 +2832,7 @@ const UI = {
   openNowPlaying(refresh) {
     const t = Player.current;
     if (!t) return;
+    SongVideo.stop();
     const np = $('#np');
     const view = refresh && this.np ? this.np.view : 'art';
     const body = h('div', { class: 'np-body' });
@@ -2853,10 +2854,19 @@ const UI = {
         ['End of this song', () => Sleep.set('end')],
         ...(Sleep.on ? [['Turn off', () => { Sleep.clear(); toast('Sleep timer off'); }]] : []),
       ].map(([l, f]) => [l, () => { f(); sleepBtn.classList.toggle('on', Sleep.on); sleepNote.textContent = Sleep.label(); }])) }, icon('moon'));
+    // Song | Video, like YouTube Music (not for radio; a YouTube song already shows its video).
+    const canVideo = t.src !== 'radio' && Player.mode !== 'yt' && (t.src === 'yt' || S.ytKey);
+    const songChip = h('button', { class: 'chip' }, 'Song'), videoChip = h('button', { class: 'chip' }, 'Video');
+    const mark = () => { songChip.classList.toggle('on', !S.video); videoChip.classList.toggle('on', !!S.video); };
+    songChip.onclick = () => { if (!S.video) return; S.video = false; save(); mark(); show('art'); };
+    videoChip.onclick = () => { if (S.video) return; S.video = true; save(); mark(); show('art'); };
+    SongVideo.onNone = () => { S.video = false; mark(); if (this.np === state && state.view === 'art') show('art'); };
+    mark();
     np.replaceChildren(
       h('div', { class: 'bg', style: t.img ? `background-image:url("${art(t, true)}")` : '' }),
       h('div', { class: 'np-top' },
         h('button', { class: 'icon-btn', 'aria-label': 'Close', onclick: () => this.closeNowPlaying() }, icon('down')),
+        canVideo ? h('div', { class: 'np-switch' }, songChip, videoChip) : null,
         h('div', { style: 'display:flex' },
           h('button', { class: 'icon-btn', 'aria-label': 'Car mode', onclick: () => CarMode.open() }, icon('car')),
           h('button', { class: 'icon-btn', 'aria-label': 'More', onclick: () => trackMenu(t) }, icon('more')))),
@@ -2874,6 +2884,7 @@ const UI = {
     const show = (v) => {
       state.view = v;
       state.lyricsTick = null;
+      SongVideo.stop();
       lyricsBtn.classList.toggle('on', v === 'lyrics');
       queueBtn.classList.toggle('on', v === 'queue');
       if (v === 'lyrics') return showLyrics(t, body, state);
@@ -2881,6 +2892,7 @@ const UI = {
         const up = Player.queue.slice(Player.i);
         return body.replaceChildren(h('div', { class: 'queue' }, up.map((x, k) => trackRow(x, () => Player.load(Player.i + k)))));
       }
+      if (canVideo && S.video) return SongVideo.show(t, body);
       body.replaceChildren(Player.mode === 'yt' ? h('div', { style: 'width:100%;aspect-ratio:16/9' }) : h('img', { class: 'cover', src: art(t, true), alt: '' }));
     };
     lyricsBtn.onclick = () => show(state.view === 'lyrics' ? 'art' : 'lyrics');
@@ -2917,6 +2929,7 @@ const UI = {
     });
   },
   closeNowPlaying() {
+    SongVideo.stop();
     $('#np').hidden = true;
     document.body.classList.remove('np-open');
     this.np = null;
@@ -3021,6 +3034,60 @@ async function lineMeaning(t, line) {
   const m = await FreeAi.meaning(line, t);
   text.textContent = m || "Couldn't get the meaning right now. Try again in a minute.";
 }
+
+/* Song video (owner, Oct 10: "song ka video bhi, jaise YT Music"): Now Playing's Song | Video switch shows the
+ * song's YouTube music video, muted, in step with the song that keeps playing (catalog audio plays on when the
+ * phone is locked; the video is only the picture). A YouTube song already shows its own video (Player.mode 'yt'). */
+const SongVideo = {
+  yt: null, timer: null, box: null,
+  /** The video to show for [t]: its own for a YouTube song, else the first music video YouTube finds. */
+  async idFor(t) {
+    if (t.src === 'yt') return t.sid;
+    const found = await Tube.search(`${t.title.replace(/\s*\(.*$/, '')} ${(t.artist || '').split(',')[0]}`);
+    return found[0]?.sid || null;
+  },
+  async show(t, box) {
+    this.stop();
+    this.box = box;
+    fill(box, h('img', { class: 'cover', src: art(t, true), alt: '' }), h('div', { class: 'spinner np-video-wait' }));
+    const id = await this.idFor(t).catch(() => null);
+    if (this.box !== box || Player.current?.id !== t.id) return;
+    if (!id) { toast('No video for this song'); return this.onNone?.(); }
+    await Tube.ensure(); // loads YouTube's player script
+    if (this.box !== box) return;
+    const el = h('div');
+    fill(box, h('div', { class: 'np-video' }, el));
+    this.yt = new window.YT.Player(el, {
+      videoId: id,
+      playerVars: { playsinline: 1, autoplay: 1, mute: 1, controls: 0, rel: 0, modestbranding: 1, disablekb: 1, start: Math.floor(Player.time()) },
+      events: {
+        onReady: (e) => { e.target.mute(); e.target.seekTo(Player.time(), true); if (Player.playing) e.target.playVideo(); },
+        onError: () => { if (this.box === box) { toast('No video for this song'); this.onNone?.(); } },
+      },
+    });
+    // Keep the picture with the song: same play/pause, and a jump when it drifts.
+    let lastSeek = 0;
+    this.timer = setInterval(() => {
+      const y = this.yt;
+      if (!y || !y.getCurrentTime || Player.current?.id !== t.id) return;
+      const st = y.getPlayerState?.();
+      if (Player.playing && st !== 1 && st !== 3) y.playVideo();
+      if (!Player.playing && st === 1) y.pauseVideo();
+      const drift = y.getCurrentTime() - Player.time();
+      if (Math.abs(drift) > 1.2 && Date.now() - lastSeek > 3000 && Player.time() < (y.getDuration?.() || Infinity)) {
+        lastSeek = Date.now();
+        y.seekTo(Player.time() + 0.3, true);
+      }
+    }, 1000);
+  },
+  stop() {
+    clearInterval(this.timer);
+    this.timer = null;
+    try { this.yt?.destroy?.(); } catch {}
+    this.yt = null;
+    this.box = null;
+  },
+};
 
 /* ------------------------------------------------------------------ picture cards (Wrapped, lyrics) shared to Instagram / WhatsApp */
 const Card = {

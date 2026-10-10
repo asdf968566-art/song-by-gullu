@@ -297,6 +297,21 @@ request the owner made, in order.
     - Phone files and radio can't be shared; the guest sees a note.
     - Playwright test with a local ntfy stand-in: the guest stayed within 0.3 s, and pause, a new song and seeks
       followed.
+- **Song videos** (Oct 10, owner: "song ka video bhi, jaise YT Music"): Now Playing has a **Song | Video** switch.
+  - Video shows the song's YouTube music video in place of the cover, **muted and kept in step** with the song.
+    The song itself keeps playing from the app's player, so the notification, lock screen and background play
+    don't change.
+  - Android: `YouTubeSource.videoFor` (a YouTube song's own video, else the YouTube Music video whose length is
+    nearest the song's, within 20 s; a video-only progressive stream ≤ 720p, mp4 first; cached 1 h) and
+    `ui/nowplaying/SongVideo.kt`. That file has `SongVideo`, `VideoPicture` (its own muted ExoPlayer on a
+    TextureView; it copies play/pause and seeks back when more than 0.8 s off, at most every 3 s) and
+    `SongVideoSwitch`.
+  - Web: `SongVideo` in app.js plays a muted YouTube iframe (`Tube.search` for the id; needs `S.ytKey`). It syncs
+    every second, and the setting `S.video` remembers the choice. A song that already plays through YouTube
+    (`Player.mode === 'yt'`) shows its video as before.
+  - Hidden for phone files, links, live radio and the Play version. With no video (or YouTube refusing), the app
+    says "No video for this song" and goes back to Song. In CI YouTube usually refuses, so the UI walk only checks
+    that the switch works.
 - **Owner's app reports of Oct 10** (build 174, realme Android 16; issues #32–#34, copied from day1):
   - "aidj nhi chal rha" / "ai ko dubara check kr" (log: `Gemini: timeout`): Gemini was asked first and alone, its
     free tier used the whole 22 s, so LLM7 was never tried and the DJ showed nothing for 25 s.
