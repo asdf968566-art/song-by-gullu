@@ -1,5 +1,81 @@
 [
   {
+    "date": "2026-10-10",
+    "title": "Live radio and listening together",
+    "items": [
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Live FM radio"
+      },
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Listen together with friends"
+      },
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Sing-along mode"
+      },
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Meaning of a lyrics line"
+      },
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Song of the day"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Crash reports sent automatically"
+      },
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Song videos, like YouTube Music"
+      },
+      {
+        "on": "iphone",
+        "type": "new",
+        "text": "New Settings design"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Themes on every tile"
+      },
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Your playlists at the top of Library"
+      },
+      {
+        "on": "both",
+        "type": "fix",
+        "text": "AI DJ plays right away"
+      },
+      {
+        "on": "android",
+        "type": "fix",
+        "text": "Home refresh button"
+      },
+      {
+        "on": "both",
+        "type": "fix",
+        "text": "Play and Shuffle start at a random song"
+      },
+      {
+        "on": "android",
+        "type": "fix",
+        "text": "Status bar icons on For You"
+      }
+    ]
+  },
+  {
     "date": "2026-10-09",
     "title": "Sync, alarm, movies and a smarter AI DJ",
     "items": [

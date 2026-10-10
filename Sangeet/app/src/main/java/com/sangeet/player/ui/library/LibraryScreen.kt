@@ -29,6 +29,8 @@ import androidx.compose.material.icons.rounded.FileOpen
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.Movie
+import androidx.compose.material.icons.rounded.Groups
+import androidx.compose.material.icons.rounded.Radio
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material3.Button
@@ -50,6 +52,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -155,6 +158,20 @@ fun LibraryScreen(nav: NavController) {
 
         when (tab) {
             0 -> {
+                // Your own playlists first (report, Oct 10: "user ki khud ki playlist top me").
+                item {
+                    LibraryRow(
+                        title = "Liked Songs",
+                        subtitle = "Playlist • ${if (favorites.size == 1) "1 song" else "${favorites.size} songs"}",
+                        gradient = listOf(Color(0xFF4A2BD8), Color(0xFF8EC5E8)),
+                        icon = Icons.Rounded.Favorite,
+                    ) { nav.navigate(Routes.list(ListKind.LIKED)) }
+                }
+                items(playlists, key = { "p${it.id}" }) { p ->
+                    LibraryRow(title = p.name, subtitle = "Playlist • ${if (p.trackCount == 1) "1 song" else "${p.trackCount} songs"}", artwork = p.coverUrl) {
+                        nav.navigate(Routes.playlist(p.id))
+                    }
+                }
                 item {
                     LibraryRow(
                         title = "Online Library",
@@ -173,6 +190,22 @@ fun LibraryScreen(nav: NavController) {
                 }
                 item {
                     LibraryRow(
+                        title = "Live radio",
+                        subtitle = "Mirchi, Red FM, Vividh Bharati and more, live",
+                        gradient = listOf(Color(0xFF0EA5E9), Color(0xFF6366F1)),
+                        icon = Icons.Rounded.Radio,
+                    ) { nav.navigate(Routes.RADIO) }
+                }
+                item {
+                    LibraryRow(
+                        title = "Listen together",
+                        subtitle = "The same song on your friends' phones",
+                        gradient = listOf(Color(0xFFDB2777), Color(0xFFF97316)),
+                        icon = Icons.Rounded.Groups,
+                    ) { nav.navigate(Routes.together()) }
+                }
+                item {
+                    LibraryRow(
                         title = "Your Stats",
                         subtitle = "Listening time, top artists, streak",
                         gradient = listOf(Color(0xFF7C4DFF), Color(0xFF00E5C3)),
@@ -186,14 +219,6 @@ fun LibraryScreen(nav: NavController) {
                         gradient = listOf(Color(0xFFFF5F6D), Color(0xFFFFC371)),
                         icon = Icons.Rounded.People,
                     ) { blendAsk = true }
-                }
-                item {
-                    LibraryRow(
-                        title = "Liked Songs",
-                        subtitle = "Playlist • ${if (favorites.size == 1) "1 song" else "${favorites.size} songs"}",
-                        gradient = listOf(Color(0xFF4A2BD8), Color(0xFF8EC5E8)),
-                        icon = Icons.Rounded.Favorite,
-                    ) { nav.navigate(Routes.list(ListKind.LIKED)) }
                 }
                 item {
                     LibraryRow(
@@ -219,11 +244,6 @@ fun LibraryScreen(nav: NavController) {
                         gradient = listOf(Color(0xFF2E3A59), Color(0xFF7C8DB5)),
                         icon = Icons.Rounded.History,
                     ) { nav.navigate(Routes.list(ListKind.RECENT)) }
-                }
-                items(playlists, key = { "p${it.id}" }) { p ->
-                    LibraryRow(title = p.name, subtitle = "Playlist • ${if (p.trackCount == 1) "1 song" else "${p.trackCount} songs"}", artwork = p.coverUrl) {
-                        nav.navigate(Routes.playlist(p.id))
-                    }
                 }
             }
             1 -> items(albums, key = { "a${it.id}" }) { a ->
@@ -260,15 +280,19 @@ private fun LibraryRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         val shape = if (circle) CircleShape else RoundedCornerShape(6.dp)
+        // Tiles follow the theme: its card style (glass, soft shadows…) and its accent color.
+        val corner = if (circle) 32.dp else 6.dp
         if (gradient != null && icon != null) {
+            val tinted = listOf(lerp(gradient.first(), spec.accent, 0.6f), lerp(gradient.last(), spec.accent, 0.35f))
             Box(
                 Modifier
                     .size(64.dp)
-                    .background(Brush.linearGradient(gradient), shape),
+                    .themedCard(spec, shape, corner = corner, elevation = 3.dp)
+                    .background(Brush.linearGradient(tinted), shape),
                 contentAlignment = Alignment.Center,
             ) { Icon(icon, null, tint = Color.White, modifier = Modifier.size(28.dp)) }
         } else {
-            Artwork(artwork, size = 64.dp, shape = shape, seed = title)
+            Artwork(artwork, modifier = Modifier.size(64.dp).themedCard(spec, shape, corner = corner, elevation = 3.dp), shape = shape, seed = title)
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {

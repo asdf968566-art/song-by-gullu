@@ -122,6 +122,9 @@ object Routes {
     const val REPORT = "report"
     const val OWNER = "settings/owner"
     const val ALARM = "settings/alarm"
+    const val RADIO = "radio"
+    const val TOGETHER = "together?code={code}"
+    fun together(code: String? = null) = "together" + (code?.let { "?code=" + android.net.Uri.encode(it) } ?: "")
     const val SYNC = "settings/sync?code={code}"
     fun sync(code: String? = null) = "settings/sync" + (code?.let { "?code=" + android.net.Uri.encode(it) } ?: "")
     const val PLAYLIST = "playlist/{id}"
@@ -201,7 +204,7 @@ fun SangeetRoot() {
     // light icons on dark pages, dark icons on light ones. For You is always dark.
     val view = LocalView.current
     val darkTop = Sangeet.spec.isDark || (onDiscover && !expanded)
-    LaunchedEffect(darkTop) {
+    val applyBars = {
         var ctx = view.context
         while (ctx is ContextWrapper && ctx !is Activity) ctx = ctx.baseContext
         (ctx as? Activity)?.window?.let { w ->
@@ -210,6 +213,18 @@ fun SangeetRoot() {
                 isAppearanceLightNavigationBars = !darkTop
             }
         }
+        Unit
+    }
+    LaunchedEffect(darkTop) { applyBars() }
+    // Some phones reset the icon colors when the app comes back (from the share sheet, a call, the shade):
+    // set them again every time (report from a LAVA phone, Oct 10: time/battery hard to see on For You).
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    androidx.compose.runtime.DisposableEffect(lifecycle, darkTop) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, e ->
+            if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) view.post { applyBars() }
+        }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
     }
 
     // Liquid Glass: the pages run under the floating glass bars, which show them through the glass.
@@ -279,6 +294,11 @@ fun SangeetRoot() {
                 composable(Routes.REPORT) { com.sangeet.player.ui.settings.ReportScreen(nav) }
                 composable(Routes.OWNER) { com.sangeet.player.ui.settings.OwnerDashboard(nav) }
                 composable(Routes.ALARM) { com.sangeet.player.ui.settings.AlarmScreen(nav) }
+                composable(Routes.RADIO) { com.sangeet.player.ui.library.RadioScreen(nav) }
+                composable(
+                    Routes.TOGETHER,
+                    arguments = listOf(navArgument("code") { type = NavType.StringType; nullable = true; defaultValue = null }),
+                ) { e -> com.sangeet.player.ui.library.TogetherScreen(nav, e.arguments?.getString("code")) }
                 composable(
                     Routes.SYNC,
                     arguments = listOf(navArgument("code") { type = NavType.StringType; nullable = true; defaultValue = null }),

@@ -103,6 +103,12 @@ jobs:
           ls -l "$AAB"
           unzip -l "$AAB" | grep -q "base/manifest/AndroidManifest.xml" || { echo "bundle looks broken"; exit 1; }
           jarsigner -verify "$AAB" | tail -1
+          # The Google Play version: no YouTube, no self-update, no install / exact-alarm permissions.
+          ./gradlew --no-daemon bundlePlay
+          PLAY=app/build/outputs/bundle/play/app-play.aab
+          ls -l "$PLAY"
+          unzip -p "$PLAY" base/manifest/AndroidManifest.xml | strings | grep -q "REQUEST_INSTALL_PACKAGES" && { echo "play bundle still asks to install packages"; exit 1; }
+          echo "Play bundle: no install permission ✅"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -113,7 +119,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: Sangeet-aab
-          path: Sangeet/app/build/outputs/bundle/release/*.aab
+          path: |
+            Sangeet/app/build/outputs/bundle/release/*.aab
+            Sangeet/app/build/outputs/bundle/play/*.aab
           if-no-files-found: error
 
       - name: Publish APK to "latest" release
@@ -122,6 +130,7 @@ jobs:
         run: |
           cp Sangeet/app/build/outputs/apk/release/app-release.apk Sangeet.apk
           cp Sangeet/app/build/outputs/bundle/release/app-release.aab Sangeet.aab
+          cp Sangeet/app/build/outputs/bundle/play/app-play.aab Sangeet-play.aab
           # Downloads of the APK being replaced join the running total (release "stats", read by the admin page).
           OLD=$(gh api "repos/${{ github.repository }}/releases/tags/latest" --jq '[.assets[] | select(.name=="Sangeet.apk") | .download_count] | add // 0' 2>/dev/null || echo 0)
           mkdir -p st && (gh release download stats -p downloads.json -D st 2>/dev/null || true)
@@ -144,7 +153,7 @@ jobs:
           import json
           e = json.load(open("Sangeet/app/src/main/assets/whats-new.json"))[0]
           print("Version 1.0.${{ github.run_number }} (build ${{ github.run_number }}) — commit ${{ github.sha }}"[:80])
-          print("Sangeet.apk download karke install karo, ya app mein Settings → App update. Sangeet.aab is for the Google Play Console.")
+          print("Sangeet.apk download karke install karo, ya app mein Settings → App update. Sangeet-play.aab is the Google Play version (no YouTube, updated by Play); Sangeet.aab is the full app as a bundle.")
           print(f"\nWhat's new\n{e['title']} ({e['date']})")
           for kind, heading in (("new", "New"), ("fix", "Fixed")):
               items = [it for it in e["items"] if it.get("on") != "iphone" and it.get("type", "new") == kind]
@@ -153,7 +162,7 @@ jobs:
                   for it in items:
                       print(f"• {it['text']}")
           PY
-          gh release create latest Sangeet.apk Sangeet.aab \
+          gh release create latest Sangeet.apk Sangeet.aab Sangeet-play.aab \
             --title "Sangeet build ${{ github.run_number }}" \
             --notes-file notes.md
         env:

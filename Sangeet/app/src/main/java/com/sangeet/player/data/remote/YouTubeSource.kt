@@ -33,6 +33,8 @@ import org.schabi.newpipe.extractor.services.youtube.linkHandler.YoutubeSearchQu
 import org.schabi.newpipe.extractor.stream.DeliveryMethod
 import org.schabi.newpipe.extractor.stream.StreamInfo
 import org.schabi.newpipe.extractor.stream.StreamInfoItem
+import org.schabi.newpipe.extractor.stream.VideoStream
+import org.schabi.newpipe.extractor.MediaFormat
 
 /**
  * YouTube / YouTube Music.
@@ -44,9 +46,13 @@ class YouTubeSource : OnlineSource {
     override val type = SourceType.YOUTUBE
     override val exactQuality = false
 
-    override fun isEnabled(s: AppSettings) = s.youtubeEnabled
+    // The Google Play version has no YouTube at all (Play's rules); the app uses JioSaavn there.
+    private val off = com.sangeet.player.BuildConfig.PLAY_STORE
+
+    override fun isEnabled(s: AppSettings) = s.youtubeEnabled && !off
 
     override suspend fun search(query: String, s: AppSettings): List<Track> {
+        if (off) return emptyList()
         if (s.youtubeApiKey.isNotBlank()) {
             runCatching { return DataApi.search(query, s.youtubeApiKey) }
         }
@@ -54,6 +60,7 @@ class YouTubeSource : OnlineSource {
     }
 
     override suspend fun trending(s: AppSettings, genre: String?): List<Track> {
+        if (off) return emptyList()
         if (genre != null) return byLanguage(genre, s)
         if (s.youtubeApiKey.isNotBlank()) {
             runCatching { DataApi.mostPopularMusic(s.youtubeApiKey) }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { return it }
@@ -75,6 +82,7 @@ class YouTubeSource : OnlineSource {
     }
 
     private fun resolveStream(track: Track, quality: AudioQuality): String {
+        if (off) throw IOException("YouTube is not in this version")
         val key = "${track.sourceId}@${quality.name}"
         streamCache[key]?.takeIf { it.second > System.currentTimeMillis() }?.let { return it.first }
         ensureInit()
@@ -95,6 +103,7 @@ class YouTubeSource : OnlineSource {
      * Great source of variety for the feed and radio.
      */
     suspend fun similar(videoId: String): List<Track> = withContext(Dispatchers.IO) {
+        if (off) return@withContext emptyList()
         ensureInit()
         val info = PlaylistInfo.getInfo(ServiceList.YouTube, "https://www.youtube.com/watch?v=$videoId&list=RD$videoId")
         info.relatedItems.filterIsInstance<StreamInfoItem>().mapNotNull { toTrack(it) }.filter { it.sourceId != videoId }
@@ -105,6 +114,7 @@ class YouTubeSource : OnlineSource {
      * official API reads it (1 quota unit per 50 songs, never blocked); otherwise, or if that fails, NewPipe.
      */
     suspend fun playlist(link: String, key: String = ""): Pair<String, List<Track>>? = withContext(Dispatchers.IO) {
+        if (off) return@withContext null
         val id = Regex("[?&]list=([\\w-]+)").find(link)?.groupValues?.get(1) ?: return@withContext null
         if (key.isNotBlank()) {
             runCatching { DataApi.playlist(id, key) }
@@ -132,9 +142,47 @@ class YouTubeSource : OnlineSource {
         return (info.name ?: "YouTube playlist") to out.distinctBy { it.id }
     }
 
+    /** A music video to show with a song: its YouTube id and a stream of the picture. */
+    data class Video(val id: String, val url: String, val durationMs: Long)
+
+    private val videoCache = ConcurrentHashMap<String, Pair<Video, Long>>()
+
+    /**
+     * Now Playing → Video (owner, Oct 10: "song ka video bhi, jaise YT Music"). A YouTube song's own video, else the
+     * music video whose length is nearest the song's, so the picture keeps in step with the song. The song keeps
+     * playing from the player; this is only the picture (a video-only stream up to 720p, mp4 first).
+     */
+    suspend fun videoFor(track: Track): Video? = withContext(Dispatchers.IO) {
+        if (off) return@withContext null
+        videoCache[track.id]?.takeIf { it.second > System.currentTimeMillis() }?.let { return@withContext it.first }
+        ensureInit()
+        val id = if (track.source == SourceType.YOUTUBE) track.sourceId else musicVideoFor(track) ?: return@withContext null
+        val info = StreamInfo.getInfo(ServiceList.YouTube, watchUrl(id))
+        fun ok(v: VideoStream) = v.isUrl && v.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP
+        val pick = info.videoOnlyStreams.filter { ok(it) && it.height in 1..720 }
+            .sortedWith(compareBy<VideoStream>({ if (it.format == MediaFormat.MPEG_4) 0 else 1 }, { -it.height }))
+            .firstOrNull()
+            ?: info.videoStreams.filter(::ok).maxByOrNull { it.height }
+            ?: return@withContext null
+        android.util.Log.i("Sangeet", "video for ${track.title}: $id ${pick.format} ${pick.height}p")
+        Video(id, pick.content, info.duration * 1000).also { videoCache[track.id] = it to System.currentTimeMillis() + 60 * 60_000L }
+    }
+
+    /** The YouTube Music video for a song from another source: length nearest the song's (within 20 s), else the first. */
+    private fun musicVideoFor(track: Track): String? {
+        val service = ServiceList.YouTube
+        val q = "${track.title.substringBefore(" (")} ${track.artist.substringBefore(",")}".trim()
+        val handler = service.searchQHFactory.fromQuery(q, listOf(YoutubeSearchQueryHandlerFactory.MUSIC_VIDEOS), "")
+        val items = SearchInfo.getInfo(service, handler).relatedItems.filterIsInstance<StreamInfoItem>().take(8)
+        if (items.isEmpty()) return null
+        val want = track.durationMs / 1000
+        val near = if (want > 0) items.minByOrNull { kotlin.math.abs(it.duration - want) }?.takeIf { kotlin.math.abs(it.duration - want) <= 20 } else null
+        return videoId((near ?: items.first()).url)
+    }
+
     /** First YouTube Music result for "title artist" (to start a YouTube radio from any song). */
     suspend fun find(title: String, artist: String): Track? =
-        runCatching { musicSearch("$title $artist").firstOrNull() }.getOrNull()
+        if (off) null else runCatching { musicSearch("$title $artist").firstOrNull() }.getOrNull()
 
     private fun toTrack(item: StreamInfoItem): Track? {
         val id = videoId(item.url) ?: return null

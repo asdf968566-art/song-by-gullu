@@ -15,6 +15,10 @@ import com.sangeet.player.data.model.Track
 object MediaItems {
     const val SCHEME = "sangeet"
     private const val EXTRA_SOURCE = "source"
+    private const val EXTRA_HLS = "hls"
+
+    /** An HLS stream (Vividh Bharati / AIR radio, some songs): ExoPlayer must be told, the URI is our own. */
+    private fun isHls(t: Track) = t.streamUrl?.contains(".m3u8") == true
 
     fun uriFor(trackId: String): Uri = Uri.Builder().scheme(SCHEME).authority("track").appendPath(trackId).build()
 
@@ -23,7 +27,7 @@ object MediaItems {
     fun fromTrack(t: Track): MediaItem = MediaItem.Builder()
         .setMediaId(t.id)
         .setUri(uriFor(t.id))
-        .apply { if (t.streamUrl?.contains(".m3u8") == true) setMimeType(MimeTypes.APPLICATION_M3U8) }
+        .apply { if (isHls(t)) setMimeType(MimeTypes.APPLICATION_M3U8) }
         .setMediaMetadata(
             MediaMetadata.Builder()
                 .setTitle(t.title)
@@ -32,7 +36,7 @@ object MediaItems {
                 .setArtworkUri(t.artworkUrl?.let(Uri::parse))
                 .setIsPlayable(true)
                 .setIsBrowsable(false)
-                .setExtras(Bundle().apply { putString(EXTRA_SOURCE, t.source.name) })
+                .setExtras(Bundle().apply { putString(EXTRA_SOURCE, t.source.name); if (isHls(t)) putBoolean(EXTRA_HLS, true) })
                 .build()
         )
         .build()
@@ -40,7 +44,9 @@ object MediaItems {
     /** Controller se aaye MediaItem ko playable banata hai (URI dobara lagata hai). */
     fun withUri(item: MediaItem): MediaItem =
         if (item.localConfiguration != null) item
-        else item.buildUpon().setUri(uriFor(item.mediaId)).build()
+        else item.buildUpon().setUri(uriFor(item.mediaId))
+            .apply { if (item.mediaMetadata.extras?.getBoolean(EXTRA_HLS) == true) setMimeType(MimeTypes.APPLICATION_M3U8) }
+            .build()
 
     fun sourceOf(item: MediaItem): SourceType? =
         item.mediaMetadata.extras?.getString(EXTRA_SOURCE)?.let { runCatching { SourceType.valueOf(it) }.getOrNull() }

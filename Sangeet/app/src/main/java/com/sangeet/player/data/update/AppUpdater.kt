@@ -48,6 +48,7 @@ class AppUpdater(private val context: Context, private val settings: SettingsRep
 
     /** App khulne par din mein ek-do baar chupchaap check. With "Update automatically" on, the background updater does it. */
     suspend fun checkIfDue() {
+        if (BuildConfig.PLAY_STORE) return // Google Play updates the Play version
         if (settings.current.autoUpdate) {
             AutoUpdate.soon(context, 1)
             return
@@ -67,6 +68,7 @@ class AppUpdater(private val context: Context, private val settings: SettingsRep
     }
 
     suspend fun check(silent: Boolean = false) {
+        if (BuildConfig.PLAY_STORE) return
         if (!silent) _state.value = State.Checking
         _state.value = try {
             val update = fetchLatest()

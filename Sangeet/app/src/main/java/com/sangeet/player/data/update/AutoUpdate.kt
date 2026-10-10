@@ -44,7 +44,7 @@ object AutoUpdate {
 
     fun schedule(context: Context, enabled: Boolean) {
         val wm = WorkManager.getInstance(context)
-        if (!enabled) {
+        if (!enabled || BuildConfig.PLAY_STORE) { // Google Play updates the Play version itself
             wm.cancelUniqueWork(WORK)
             wm.cancelUniqueWork("${WORK}_now")
             return
@@ -59,6 +59,7 @@ object AutoUpdate {
 
     /** One check [minutes] from now (app opened, or waiting until the app is in the background). */
     fun soon(context: Context, minutes: Long) {
+        if (BuildConfig.PLAY_STORE) return
         val online = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
         WorkManager.getInstance(context).enqueueUniqueWork(
             "${WORK}_now", ExistingWorkPolicy.REPLACE,

@@ -71,6 +71,8 @@ data class AppSettings(
     val autoUpdate: Boolean = true,
     /** A notification when a singer you play most has a new song (NewSongs). */
     val newSongAlerts: Boolean = true,
+    /** One song picked for you every morning (SongOfTheDay). */
+    val songOfTheDay: Boolean = true,
     val audiusEnabled: Boolean = true,
     val jiosaavnEnabled: Boolean = true,
     val youtubeEnabled: Boolean = true,
@@ -122,6 +124,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val shareListening = booleanPreferencesKey("share_listening")
         val autoUpdate = booleanPreferencesKey("auto_update")
         val newSongAlerts = booleanPreferencesKey("new_song_alerts")
+        val songOfTheDay = booleanPreferencesKey("song_of_the_day")
         val audiusEnabled = booleanPreferencesKey("audius_enabled")
         val jiosaavnEnabled = booleanPreferencesKey("jiosaavn_enabled")
         val youtubeEnabled = booleanPreferencesKey("youtube_enabled")
@@ -165,6 +168,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             shareListening = p[Keys.shareListening] ?: d.shareListening,
             autoUpdate = p[Keys.autoUpdate] ?: d.autoUpdate,
             newSongAlerts = p[Keys.newSongAlerts] ?: d.newSongAlerts,
+            songOfTheDay = p[Keys.songOfTheDay] ?: d.songOfTheDay,
             audiusEnabled = p[Keys.audiusEnabled] ?: d.audiusEnabled,
             jiosaavnEnabled = p[Keys.jiosaavnEnabled] ?: d.jiosaavnEnabled,
             youtubeEnabled = p[Keys.youtubeEnabled] ?: d.youtubeEnabled,
@@ -207,6 +211,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     suspend fun setShareListening(v: Boolean) = context.dataStore.edit { it[Keys.shareListening] = v }
     suspend fun setAutoUpdate(v: Boolean) = context.dataStore.edit { it[Keys.autoUpdate] = v }
     suspend fun setNewSongAlerts(v: Boolean) = context.dataStore.edit { it[Keys.newSongAlerts] = v }
+    suspend fun setSongOfTheDay(v: Boolean) = context.dataStore.edit { it[Keys.songOfTheDay] = v }
     suspend fun setAudiusEnabled(v: Boolean) = context.dataStore.edit { it[Keys.audiusEnabled] = v }
     suspend fun setJioSaavnEnabled(v: Boolean) = context.dataStore.edit { it[Keys.jiosaavnEnabled] = v }
     suspend fun setYouTubeEnabled(v: Boolean) = context.dataStore.edit { it[Keys.youtubeEnabled] = v }

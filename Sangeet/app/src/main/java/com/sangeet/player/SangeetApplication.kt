@@ -79,6 +79,8 @@ class AppContainer(private val app: Application) {
             database.listenDao().insert(ListenEntity(trackId = t.id, title = t.title, artist = t.artist, startedAt = start, playedMs = ms))
         }
     }
+    /** Listen together: phones in one room play the same song at the same moment. */
+    val together = com.sangeet.player.data.Together(player, scope)
 
     init {
         // The AI DJ uses the app's radio, For You and the listener's taste.
@@ -117,6 +119,12 @@ class AppContainer(private val app: Application) {
         }
         // How many phones use the app (a number only; the owner dashboard shows it).
         scope.launch { runCatching { com.sangeet.player.data.Usage.countMe(app, com.sangeet.player.data.Usage.emulator()) } }
+        // One song picked for you every morning (Settings → Song of the day).
+        scope.launch {
+            settings.settings.map { it.songOfTheDay }.distinctUntilChanged().collect {
+                runCatching { com.sangeet.player.data.notify.SongOfTheDay.schedule(app, it) }
+            }
+        }
         // "New from your singers" notifications (Settings → New song alerts).
         scope.launch {
             settings.settings.map { it.newSongAlerts }.distinctUntilChanged().collect {

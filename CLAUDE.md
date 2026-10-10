@@ -253,6 +253,96 @@ request the owner made, in order.
     - Android syncs 20 s after likes/playlists change, and on start; the web does the same through `save()`.
     - restful-api.dev is a free test service. If an object disappears, the app says the code doesn't work and
       the user starts again.
+- **Owner's batch of Oct 10** ("7 aur 9 ko chod kr saare kr de": all suggestions except Data saver and the
+  verified App Links repo).
+  - **Play Store version:** build type `play` (`initWith(release)`, `BuildConfig.PLAY_STORE = true`). CI runs
+    `bundlePlay` → `Sangeet-play.aab` in the `latest` release
+    (https://github.com/asdf968566-art/song-by-gullu/releases/download/latest/Sangeet-play.aab).
+    - No YouTube: `YouTubeSource` is off, and Settings hides the YouTube group.
+    - No self-update: `AutoUpdate` and `AppUpdater` do nothing, and Settings hides App update.
+    - `src/play/AndroidManifest.xml` removes REQUEST_INSTALL_PACKAGES, UPDATE_PACKAGES_WITHOUT_USER_ACTION and the
+      exact-alarm permissions. The alarm then uses an inexact alarm. CI fails if the bundle still asks to install
+      packages.
+    - The APK and `Sangeet.aab` are unchanged (full app).
+  - **Live FM radio:** Android `data/remote/LiveRadio.kt` + `ui/library/RadioScreen.kt` (Library → Live radio,
+    route `radio`); web `Radio` + `radioPage`.
+    - Source: the Radio Browser directory (keyless, CORS `*`; `all/de1/de2.api.radio-browser.info`). CI probe on
+      Oct 10 found ~300 Indian stations (Mirchi, Red FM, Vividh Bharati/AIR as HLS).
+    - Only https streams are used: Android blocks cleartext, and the site is https.
+    - Each station is a `SourceType.URL` track with sourceId `radio-<uuid>` (web `src: 'radio'`). A station isn't
+      recorded as a play, can't be downloaded and has no lyrics.
+    - HLS is flagged with `MimeTypes.APPLICATION_M3U8` (`MediaItems.EXTRA_HLS`).
+  - **Automatic crash reports:** after a crash, MainActivity sends the report by itself (`CrashReporter.submit`,
+    "(sent automatically after a crash)"). It asks only when that fails.
+  - **Sing along:** Android `ui/nowplaying/SingAlong.kt` (mic button in Now Playing when the lyrics are synced);
+    web `singAlong` (lyrics chip "Sing along"). It shows the current line very big, with the lines before and after.
+  - **Lyrics meaning:** long-press a line on Android (`LyricLineDialog`: Meaning / Share as picture), or "Pick a
+    line" on the web. `FreeAi.meaning` asks Gemini (text) first, then LLM7, with a 20 s budget; `<think>` blocks
+    are removed.
+  - **Song of the day:**
+    - Android `data/notify/SongOfTheDay.kt`: a daily worker around 9:00, the first For You song not shown before,
+      tap opens `sangeet://play?song=`. Setting `songOfTheDay`.
+    - Web: a card at the top of Library (`songOfTheDay()`, `S.sotd`).
+  - **Listen together:** Android `data/Together.kt` (`container.together`) + `ui/library/TogetherScreen.kt` (Library
+    → Listen together, route `together?code=`); web `Together` + `togetherPage`. Both apps share one format.
+    - The host makes a 6-letter code (no 0/O/1/I). The link is `#together=<code>`; Android also handles it and
+      `sangeet://together?code=`.
+    - Messages go through **ntfy.sh** (keyless, CORS `*`), topic `sangeet-tg-<code>`:
+      - `{v,k:'s',from,o:<#play song JSON>,n,p:seconds,on}` from the host, on a change (song, play/pause, a seek
+        > 3 s) and every 5 min;
+      - `{k:'h'}` from a guest joining, which the host answers.
+    - ntfy.sh allows ~250 messages a day per IP, so the host sends little.
+    - Guests listen on `/<topic>/sse` (web) or `/<topic>/json` (Android, read timeout 100 s, reconnects). They
+      play the host's song, seek when more than 2.5 s off, and copy play/pause.
+    - Phone files and radio can't be shared; the guest sees a note.
+    - Playwright test with a local ntfy stand-in: the guest stayed within 0.3 s, and pause, a new song and seeks
+      followed.
+- **Song videos** (Oct 10, owner: "song ka video bhi, jaise YT Music"): Now Playing has a **Song | Video** switch.
+  - Video shows the song's YouTube music video in place of the cover, **muted and kept in step** with the song.
+    The song itself keeps playing from the app's player, so the notification, lock screen and background play
+    don't change.
+  - Android: `YouTubeSource.videoFor` (a YouTube song's own video, else the YouTube Music video whose length is
+    nearest the song's, within 20 s; a video-only progressive stream ≤ 720p, mp4 first; cached 1 h) and
+    `ui/nowplaying/SongVideo.kt`. That file has `SongVideo`, `VideoPicture` (its own muted ExoPlayer on a
+    TextureView; it copies play/pause and seeks back when more than 0.8 s off, at most every 3 s) and
+    `SongVideoSwitch`.
+  - Web: `SongVideo` in app.js plays a muted YouTube iframe (`Tube.search` for the id; needs `S.ytKey`). It syncs
+    every second, and the setting `S.video` remembers the choice. A song that already plays through YouTube
+    (`Player.mode === 'yt'`) shows its video as before.
+  - Hidden for phone files, links, live radio and the Play version. With no video (or YouTube refusing), the app
+    says "No video for this song" and goes back to Song. In CI YouTube usually refuses, so the UI walk only checks
+    that the switch works.
+- **Owner's app reports of Oct 10** (build 174, realme Android 16; issues #32–#34, copied from day1):
+  - "aidj nhi chal rha" / "ai ko dubara check kr" (log: `Gemini: timeout`): Gemini was asked first and alone, its
+    free tier used the whole 22 s, so LLM7 was never tried and the DJ showed nothing for 25 s.
+    - CI probe (Oct 10, real key): `gemini-3.8-flash` answers in ~19 s with or without thinking
+      (`thinkingBudget: 0` gives no thoughts but is not faster). `thinkingLevel: "minimal"` is a 400 on these
+      models, and 503 "high demand" is common. So thinking settings are not used.
+    - Fix: `FreeAi.race` on both apps (Android: cancellable OkHttp calls; web: AbortController) asks Gemini and
+      the keyless models at the same time; the first useful answer wins and the others are cancelled. This is
+      used for the DJ and for lyrics meanings (25 s).
+    - The DJ plays the built-in mix at once (`AiDj.make(waitForFreeAi = false)`). The online AI's real songs come
+      later (`AiDj.freePicks`, `AiDjViewModel.mixInAi`; web `mix.later` in `djPage`) and go between the songs still
+      to come (`PlayerConnection.mixIntoQueue`; web `Player.queue.splice`), only while that mix still plays. The
+      reply then gets "(N picked by the online AI.)".
+  - "home me refresh button kaam nhi kr rha": tapping refresh showed nothing and brought the same shelves. Now the
+    icon spins until every shelf has loaded (`Ui.refreshing`). Each tap brings other suggestions (the ones on screen
+    are excluded), the next featured-playlist page, the next categories and shuffled trending.
+  - Issue #35 (LAVA LXX525, Android 16), four asks:
+    - "theme ka effect har page pe aur tiles par bhi": Library tiles take the theme's card style (`themedCard`)
+      and are tinted to its accent (`lerp` with `spec.accent`); shelf covers (`ShelfCard`) use `themedCard` too.
+    - "for you page par time, network, battery sahi se show nahi": a dark band behind the status bar on For You.
+      SangeetRoot also sets the icon colors again on every ON_RESUME, because some phones reset them.
+    - "library me user ki khud ki playlist top me": Liked Songs and your playlists come first, on both apps.
+    - "playlist se hamesha first song": Play on playlists, mixes and lists (`CollectionHeader(playShuffled = true)`;
+      web `songsPage`) starts at a random song, shuffled. Shuffle used to start at the first song; now it is random
+      too. Albums, films and artists still play in order.
+  - Web Settings redesign (owner: "setting ka ui shi se bna"): grouped cards like the iPhone's Settings
+    (`setGroup` / `setRow` / `setSwitch`, coloured icon tiles, values with chevrons).
+    - Languages and Sync have their own pages (`languagesPage`, `syncPage`, `syncBox` in the same style).
+    - Theme and quality use `menu()`; keys use `editSheet`. The long notes are gone.
+  - The `App reports` cron ("23 * * * *") ran only a few times a day. Run it by hand (workflow_dispatch) to read new
+    reports.
 - Other platforms checked Oct 9 from CI: Gaana's old open API is gone (404); Wynk, Hungama, Spotify have no open
   streams. JioSaavn + YouTube stay the sources.
 - In-app "Report a problem" got 403 from GitHub. Cause (found Oct 9 from CI: `REPORT_TOKEN fingerprint/account`
@@ -294,7 +384,7 @@ GitHub artifact/blob downloads and dl.google.com (no local Android SDK — build
 the GitHub MCP `get_job_logs` tool; test the web app locally with Playwright (Chromium is preinstalled) by serving
 `SangeetWeb/` plus a copy of gh-pages `data/` and stubbing network routes.
 
-## 6. Status (2026-10-09 ~19:45 UTC)
+## 6. Status (2026-10-10)
 
 - `main` has everything up to PR #30. Latest APK = **build 174** (emulator test passed). The site is live with the
   same features.
@@ -312,6 +402,8 @@ the GitHub MCP `get_job_logs` tool; test the web app locally with Playwright (Ch
   like the YouTube key). Don't raise it again.
 - YouTube background mode (web): look for `YT SERVERS: N working` in the Web App log; it was 0 on Oct 6 (public
   Invidious/Piped are blocked by YouTube) and the owner knows.
+- Oct 10 batch and the report fixes (above) are in PR #36 (issues #32–#35 took the earlier numbers). The owner left out suggestion 7 (Data saver) and 9 (a repo
+  `asdf968566-art.github.io` for verified App Links).
 - Ideas the owner was offered but hasn't asked for: Navidrome/Subsonic option on the iPhone web app (Android has it).
 - Owner asked about hosting all catalog songs on their own server: advised against it (copyright takedowns could
   hit the GitHub account; ~400–500 GB per lakh songs; no gain since JioSaavn CDN already serves them).

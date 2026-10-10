@@ -39,6 +39,16 @@ const ICONS = {
   close: 'M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z',
   mic: 'M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z',
   clock: 'M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z',
+  chevron: 'M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z',
+  palette: 'M12 3a9 9 0 0 0 0 18c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z',
+  key: 'M12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z',
+  bug: 'M20 8h-2.81c-.45-.78-1.07-1.45-1.82-1.96L17 4.41 15.59 3l-2.17 2.17C12.96 5.06 12.49 5 12 5s-.96.06-1.41.17L8.41 3 7 4.41l1.62 1.63C7.88 6.55 7.26 7.22 6.81 8H4v2h2.09c-.05.33-.09.66-.09 1v1H4v2h2v1c0 .34.04.67.09 1H4v2h2.81c1.04 1.79 2.97 3 5.19 3s4.15-1.21 5.19-3H20v-2h-2.09c.05-.33.09-.66.09-1v-1h2v-2h-2v-1c0-.34-.04-.67-.09-1H20V8zm-6 8h-4v-2h4v2zm0-4h-4v-2h4v2z',
+  info: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z',
+  refresh: 'M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z',
+  phone: 'M15.5 1h-8C6.12 1 5 2.12 5 3.5v17C5 21.88 6.12 23 7.5 23h8c1.38 0 2.5-1.12 2.5-2.5v-17C18 2.12 16.88 1 15.5 1zm-4 21c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm4.5-4H7V4h9v14z',
+  sync: 'M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0 0 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 0 0 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z',
+  radio: 'M3.24 6.15C2.51 6.43 2 7.17 2 8v12c0 1.1.89 2 2 2h16c1.11 0 2-.9 2-2V8c0-1.11-.89-2-2-2H8.3l8.26-3.34L15.88 1 3.24 6.15zM7 20c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm13-8h-2v-2h-2v2H4V8h16v4z',
+  people: 'M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z',
   film: 'M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z',
   globe: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z',
   list: 'M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z',
@@ -247,6 +257,7 @@ function toggleLike(t) {
   refreshLikes();
 }
 function recordPlay(t) {
+  if (t.src === 'radio') return; // live radio stays out of history and suggestions
   const r = S.history[t.id] || { t: slim(t), c: 0, last: 0 };
   r.c++;
   r.last = Date.now();
@@ -269,6 +280,7 @@ document.addEventListener('error', (e) => {
   if (el.tagName === 'IMG' && el.src !== PLACEHOLDER) el.src = PLACEHOLDER;
 }, true);
 function streamUrl(t) {
+  if (t.src === 'radio') return t.media; // a live station's own stream
   const kb = S.quality === 'low' ? '96' : S.quality === 'medium' ? '160' : t.hq ? '320' : '160';
   return t.media.startsWith('http') ? t.media.replace(/_(96|160|320)\.mp4/, `_${kb}.mp4`) : `${AAC}${t.media}_${kb}.mp4`;
 }
@@ -971,7 +983,7 @@ const Player = {
     recordPlay(t);
     this.updateSession(t);
     UI.trackChanged();
-    if (this.queue.length - this.i <= 3) this.autoplay(false);
+    if (this.queue.length - this.i <= 3 && t.src !== 'radio') this.autoplay(false);
   },
   next() {
     if (this.i + 1 < this.queue.length) return this.load(this.i + 1);
@@ -1147,7 +1159,7 @@ function trackMenu(t) {
     ['Add to queue', () => Player.addToQueue(t)],
     [isLiked(t) ? 'Remove from Liked' : 'Like', () => toggleLike(t)],
     ['Add to playlist', () => playlistPicker(t)],
-    ...(Offline.has(t)
+    ...(t.src === 'radio' ? [] : Offline.has(t)
       ? [['Save to Files (iPhone)', () => Offline.saveToFiles(t)], ['Remove download', () => Offline.remove(t.id).then(() => toast('Download removed'))]]
       : [['Download', () => Offline.add([t])]]),
     ...(t.artist && t.src === 'js' ? [['Go to artist', () => openArtist(splitArtists(t.artist)[0] || t.artist)]] : []),
@@ -1722,23 +1734,231 @@ function openArtist(name) {
   pushPage(() => artistPage(name));
 }
 
+/* Live FM radio (owner, Oct 10): India's stations from the free, keyless Radio Browser directory (CORS *; CI-probed:
+ * ~300 working stations, most over https; Vividh Bharati / AIR are HLS, which the iPhone plays). Only https streams
+ * (the site is https). Same source as Android's LiveRadio. */
+const Radio = {
+  HOSTS: ['all.api.radio-browser.info', 'de1.api.radio-browser.info', 'de2.api.radio-browser.info'],
+  async stations() {
+    if (this.list && Date.now() - this.at < 3600000) return this.list;
+    for (const host of this.HOSTS) {
+      try {
+        const r = await fetch(`https://${host}/json/stations/search?countrycode=IN&hidebroken=true&order=clickcount&reverse=true&limit=300`);
+        if (!r.ok) continue;
+        const seen = new Set();
+        this.list = (await r.json()).filter((x) => (x.url_resolved || '').startsWith('https://') && x.name && !seen.has(x.name.toLowerCase()) && seen.add(x.name.toLowerCase()))
+          .map((x) => {
+            const langs = (x.language || '').toLowerCase().split(/[,;]/).map((l) => l.trim()).filter(Boolean);
+            return { id: `radio:${x.stationuuid}`, src: 'radio', sid: x.stationuuid, title: x.name.replace(/\s+/g, ' ').trim(),
+              artist: `Live radio${langs[0] ? ' · ' + langs[0][0].toUpperCase() + langs[0].slice(1) : ''}`, album: 'Live radio',
+              img: (x.favicon || '').startsWith('https://') ? x.favicon : '', media: x.url_resolved, dur: 0, lang: langs[0] || '', langs };
+          });
+        this.at = Date.now();
+        return this.list;
+      } catch {}
+    }
+    return [];
+  },
+};
+function radioPage() {
+  const list = h('div', null, h('div', { class: 'spinner' }));
+  const chips = h('div', { class: 'chips' });
+  Radio.stations().then((all) => {
+    if (!all.length) return fill(list, h('div', { class: 'empty' }, "Couldn't load radio stations. Check your internet."));
+    const count = {};
+    all.forEach((x) => x.langs.forEach((l) => { count[l] = (count[l] || 0) + 1; }));
+    const langs = [...new Set([...S.langs, ...Object.keys(count).sort((a, b) => count[b] - count[a])])].filter((l) => count[l]).slice(0, 10);
+    const show = (l) => {
+      chips.querySelectorAll('.chip').forEach((b) => b.classList.toggle('on', b.dataset.l === l));
+      fill(list, trackList(l === 'all' ? all : all.filter((x) => x.langs.includes(l))));
+    };
+    fill(chips, ['all', ...langs].map((l) => h('button', { class: 'chip', 'data-l': l, onclick: () => show(l) }, l === 'all' ? 'All' : l[0].toUpperCase() + l.slice(1))));
+    show('all');
+  });
+  return h('div', null, header('Live radio', true), chips, list);
+}
+/* Listen together (owner, Oct 10): phones in one room play the same song at the same moment. Same messages as
+ * Android's Together.kt, through ntfy.sh (free, keyless, CORS *; topic "sangeet-tg-<code>"):
+ * {v:1, k:'s', from, o: <song, as in #play links>, n: title, p: seconds, on: playing} from the host, on a change and
+ * every 5 minutes (ntfy allows ~250 messages a day), and {v:1, k:'h', from} when a guest joins (the host answers). */
+const Together = {
+  NTFY: 'https://ntfy.sh',
+  LETTERS: 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', // no 0/O, 1/I
+  room: null, // { code, host, note }
+  me: Math.random().toString(36).slice(2, 10),
+  topic(code) { return 'sangeet-tg-' + code.toLowerCase(); },
+  link(code) { return location.origin + location.pathname + '#together=' + code; },
+  /** "ABC234", "abc 234" or a link with #together=ABC234 → "ABC234"; null when it isn't a code. */
+  clean(text) {
+    const m = String(text || '').match(/together=([A-Za-z0-9]+)/);
+    const c = (m ? m[1] : String(text || '').replace(/[^A-Za-z0-9]/g, '')).toUpperCase();
+    return c.length === 6 ? c : null;
+  },
+  start() {
+    const code = Array.from({ length: 6 }, () => this.LETTERS[Math.floor(Math.random() * this.LETTERS.length)]).join('');
+    this.open({ code, host: true, note: 'Send the code or link to your friends' });
+  },
+  join(text) {
+    const code = this.clean(text);
+    if (!code) return false;
+    if (this.room?.code === code) return true;
+    this.open({ code, host: false, note: 'Waiting for the host…' });
+    this.send({ k: 'h' });
+    return true;
+  },
+  leave() {
+    this.es?.close();
+    this.es = null;
+    clearInterval(this.timer);
+    clearInterval(this.seekTimer);
+    this.room = null;
+    this.following = null;
+    this.changed();
+  },
+  open(room) {
+    this.leave();
+    this.room = room;
+    this.es = new EventSource(`${this.NTFY}/${this.topic(room.code)}/sse`);
+    this.es.onmessage = (e) => {
+      try {
+        const ev = JSON.parse(e.data);
+        if (ev.event && ev.event !== 'message') return;
+        const m = JSON.parse(ev.message);
+        if (m.from === this.me || this.room?.code !== room.code) return;
+        if (m.k === 'h' && this.room.host) this.send(this.state());
+        else if (m.k === 's' && !this.room.host) this.follow(m);
+      } catch {}
+    };
+    if (room.host) {
+      let last = {};
+      this.timer = setInterval(() => {
+        const t = Player.current;
+        if (!t) return;
+        const on = Player.playing || Player.loading;
+        const pos = Player.time();
+        const now = Date.now();
+        const expected = last.on ? last.pos + (now - last.at) / 1000 : last.pos;
+        if (t.id !== last.id || on !== last.on || Math.abs(pos - expected) > 3 || now - (this.sentAt || 0) > 300000) {
+          last = { id: t.id, on, pos, at: now };
+          this.send(this.state());
+        }
+      }, 1500);
+    }
+    this.changed();
+  },
+  state() {
+    const t = Player.current;
+    return { k: 's', o: t ? Sync.encode(t) : null, n: t?.title || '', p: Player.time(), on: Player.playing || Player.loading };
+  },
+  send(msg) {
+    if (!this.room) return;
+    this.sentAt = Date.now();
+    fetch(`${this.NTFY}/${this.topic(this.room.code)}`, { method: 'POST', body: JSON.stringify({ v: 1, from: this.me, ...msg }) }).catch(() => {});
+  },
+  /** A guest: play the host's song from where the host is. */
+  follow(m) {
+    const t = m.o && Sync.decode(m.o);
+    if (!t) return this.note(`The host is playing ${m.n || 'a song'}, which can't be shared (a phone file or radio)`);
+    this.note('Playing with the host');
+    const got = Date.now();
+    const target = () => (m.p || 0) + (m.on ? 0.4 + (Date.now() - got) / 1000 : 0); // the message is a moment old
+    const same = this.following === t.id && Player.current && (Player.current.id === t.id || Player.current.id === this.followingNow);
+    if (!same) {
+      this.following = t.id;
+      this.followingNow = null;
+      Player.play([Catalog.byId.get(t.id) || t], 0);
+      // Once it has loaded (a YouTube song may become the catalog's copy): jump to the host's spot, pause if the host has.
+      let tries = 0;
+      clearInterval(this.seekTimer);
+      this.seekTimer = setInterval(() => {
+        this.followingNow = Player.current?.id;
+        if (++tries > 40 || this.following !== t.id) return clearInterval(this.seekTimer);
+        if (Player.loading || !(Player.duration() > 0)) return;
+        clearInterval(this.seekTimer);
+        if (Math.abs(Player.time() - target()) > 2) Player.seek(target());
+        if (!m.on) Player.pause();
+      }, 500);
+      return;
+    }
+    if (Math.abs(Player.time() - target()) > 2.5) Player.seek(target());
+    if (m.on && !Player.playing && !Player.loading) Player.resume();
+    if (!m.on && Player.playing) Player.pause();
+  },
+  note(text) {
+    if (!this.room) return;
+    this.room.note = text;
+    this.changed();
+  },
+  changed() {
+    this.onchange?.();
+    UI.update?.();
+  },
+  /** Opened a friend's room link (#together=ABC234). */
+  fromHash() {
+    const m = location.hash.match(/together=([A-Za-z0-9]+)/);
+    if (!m) return;
+    history.replaceState(null, '', location.pathname);
+    this.join(m[1]);
+    if (tab !== 'library') document.querySelector('#tabs button[data-tab="library"]')?.click();
+    pushPage(togetherPage);
+  },
+};
+function togetherPage() {
+  const box = h('div');
+  const draw = () => {
+    const r = Together.room;
+    if (!r) {
+      const input = h('input', { type: 'text', placeholder: 'Room code or link', autocapitalize: 'characters', spellcheck: false, style: 'width:100%' });
+      fill(box,
+        h('div', { class: 'note' }, "Play the same song at the same moment on your friends' phones (iPhone or Android)."),
+        h('button', { class: 'pill primary', style: 'margin:8px 16px', onclick: () => Together.start() }, 'Start a room'),
+        h('div', { class: 'section' }, 'Or join a friend'),
+        h('div', { class: 'setting', style: 'display:block' }, input),
+        h('button', { class: 'pill', style: 'margin:0 16px 8px', onclick: () => { if (!Together.join(input.value)) toast('A room code has 6 letters and numbers'); } }, 'Join'));
+      return;
+    }
+    const invite = () => {
+      const url = Together.link(r.code);
+      if (navigator.share) navigator.share({ title: 'Listen with me on Sangeet', url }).catch(() => {});
+      else navigator.clipboard?.writeText(url).then(() => toast('Link copied'));
+    };
+    fill(box,
+      h('div', { class: 'section' }, r.host ? 'Your room' : "In a friend's room"),
+      h('div', { class: 'room-code' }, r.code),
+      h('div', { class: 'note' }, r.note || ''),
+      h('div', { class: 'actions' },
+        r.host ? h('button', { class: 'pill primary', onclick: invite }, 'Invite friends') : null,
+        h('button', { class: 'pill', onclick: () => Together.leave() }, 'Leave')));
+  };
+  Together.onchange = () => { if (box.isConnected) draw(); };
+  draw();
+  return h('div', null, header('Listen together', true), box);
+}
+/** "Song of the day": one song picked for you each day (from your suggestions, never the same one twice). */
+function songOfTheDay() {
+  const day = new Date().toDateString();
+  if (!S.sotd || S.sotd.day !== day) {
+    const shown = new Set(S.sotdShown || []);
+    const pick = suggestions(30).find((t) => !shown.has(t.id) && !isLiked(t));
+    if (!pick) return null;
+    S.sotd = { day, t: slim(pick) };
+    S.sotdShown = [...(S.sotdShown || []), pick.id].slice(-400);
+    save();
+  }
+  const t = S.sotd.t;
+  return h('div', { class: 'row sotd', onclick: () => Player.playRadio(t) },
+    h('img', { class: 'art', src: art(t), loading: 'lazy', alt: '' }),
+    h('div', { class: 'meta' }, h('div', { class: 's' }, 'Song of the day'), h('div', { class: 't' }, t.title), h('div', { class: 's' }, t.artist)),
+    h('button', { class: 'icon-btn', 'aria-label': 'Play', onclick: (e) => { e.stopPropagation(); Player.playRadio(t); } }, icon('play')));
+}
 function libraryPage() {
   const link = (ic, label, count, fn) => h('div', { class: 'link-row', onclick: fn }, icon(ic), label, count != null ? h('span', { class: 'count' }, count) : null);
   const charts = Catalog.playlists.filter((p) => p.chart);
   return h('div', null,
     header('Library'),
-    link('sparkles', 'AI DJ', null, () => pushPage(() => djPage())),
+    songOfTheDay(),
+    // Your own playlists first (a report, Oct 10: "user ki khud ki playlist top me").
     link('heartFill', 'Liked Songs', S.liked.length, () => pushPage(() => songsPage('Liked Songs', S.liked))),
-    link('clock', 'Recently Played', null, () => pushPage(() => songsPage('Recently Played', recent().slice(0, 300)))),
-    link('globe', 'Online Library', Catalog.playlists.length || null, () => pushPage(onlineLibraryPage)),
-    link('film', 'Movies', null, () => pushPage(() => moviesPage())),
-    Offline.only() ? h('div', { class: 'offline-banner', onclick: () => pushPage(downloadsPage) },
-      navigator.onLine ? 'Offline mode is on: only downloaded songs play.' : "You're offline. Your downloaded songs still play →") : null,
-    link('download', 'Downloads', Offline.ids.size || null, () => pushPage(downloadsPage)),
-    link('chart', 'Your Stats', null, () => pushPage(statsPage)),
-    link('heartFill', 'Blend with a friend', null, () => pushPage(blendPage)),
-    link('plus', 'Import playlist', null, () => pushPage(importPage)),
-    h('div', { class: 'section' }, 'Your playlists'),
     S.playlists.map((p) => link('list', p.name, p.tracks.length, () => pushPage(() => songsPage(p.name, p.tracks, p)))),
     link('plus', 'New playlist', null, () => {
       const name = prompt('Playlist name');
@@ -1747,6 +1967,19 @@ function libraryPage() {
       save();
       showPage();
     }),
+    h('div', { class: 'section' }, 'More'),
+    link('sparkles', 'AI DJ', null, () => pushPage(() => djPage())),
+    link('clock', 'Recently Played', null, () => pushPage(() => songsPage('Recently Played', recent().slice(0, 300)))),
+    link('globe', 'Online Library', Catalog.playlists.length || null, () => pushPage(onlineLibraryPage)),
+    link('film', 'Movies', null, () => pushPage(() => moviesPage())),
+    link('radio', 'Live radio', null, () => pushPage(radioPage)),
+    link('people', 'Listen together', Together.room ? Together.room.code : null, () => pushPage(togetherPage)),
+    Offline.only() ? h('div', { class: 'offline-banner', onclick: () => pushPage(downloadsPage) },
+      navigator.onLine ? 'Offline mode is on: only downloaded songs play.' : "You're offline. Your downloaded songs still play →") : null,
+    link('download', 'Downloads', Offline.ids.size || null, () => pushPage(downloadsPage)),
+    link('chart', 'Your Stats', null, () => pushPage(statsPage)),
+    link('heartFill', 'Blend with a friend', null, () => pushPage(blendPage)),
+    link('plus', 'Import playlist', null, () => pushPage(importPage)),
     madeForYou(),
     charts.length ? h('div', { class: 'section' }, 'Top charts') : null,
     charts.length ? h('div', { class: 'grid' }, charts.slice(0, 12).map(playlistCard)) : null);
@@ -1929,7 +2162,8 @@ function downloadsPage() {
 
 function songsPage(title, tracks, mine, online) {
   const actions = tracks.length ? h('div', { class: 'actions' },
-    h('button', { class: 'pill primary', onclick: () => Player.play(tracks) }, icon('play'), 'Play'),
+    // Play starts at a random song (a report, Oct 10: "har baar random song"), like Shuffle.
+    h('button', { class: 'pill primary', onclick: () => Player.play(shuffle(tracks)) }, icon('play'), 'Play'),
     h('button', { class: 'pill', onclick: () => Player.play(shuffle(tracks)) }, icon('shuffle'), 'Shuffle'),
     h('button', { class: 'pill', onclick: () => Offline.add(tracks) }, icon('download'), 'Download'),
     online ? h('button', { class: 'pill', onclick: () => { S.playlists.unshift({ id: String(Date.now()), name: title, tracks: tracks.map(slim) }); save(); toast('Saved to your playlists'); } }, icon('plus'), 'Save') : null,
@@ -2158,7 +2392,6 @@ const FreeAi = {
       + (singers.length ? `The listener plays these singers most: ${singers.join(', ')}. ` : '')
       + (history.length ? `Earlier in this chat: ${history.slice(-4).map((x) => `"${x}"`).join(' | ')}. Treat the request as a change to that mix if it reads like one. ` : '')
       + `Request: ${text}`;
-    const until = Date.now() + 22000;
     const fromText = async (content, who) => {
       const plan = JSON.parse(content.slice(content.indexOf('{'), content.lastIndexOf('}') + 1));
       const names = (plan.songs || []).map((x) => (typeof x === 'string' ? x : x && x.title ? `${x.title} - ${x.artist || x.singer || ''}` : ''))
@@ -2168,24 +2401,58 @@ const FreeAi = {
       return found;
     };
     const key = this.geminiKey();
-    if (key) {
-      const ctl = new AbortController();
-      const timer = setTimeout(() => ctl.abort(), 22000);
-      try { const text = await this.askGemini(key, user, ctl.signal); if (text) return await fromText(text, 'Gemini'); } catch {} finally { clearTimeout(timer); }
-    }
+    return (await this.race([
+      async (signal) => (key ? fromText(await this.askGemini(key, user, signal), 'Gemini') : null),
+      (signal) => this.keyless(this.SYSTEM, user, 3000, signal, (content, model) => fromText(content, model)),
+    ], 22000)) || [];
+  },
+  /**
+   * Runs [fns] at the same time and gives the first answer that isn't empty (null if none); the others are stopped.
+   * Gemini's free tier takes ~19 s and is often busy (CI probe, Oct 10), so it no longer goes first and alone.
+   */
+  race(fns, ms) {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), ms);
+    return new Promise((done) => {
+      let left = fns.length;
+      const take = (v) => { if (v && v.length) done(v); else if (--left === 0) done(null); };
+      fns.forEach((fn) => Promise.resolve().then(() => fn(ctl.signal)).then(take, () => take(null)));
+    }).finally(() => { clearTimeout(timer); ctl.abort(); });
+  },
+  /** The keyless models in turn (a busy or used-up one is skipped) until [use] makes something of an answer. */
+  async keyless(system, user, maxTokens, signal, use) {
     for (const model of this.MODELS) {
-      const left = until - Date.now();
-      if (left < 3000) break;
-      const ctl = new AbortController();
-      const timer = setTimeout(() => ctl.abort(), left);
+      if (signal.aborted) break;
       try {
-        const r = await fetch(this.URL, { method: 'POST', signal: ctl.signal, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer unused' },
-          body: JSON.stringify({ model, temperature: 0.4, max_tokens: 3000, messages: [{ role: 'system', content: this.SYSTEM }, { role: 'user', content: user }] }) });
+        const r = await fetch(this.URL, { method: 'POST', signal, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer unused' },
+          body: JSON.stringify({ model, temperature: 0.4, max_tokens: maxTokens, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] }) });
         if (!r.ok) continue;
-        return await fromText((await r.json()).choices?.[0]?.message?.content || '', model);
-      } catch {} finally { clearTimeout(timer); }
+        const v = await use((await r.json()).choices?.[0]?.message?.content || '', model);
+        if (v && v.length) return v;
+      } catch {}
     }
-    return [];
+    return null;
+  },
+  MEANING: 'You explain Indian song lyrics to listeners. Reply in simple English, in at most 3 short sentences, with no heading '
+    + 'and no markdown. If the line is not in English (Hindi, Punjabi, Haryanvi or another language), first give its English '
+    + 'translation in quotes, then what it means in the song.',
+  /** What a lyrics line means (Gemini first, then the keyless models), or null. Same prompt as Android. */
+  async meaning(line, t) {
+    if (!navigator.onLine) return null;
+    const user = `Song: "${t.title}" by ${(t.artist || '').split(',')[0]}.\nLine: "${line.slice(0, 300)}"`;
+    const key = this.geminiKey();
+    const clean = (text) => (text || '').replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+    return this.race([
+      async (signal) => {
+        if (!key) return null;
+        const model = await this.geminiModel(key, signal);
+        if (!model) return null;
+        const r = await fetch(`${this.GEMINI}/${model}:generateContent?key=${key}`, { method: 'POST', signal, headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ systemInstruction: { parts: [{ text: this.MEANING }] }, contents: [{ role: 'user', parts: [{ text: user }] }], generationConfig: { temperature: 0.4, maxOutputTokens: 1500 } }) });
+        return r.ok ? clean(((await r.json()).candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('')) : null;
+      },
+      (signal) => this.keyless(this.MEANING, user, 1500, signal, (content) => clean(content)),
+    ], 25000);
   },
   /** The catalog's song for "Song - Singer", or null when there is no such song by that singer. */
   async find(line) {
@@ -2247,49 +2514,71 @@ async function djMix(req, shown, history = []) {
       if (moodless && moodless !== lean) tracks = (await aiDj(moodless)).tracks;
     }
   }
-  // The free AI's songs (real ones only) and the built-in DJ's, taking turns; in the asked languages.
+  // The built-in DJ's songs now; the free AI's (real ones only, in the asked languages) when they come
+  // (out.later), for the DJ page to mix in while the songs play (owner's report, Oct 10: the DJ waited for a slow AI).
   const langsAsked = ALL_LANGS.filter((l) => t.includes(` ${l} `));
-  const ai = (await fromAi).filter((x) => !langsAsked.length || !x.lang || langsAsked.includes(x.lang));
-  const mixed = [];
-  for (let i = 0; i < Math.max(ai.length, tracks.length); i++) { if (ai[i]) mixed.push(ai[i]); if (tracks[i]) mixed.push(tracks[i]); }
   const bad = (x) => req.without.some((w) => norm(`${x.title} ${x.artist}`).includes(w));
   const seen = new Set();
-  const out = mixed.filter((x) => !shown.has(x.id) && !bad(x) && !seen.has(x.id) && seen.add(x.id));
-  out.ai = new Set(ai.map((x) => x.id));
+  const out = tracks.filter((x) => !shown.has(x.id) && !bad(x) && !seen.has(x.id) && seen.add(x.id));
+  out.later = fromAi.then((ai) => ai.filter((x) => (!langsAsked.length || !x.lang || langsAsked.includes(x.lang)) && !bad(x) && !shown.has(x.id) && !seen.has(x.id)))
+    .catch(() => []);
   return out;
 }
 function djPage(initial) {
   const out = h('div'), chat = h('div');
   const input = h('input', { type: 'text', placeholder: 'What do you want to hear?', enterkeyhint: 'go' });
-  let prev = null;
+  let prev = null, turn = 0;
   const shown = new Set(), asked = [];
   const run = async (text) => {
     if (!text.trim()) return;
     input.value = '';
     input.blur();
     const req = DjChat.next(text, prev);
+    const mine = ++turn;
     out.replaceChildren(h('div', { class: 'spinner' }));
-    const mix = await djMix(req, req.more ? shown : new Set(), asked);
-    const tracks = mix.slice(0, 60);
-    const picked = tracks.filter((x) => mix.ai.has(x.id)).length;
-    const aiNote = picked ? ` · ${picked} picked by the online AI` : '';
+    const past = asked.slice();
+    const mix = await djMix(req, req.more ? shown : new Set(), past);
+    if (mine !== turn) return;
+    let tracks = mix.slice(0, 60);
     const title = req.base.trim().replace(/^./, (c) => c.toUpperCase()).slice(0, 40);
-    chat.append(h('div', { class: 'note', style: 'padding:4px 16px' }, `You: ${text}`),
-      h('div', { class: 'note', style: 'padding:0 16px 8px;opacity:.8' }, tracks.length ? `DJ: ${req.more ? `${tracks.length} more` : `${title} · ${tracks.length} songs`}${req.without.length ? ` (no ${req.without.join(', ')})` : ''}${aiNote}` : "DJ: I couldn't find songs for that. Try other words."));
+    const line = h('div', { class: 'note', style: 'padding:0 16px 8px;opacity:.8' }, tracks.length ? `DJ: ${req.more ? `${tracks.length} more` : `${title} · ${tracks.length} songs`}${req.without.length ? ` (no ${req.without.join(', ')})` : ''}` : "DJ: I couldn't find songs for that. Try other words.");
+    chat.append(h('div', { class: 'note', style: 'padding:4px 16px' }, `You: ${text}`), line);
     asked.push(text);
-    if (!tracks.length) return out.replaceChildren();
+    if (!tracks.length) {
+      // Nothing built in: the online AI may still find some.
+      const ai = (await mix.later).slice(0, 30);
+      if (mine !== turn || !ai.length) return out.replaceChildren();
+      tracks = ai;
+      line.textContent = `DJ: ${title} · ${ai.length} songs · picked by the online AI`;
+    }
     prev = req;
     tracks.forEach((x) => shown.add(x.id));
     Player.play(tracks);
     input.placeholder = 'Change it: "only Arijit", "no remix", "more"…';
+    const list = h('div', null, trackList(tracks));
     out.replaceChildren(
       h('div', { class: 'chips' }, ['More like this', 'Newer songs', 'No remix', 'Make it sad', 'Also Punjabi'].map((f) => h('button', { class: 'chip', onclick: () => run(f) }, f)),
-        h('button', { class: 'chip', onclick: () => { prev = null; shown.clear(); asked.length = 0; chat.replaceChildren(); out.replaceChildren(); input.placeholder = 'What do you want to hear?'; } }, 'New chat')),
+        h('button', { class: 'chip', onclick: () => { turn++; prev = null; shown.clear(); asked.length = 0; chat.replaceChildren(); out.replaceChildren(); input.placeholder = 'What do you want to hear?'; } }, 'New chat')),
       h('div', { class: 'section' }, title),
       h('div', { class: 'actions' },
         h('button', { class: 'pill primary', onclick: () => Player.play(tracks) }, icon('play'), 'Play'),
         h('button', { class: 'pill', onclick: () => { S.playlists.unshift({ id: String(Date.now()), name: title, tracks: tracks.map(slim) }); save(); toast('Saved to your playlists'); } }, icon('plus'), 'Save')),
-      trackList(tracks));
+      list);
+    // The online AI's songs, when they come: between the DJ's songs still to come, if this mix still plays.
+    const ai = await mix.later;
+    const queued = new Set(Player.queue.map((x) => x.id));
+    if (mine !== turn || !tracks.some((x) => queued.has(x.id))) return;
+    const extra = ai.filter((x) => !queued.has(x.id)).slice(0, 20);
+    if (!extra.length) return;
+    let at = Player.i + 1;
+    extra.forEach((x) => { Player.queue.splice(Math.min(at, Player.queue.length), 0, x); at += 2; shown.add(x.id); });
+    const cur = Math.max(0, tracks.findIndex((x) => x.id === Player.current?.id));
+    const rest = tracks.slice(cur + 1), merged = tracks.slice(0, cur + 1);
+    for (let i = 0; i < Math.max(extra.length, rest.length); i++) { if (extra[i]) merged.push(extra[i]); if (rest[i]) merged.push(rest[i]); }
+    tracks = merged;
+    fill(list, trackList(tracks));
+    line.textContent += ` · ${extra.length} picked by the online AI`;
+    UI.update();
   };
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter') run(input.value); });
   const examples = ['Sad Punjabi songs for a night drive', '90s Bollywood romantic', 'Arijit Singh latest', 'Kesariya jaise gaane', 'Gym workout Hindi', 'Rainy day chill'];
@@ -2299,12 +2588,6 @@ function djPage(initial) {
 }
 
 const ACCENTS = [['Coral', '#ff5c6b'], ['Green', '#1db954'], ['Violet', '#8b5cf6'], ['Blue', '#3b82f6'], ['Teal', '#14b8a6'], ['Orange', '#f97316'], ['Pink', '#ec4899'], ['Red', '#ef4444']];
-function toggleRow(label, note, on, change) {
-  const sw = h('button', { class: 'switch' + (on ? ' on' : ''), role: 'switch', 'aria-label': label, 'aria-checked': String(on), onclick: () => {
-    on = !on; sw.classList.toggle('on', on); sw.setAttribute('aria-checked', String(on)); change(on);
-  } }, h('span'));
-  return h('div', { class: 'setting toggle' }, h('div', null, h('label', null, label), h('div', { class: 'note', style: 'padding:2px 0 0' }, note)), sw);
-}
 /** "Report a problem": the user writes what happened; it is shared (WhatsApp, email…) with app details. */
 function reportProblem() {
   const what = prompt('What went wrong?');
@@ -2318,34 +2601,79 @@ function reportProblem() {
 function syncBox() {
   const box = h('div');
   const say = (text) => { toast(text); draw(); };
+  const sendLink = (code) => {
+    const url = CloudSync.link(code);
+    if (navigator.share) navigator.share({ title: 'Sangeet sync', url }).catch(() => {});
+    else navigator.clipboard?.writeText(url).then(() => toast('Link copied'));
+  };
   const draw = () => {
     const code = CloudSync.code;
     if (!code) {
-      const input = h('input', { type: 'text', placeholder: 'Sync link or code from your other phone', autocapitalize: 'off', spellcheck: false, style: 'width:100%' });
-      fill(box, h('div', { class: 'section' }, 'Sync with another phone'),
-        h('div', { class: 'note' }, 'Liked songs and playlists stay the same on both phones (iPhone or Android). No account needed.'),
-        h('button', { class: 'pill primary', style: 'margin:8px 16px', onclick: async () => {
-          try { const c = await CloudSync.start(); const url = CloudSync.link(c); if (navigator.share) navigator.share({ title: 'Sangeet sync', url }).catch(() => {}); else navigator.clipboard?.writeText(url); say('Sync is on. Open the link on your other phone.'); } catch (e) { say(`Didn't work: ${e.message}`); }
-        } }, 'Start sync'),
-        h('div', { class: 'setting', style: 'display:block' }, input),
-        h('button', { class: 'pill', style: 'margin:0 16px 8px', onclick: async () => {
-          try { const [l, p] = await CloudSync.join(input.value); say(`Synced: ${l} liked songs, ${p} playlists`); } catch (e) { say(e.message || "Didn't work"); }
-        } }, 'Join'));
+      const input = h('input', { type: 'text', placeholder: 'Sync link or code', autocapitalize: 'off', spellcheck: false });
+      fill(box,
+        h('div', { class: 'note', style: 'padding:0 22px 14px' }, 'Liked songs and playlists stay the same on both phones (iPhone or Android).'),
+        setGroup('',
+          setRow({ ic: 'sync', color: 'teal', label: 'Start sync', sub: 'Makes a link for your other phone', onclick: async () => {
+            try { const c = await CloudSync.start(); sendLink(c); say('Sync is on. Open the link on your other phone.'); } catch (e) { say(`Didn't work: ${e.message}`); }
+          } })),
+        setGroup('Or join your other phone',
+          h('div', { class: 'set-row' }, h('div', { class: 'set-main' }, input)),
+          setRow({ label: 'Join', onclick: async () => {
+            try { const [l, p] = await CloudSync.join(input.value); say(`Synced: ${l} liked songs, ${p} playlists`); } catch (e) { say(e.message || "Didn't work"); }
+          } })));
     } else {
-      fill(box, h('div', { class: 'section' }, 'Sync with another phone'),
-        h('div', { class: 'note' }, `Sync is on (code ${code.slice(0, 8)}…). Changes go to your other phone by themselves.`),
-        h('div', { class: 'actions' },
-          h('button', { class: 'pill', onclick: () => { const url = CloudSync.link(code); if (navigator.share) navigator.share({ title: 'Sangeet sync', url }).catch(() => {}); else navigator.clipboard?.writeText(url).then(() => toast('Link copied')); } }, 'Send sync link'),
-          h('button', { class: 'pill', onclick: async () => { try { const r = await CloudSync.sync(); say(r ? `Synced: ${r[0]} liked songs, ${r[1]} playlists` : "This sync code doesn't work any more. Stop and start again."); } catch (e) { say(e.message); } } }, 'Sync now'),
-          h('button', { class: 'pill', onclick: () => { CloudSync.set(null); say('Sync stopped on this phone'); } }, 'Stop')));
+      fill(box, setGroup('Sync is on',
+        setRow({ ic: 'list', color: 'teal', label: 'Send the sync link', sub: 'Open it on your other phone', onclick: () => sendLink(code) }),
+        setRow({ ic: 'sync', color: 'blue', label: 'Sync now', sub: 'Also happens by itself after changes', onclick: async () => {
+          try { const r = await CloudSync.sync(); say(r ? `Synced: ${r[0]} liked songs, ${r[1]} playlists` : "This sync code doesn't work any more. Stop and start again."); } catch (e) { say(e.message); }
+        } }),
+        setRow({ label: 'Stop syncing', danger: true, onclick: () => { CloudSync.set(null); say('Sync stopped on this phone'); } })));
     }
   };
   draw();
   return box;
 }
-function settingsPage() {
-  const langChips = h('div', { class: 'chips' }, ALL_LANGS.map((l) => {
-    const b = h('button', { class: 'chip' + (S.langs.includes(l) ? ' on' : '') }, l[0].toUpperCase() + l.slice(1));
+/* Settings (owner, Oct 10: "setting ka ui shi se bna"): grouped cards like the iPhone's Settings. Each row is an
+ * icon, a name and its value (tap to change) or a switch; longer things open their own page or a small sheet. */
+const SET_COLORS = { blue: '#0a84ff', green: '#30d158', orange: '#ff9f0a', purple: '#bf5af2', pink: '#ff375f', red: '#ff453a', gray: '#8e8e93', teal: '#40c8e0', indigo: '#5e5ce6' };
+function setRow({ ic, color = 'gray', label, sub, value, onclick, right, danger }) {
+  const val = value != null ? h('span', { class: 'set-value' }, value) : null;
+  const row = h('div', { class: 'set-row' + (onclick ? ' tap' : '') + (danger ? ' danger-row' : ''), onclick },
+    ic ? h('span', { class: 'set-ic', style: `background:${SET_COLORS[color] || color}` }, icon(ic)) : null,
+    h('div', { class: 'set-main' }, h('div', { class: 'set-label' }, label), sub ? h('div', { class: 'set-sub' }, sub) : null),
+    val, right || (onclick && !danger ? h('span', { class: 'set-chev' }, icon('chevron')) : null));
+  row.setValue = (v) => { if (val) val.textContent = v; };
+  return row;
+}
+function setSwitch(on, change, label) {
+  const sw = h('button', { class: 'switch' + (on ? ' on' : ''), role: 'switch', 'aria-label': label, 'aria-checked': String(on), onclick: (e) => {
+    e.stopPropagation();
+    on = !on; sw.classList.toggle('on', on); sw.setAttribute('aria-checked', String(on)); change(on);
+  } }, h('span'));
+  return sw;
+}
+function setGroup(title, ...rows) {
+  return h('div', { class: 'set-group' }, title ? h('div', { class: 'set-title' }, title) : null, h('div', { class: 'set-card' }, rows));
+}
+/** A small sheet to type a value (an API key). */
+function editSheet(title, value, placeholder, onSave) {
+  const input = h('input', { type: 'text', value: value || '', placeholder, autocapitalize: 'off', spellcheck: false, style: 'font-family:ui-monospace,monospace;font-size:13px' });
+  const close = () => box.remove();
+  const box = h('div', { class: 'menu', onclick: close },
+    h('div', { class: 'box', onclick: (e) => e.stopPropagation() },
+      h('div', { class: 'title' }, title),
+      h('div', { style: 'padding:4px 16px 4px' }, input),
+      h('div', { class: 'actions' },
+        h('button', { class: 'pill', onclick: close }, 'Cancel'),
+        h('button', { class: 'pill primary', onclick: () => { onSave(input.value.trim()); close(); } }, 'Save'))));
+  document.body.append(box);
+  input.focus();
+}
+const langName = (l) => l[0].toUpperCase() + l.slice(1);
+function languagesPage() {
+  const count = h('div', { class: 'note' }, `${Catalog.total.toLocaleString()} songs in your languages`);
+  const chips = h('div', { class: 'chips', style: 'padding:4px 16px' }, ALL_LANGS.map((l) => {
+    const b = h('button', { class: 'chip' + (S.langs.includes(l) ? ' on' : '') }, langName(l));
     b.onclick = async () => {
       if (S.langs.includes(l)) { if (S.langs.length === 1) return; S.langs = S.langs.filter((x) => x !== l); }
       else S.langs.push(l);
@@ -2357,63 +2685,69 @@ function settingsPage() {
     };
     return b;
   }));
-  const count = h('div', { class: 'note' }, `${Catalog.total.toLocaleString()} songs in your languages`);
-  const quality = h('select', { onchange: (e) => { S.quality = e.target.value; save(); } },
-    [['low', '96 kbps'], ['medium', '160 kbps'], ['high', '320 kbps']].map(([v, l]) => h('option', { value: v, selected: S.quality === v }, l)));
-  const key = h('input', { type: 'text', value: S.ytKey, autocapitalize: 'off', spellcheck: false, style: 'font-family:ui-monospace,monospace;font-size:13px' });
-  key.addEventListener('change', () => { S.ytKey = key.value.trim(); save(); });
+  return h('div', null, header('Song languages', true), chips, count);
+}
+function syncPage() {
+  return h('div', null, header('Sync with another phone', true), syncBox(),
+    setGroup('Or send once', setRow({ ic: 'list', color: 'teal', label: 'Send liked songs and playlists', sub: 'A link to open on the other phone', onclick: () => Sync.share() })));
+}
+function settingsPage() {
   const standalone = navigator.standalone || matchMedia('(display-mode: standalone)').matches;
-  const look = h('select', { onchange: (e) => {
-    S.look = e.target.value;
-    save();
-    if (applyLook() && standalone) toast('Close and reopen the app for the top bar (time, battery) colors', 4500);
-  } }, LOOKS.map(([v, l]) => h('option', { value: v, selected: (S.look || 'classic') === v }, l)));
-  return h('div', null,
+  const QUALITY = [['low', '96 kbps'], ['medium', '160 kbps'], ['high', '320 kbps']];
+  const qualityName = () => (QUALITY.find(([v]) => v === S.quality) || QUALITY[2])[1];
+  const lookName = () => (LOOKS.find(([v]) => v === (S.look || 'classic')) || LOOKS[0])[1];
+  const geminiName = () => (S.geminiKey ? 'Your key' : BUILT_IN_GEMINI.startsWith('__') ? 'Not set' : 'Built in');
+  const ytName = () => (!S.ytKey ? 'Off' : S.ytKey === DEFAULT_YT_KEY ? 'Built in' : 'Your key');
+
+  const quality = setRow({ ic: 'chart', color: 'orange', label: 'Streaming quality', value: qualityName(), onclick: () =>
+    menu('Streaming quality', QUALITY.map(([v, l]) => [`${l}${v === S.quality ? '  ✓' : ''}`, () => { S.quality = v; save(); quality.setValue(qualityName()); }])) });
+  const look = setRow({ ic: 'palette', color: 'purple', label: 'Theme', value: lookName(), onclick: () =>
+    menu('Theme', LOOKS.map(([v, l]) => [`${l}${v === (S.look || 'classic') ? '  ✓' : ''}`, () => {
+      S.look = v; save(); look.setValue(lookName());
+      if (applyLook() && standalone) toast('Close and reopen the app for the top bar colors', 4500);
+    }])) });
+  const swatches = h('div', { class: 'set-swatches' }, ACCENTS.map(([name, c]) => {
+    const b = h('button', { class: 'swatch' + ((S.accent || '#ff5c6b') === c ? ' on' : ''), style: `background:${c}`, 'aria-label': name, onclick: () => {
+      S.accent = c; save(); applyLook();
+      swatches.querySelectorAll('.swatch').forEach((x) => x.classList.toggle('on', x === b));
+    } });
+    return b;
+  }));
+  const gemini = setRow({ ic: 'key', color: 'indigo', label: 'Gemini key', value: geminiName(), onclick: () =>
+    editSheet('Gemini key (free at aistudio.google.com)', S.geminiKey, 'Paste your key', (v) => {
+      S.geminiKey = v; FreeAi.model = null; save(); gemini.setValue(geminiName()); toast(v ? 'Gemini key saved' : 'Gemini key removed');
+    }) });
+  const ytKey = setRow({ ic: 'key', color: 'red', label: 'YouTube key', value: ytName(), onclick: () =>
+    editSheet('YouTube Data API key (empty = off)', S.ytKey, 'Paste a key', (v) => { S.ytKey = v; save(); ytKey.setValue(ytName()); }) });
+
+  return h('div', { class: 'settings' },
     header('Settings'),
-    h('div', { class: 'section' }, 'Look'),
-    h('div', { class: 'setting' }, h('label', null, 'Theme'), look),
-    h('div', { class: 'note' }, 'Liquid Glass: the iOS 26 look, with glass bars floating over the songs.'),
-    h('div', { class: 'setting', style: 'display:block' }, h('label', null, 'Accent color'),
-      h('div', { class: 'swatches' }, ACCENTS.map(([name, c]) => {
-        const b = h('button', { class: 'swatch' + ((S.accent || '#ff5c6b') === c ? ' on' : ''), style: `background:${c}`, 'aria-label': name, onclick: () => {
-          S.accent = c; save(); applyLook();
-          b.parentNode.querySelectorAll('.swatch').forEach((x) => x.classList.toggle('on', x === b));
-        } });
-        return b;
-      }))),
-    h('div', { class: 'section' }, 'Languages'), langChips, count,
-    h('div', { class: 'section' }, 'Audio'),
-    h('div', { class: 'setting' }, h('label', null, 'Streaming quality'), quality),
-    h('div', { class: 'setting', style: 'display:block' }, h('label', null, 'Gemini API key (optional)'), (() => {
-      const k = h('input', { type: 'text', value: S.geminiKey || '', autocapitalize: 'off', spellcheck: false, placeholder: BUILT_IN_GEMINI.startsWith('__') ? 'Free at aistudio.google.com' : 'Built in (or paste your own)', style: 'font-family:ui-monospace,monospace;font-size:13px;width:100%' });
-      k.addEventListener('change', () => { S.geminiKey = k.value.trim(); FreeAi.model = null; save(); toast(S.geminiKey ? 'Gemini key saved' : 'Gemini key removed'); });
-      return k;
-    })()),
-    toggleRow('Free online AI for the DJ',
-      'The AI DJ also asks a free online AI (Gemini with a key, else LLM7.io: GLM, DeepSeek) for songs. Only songs that really exist are played. It gets your request and the singers you play most.',
-      S.freeAi !== false, (on) => { S.freeAi = on; save(); }),
-    h('div', { class: 'section' }, 'YouTube Data API key'),
-    h('div', { class: 'setting' }, key),
-    h('div', { class: 'note' }, 'Used for search results. Leave empty to turn off.'),
-    toggleRow('YouTube in background (experimental)',
-      'YouTube songs keep playing with the screen locked, through free public servers. They are sometimes slow or down; then YouTube plays as before (stops when locked).',
-      !!S.ytAudio, (v) => { S.ytAudio = v; save(); }),
-    h('div', { class: 'section' }, 'Move library'),
-    syncBox(),
-    h('button', { class: 'danger', style: 'color:var(--text)', onclick: () => Sync.share() }, 'Send liked songs and playlists to another phone'),
-    h('div', { class: 'note' }, 'Open the link on the other phone. On Android, paste it in Library → Import playlist.'),
-    h('div', { class: 'section' }, 'Offline'),
-    toggleRow('Offline mode', 'Play only downloaded songs (saves data). Turns on by itself without internet.', !!S.offlineOnly, (v) => { S.offlineOnly = v; save(); }),
-    h('div', { class: 'section' }, 'Help'),
-    h('button', { class: 'danger', style: 'color:var(--text)', onclick: reportProblem }, 'Report a problem'),
-    h('div', { class: 'note' }, 'Write what went wrong and send it with WhatsApp, email or any app.'),
-    h('div', { class: 'section' }, 'Suggestions'),
-    h('button', { class: 'danger', onclick: () => { S.seen = []; seenSet.clear(); save(); Feed.reset(); toast('Done'); } }, 'Reset suggestions'),
-    h('div', { class: 'note' }, "Songs you've heard are never suggested twice."),
-    standalone ? null : h('div', null, h('div', { class: 'section' }, 'Install on iPhone'),
-      h('div', { class: 'note' }, 'In Safari tap Share, then "Add to Home Screen". Sangeet opens full screen like an app.')),
-    h('button', { class: 'danger', style: 'color:var(--text)', onclick: () => WhatsNew.show() }, "What's new"),
-    h('div', { class: 'note' }, `Version ${window.SANGEET_BUILD}`));
+    setGroup('Music',
+      setRow({ ic: 'globe', color: 'blue', label: 'Song languages', value: S.langs.map(langName).join(', '), onclick: () => pushPage(languagesPage) }),
+      quality,
+      setRow({ ic: 'download', color: 'green', label: 'Offline mode', sub: 'Only downloaded songs', right: setSwitch(!!S.offlineOnly, (v) => { S.offlineOnly = v; save(); }, 'Offline mode') })),
+    setGroup('Look',
+      look,
+      h('div', { class: 'set-row' }, h('span', { class: 'set-ic', style: `background:${SET_COLORS.pink}` }, icon('heartFill')),
+        h('div', { class: 'set-main' }, h('div', { class: 'set-label' }, 'Accent color'))),
+      swatches),
+    setGroup('AI DJ',
+      setRow({ ic: 'sparkles', color: 'purple', label: 'Free online AI', sub: 'Finds more songs for the DJ', right: setSwitch(S.freeAi !== false, (on) => { S.freeAi = on; save(); }, 'Free online AI') }),
+      gemini),
+    setGroup('YouTube',
+      setRow({ ic: 'play', color: 'red', label: 'YouTube in background', sub: 'Experimental: plays on with the screen locked', right: setSwitch(!!S.ytAudio, (v) => { S.ytAudio = v; save(); }, 'YouTube in background') }),
+      ytKey),
+    setGroup('Your library',
+      setRow({ ic: 'sync', color: 'teal', label: 'Sync with another phone', value: CloudSync.code ? 'On' : null, onclick: () => pushPage(syncPage) })),
+    setGroup('Help',
+      setRow({ ic: 'info', color: 'blue', label: "What's new", onclick: () => WhatsNew.show() }),
+      setRow({ ic: 'bug', color: 'orange', label: 'Report a problem', onclick: reportProblem }),
+      standalone ? null : setRow({ ic: 'phone', color: 'gray', label: 'Install on iPhone', sub: 'Safari: Share, then Add to Home Screen' }),
+      setRow({ ic: 'refresh', color: 'gray', label: 'Reset suggestions', sub: "Songs you've heard aren't suggested twice", onclick: () => {
+        if (!confirm('Start suggestions over? Songs you heard can come again.')) return;
+        S.seen = []; seenSet.clear(); save(); Feed.reset(); toast('Done');
+      } })),
+    h('div', { class: 'set-foot' }, `Sangeet · version ${window.SANGEET_BUILD}`));
 }
 
 /* ------------------------------------------------------------------ Community: what the app's listeners share */
@@ -2553,6 +2887,7 @@ const UI = {
   openNowPlaying(refresh) {
     const t = Player.current;
     if (!t) return;
+    SongVideo.stop();
     const np = $('#np');
     const view = refresh && this.np ? this.np.view : 'art';
     const body = h('div', { class: 'np-body' });
@@ -2574,10 +2909,19 @@ const UI = {
         ['End of this song', () => Sleep.set('end')],
         ...(Sleep.on ? [['Turn off', () => { Sleep.clear(); toast('Sleep timer off'); }]] : []),
       ].map(([l, f]) => [l, () => { f(); sleepBtn.classList.toggle('on', Sleep.on); sleepNote.textContent = Sleep.label(); }])) }, icon('moon'));
+    // Song | Video, like YouTube Music (not for radio; a YouTube song already shows its video).
+    const canVideo = t.src !== 'radio' && Player.mode !== 'yt' && (t.src === 'yt' || S.ytKey);
+    const songChip = h('button', { class: 'chip' }, 'Song'), videoChip = h('button', { class: 'chip' }, 'Video');
+    const mark = () => { songChip.classList.toggle('on', !S.video); videoChip.classList.toggle('on', !!S.video); };
+    songChip.onclick = () => { if (!S.video) return; S.video = false; save(); mark(); show('art'); };
+    videoChip.onclick = () => { if (S.video) return; S.video = true; save(); mark(); show('art'); };
+    SongVideo.onNone = () => { S.video = false; mark(); if (this.np === state && state.view === 'art') show('art'); };
+    mark();
     np.replaceChildren(
       h('div', { class: 'bg', style: t.img ? `background-image:url("${art(t, true)}")` : '' }),
       h('div', { class: 'np-top' },
         h('button', { class: 'icon-btn', 'aria-label': 'Close', onclick: () => this.closeNowPlaying() }, icon('down')),
+        canVideo ? h('div', { class: 'np-switch' }, songChip, videoChip) : null,
         h('div', { style: 'display:flex' },
           h('button', { class: 'icon-btn', 'aria-label': 'Car mode', onclick: () => CarMode.open() }, icon('car')),
           h('button', { class: 'icon-btn', 'aria-label': 'More', onclick: () => trackMenu(t) }, icon('more')))),
@@ -2595,6 +2939,7 @@ const UI = {
     const show = (v) => {
       state.view = v;
       state.lyricsTick = null;
+      SongVideo.stop();
       lyricsBtn.classList.toggle('on', v === 'lyrics');
       queueBtn.classList.toggle('on', v === 'queue');
       if (v === 'lyrics') return showLyrics(t, body, state);
@@ -2602,6 +2947,7 @@ const UI = {
         const up = Player.queue.slice(Player.i);
         return body.replaceChildren(h('div', { class: 'queue' }, up.map((x, k) => trackRow(x, () => Player.load(Player.i + k)))));
       }
+      if (canVideo && S.video) return SongVideo.show(t, body);
       body.replaceChildren(Player.mode === 'yt' ? h('div', { style: 'width:100%;aspect-ratio:16/9' }) : h('img', { class: 'cover', src: art(t, true), alt: '' }));
     };
     lyricsBtn.onclick = () => show(state.view === 'lyrics' ? 'art' : 'lyrics');
@@ -2638,6 +2984,7 @@ const UI = {
     });
   },
   closeNowPlaying() {
+    SongVideo.stop();
     $('#np').hidden = true;
     document.body.classList.remove('np-open');
     this.np = null;
@@ -2648,6 +2995,7 @@ setInterval(() => { UI.tick(); if (Player.playing) Stats.add(500); Sleep.check()
 /* ------------------------------------------------------------------ synced lyrics (LRCLIB, free) */
 const lyricsCache = new Map();
 async function getLyrics(t) {
+  if (t.src === 'radio') return []; // live radio has no lyrics
   if (lyricsCache.has(t.id)) return lyricsCache.get(t.id);
   const artist = splitArtists(t.artist)[0] || t.artist;
   const q = new URLSearchParams({ track_name: t.title, artist_name: artist });
@@ -2680,13 +3028,16 @@ async function showLyrics(t, body, state) {
   const pick = h('button', { class: 'chip lyric-pick', onclick: () => {
     picking = !picking;
     pick.classList.toggle('on', picking);
-    pick.textContent = picking ? 'Tap a line to share it' : '🖼 Share a line';
-  } }, '🖼 Share a line');
+    pick.textContent = picking ? 'Tap a line' : 'Pick a line';
+  } }, 'Pick a line');
+  const sing = h('button', { class: 'chip lyric-pick', onclick: () => singAlong(t, lines) }, 'Sing along');
+  // A picked line: what it means (Gemini, else the free AI), or share it as a picture.
+  const lineMenu = (line) => menu(line, [['Meaning', () => lineMeaning(t, line)], ['Share as picture', () => shareLyric(t, line)]]);
   const box = h('div', { class: 'lyrics' }, lines.map((l) => h('p', { onclick: () => {
-    if (picking && l.text) { picking = false; pick.classList.remove('on'); pick.textContent = '🖼 Share a line'; return shareLyric(t, l.text); }
+    if (picking && l.text) { picking = false; pick.classList.remove('on'); pick.textContent = 'Pick a line'; return lineMenu(l.text); }
     Player.seek(l.time);
   } }, l.text || '♪')));
-  body.replaceChildren(h('div', { class: 'lyrics-wrap' }, pick, box));
+  body.replaceChildren(h('div', { class: 'lyrics-wrap' }, h('div', { class: 'chips' }, sing, pick), box));
   let last = -1;
   state.lyricsTick = () => {
     const now = Player.time() + 0.3;
@@ -2700,6 +3051,98 @@ async function showLyrics(t, body, state) {
   };
   state.lyricsTick();
 }
+
+/** Sing along: the line being sung, very big; the one before and the next one around it. */
+function singAlong(t, lines) {
+  const before = h('div', { class: 'sa-side' }), now = h('div', { class: 'sa-now' }), next = h('div', { class: 'sa-side' });
+  const close = () => { clearInterval(timer); box.remove(); };
+  const playBtn = h('button', { class: 'icon-btn', 'aria-label': 'Play or pause', onclick: () => Player.toggle() });
+  let shown = null;
+  const box = h('div', { class: 'sing-along' },
+    h('div', { class: 'sa-top' }, h('span', null, t.title), playBtn, h('button', { class: 'icon-btn', 'aria-label': 'Close', onclick: close }, '✕')),
+    h('div', { class: 'sa-lines' }, before, now, next));
+  let last = -2;
+  const tick = () => {
+    if (Player.current?.id !== t.id) return close();
+    if (shown !== Player.playing) { shown = Player.playing; fill(playBtn, [icon(shown ? 'pause' : 'play')]); }
+    const at = Player.time() + 0.3;
+    let i = -1;
+    for (let k = 0; k < lines.length && lines[k].time <= at; k++) i = k;
+    if (i === last) return;
+    last = i;
+    before.textContent = lines[i - 1]?.text || '';
+    now.textContent = (i >= 0 && lines[i].text) || '♪';
+    next.textContent = lines[i + 1]?.text || '';
+  };
+  const timer = setInterval(tick, 250);
+  document.body.append(box);
+  tick();
+}
+/** What a lyrics line means, from Gemini (with a key) or the free AI. */
+async function lineMeaning(t, line) {
+  const text = h('p', null, 'Finding the meaning…');
+  const box = h('div', { class: 'menu', onclick: () => box.remove() },
+    h('div', { class: 'box', onclick: (e) => e.stopPropagation() }, h('h3', { style: 'margin:12px 20px 4px' }, line),
+      h('div', { style: 'padding:0 20px 8px' }, text),
+      h('button', { class: 'pill primary', style: 'margin:8px 20px 16px', onclick: () => box.remove() }, 'OK')));
+  document.body.append(box);
+  const m = await FreeAi.meaning(line, t);
+  text.textContent = m || "Couldn't get the meaning right now. Try again in a minute.";
+}
+
+/* Song video (owner, Oct 10: "song ka video bhi, jaise YT Music"): Now Playing's Song | Video switch shows the
+ * song's YouTube music video, muted, in step with the song that keeps playing (catalog audio plays on when the
+ * phone is locked; the video is only the picture). A YouTube song already shows its own video (Player.mode 'yt'). */
+const SongVideo = {
+  yt: null, timer: null, box: null,
+  /** The video to show for [t]: its own for a YouTube song, else the first music video YouTube finds. */
+  async idFor(t) {
+    if (t.src === 'yt') return t.sid;
+    const found = await Tube.search(`${t.title.replace(/\s*\(.*$/, '')} ${(t.artist || '').split(',')[0]}`);
+    return found[0]?.sid || null;
+  },
+  async show(t, box) {
+    this.stop();
+    this.box = box;
+    fill(box, h('img', { class: 'cover', src: art(t, true), alt: '' }), h('div', { class: 'spinner np-video-wait' }));
+    const id = await this.idFor(t).catch(() => null);
+    if (this.box !== box || Player.current?.id !== t.id) return;
+    if (!id) { toast('No video for this song'); return this.onNone?.(); }
+    await Tube.ensure(); // loads YouTube's player script
+    if (this.box !== box) return;
+    const el = h('div');
+    fill(box, h('div', { class: 'np-video' }, el));
+    this.yt = new window.YT.Player(el, {
+      videoId: id,
+      playerVars: { playsinline: 1, autoplay: 1, mute: 1, controls: 0, rel: 0, modestbranding: 1, disablekb: 1, start: Math.floor(Player.time()) },
+      events: {
+        onReady: (e) => { e.target.mute(); e.target.seekTo(Player.time(), true); if (Player.playing) e.target.playVideo(); },
+        onError: () => { if (this.box === box) { toast('No video for this song'); this.onNone?.(); } },
+      },
+    });
+    // Keep the picture with the song: same play/pause, and a jump when it drifts.
+    let lastSeek = 0;
+    this.timer = setInterval(() => {
+      const y = this.yt;
+      if (!y || !y.getCurrentTime || Player.current?.id !== t.id) return;
+      const st = y.getPlayerState?.();
+      if (Player.playing && st !== 1 && st !== 3) y.playVideo();
+      if (!Player.playing && st === 1) y.pauseVideo();
+      const drift = y.getCurrentTime() - Player.time();
+      if (Math.abs(drift) > 1.2 && Date.now() - lastSeek > 3000 && Player.time() < (y.getDuration?.() || Infinity)) {
+        lastSeek = Date.now();
+        y.seekTo(Player.time() + 0.3, true);
+      }
+    }, 1000);
+  },
+  stop() {
+    clearInterval(this.timer);
+    this.timer = null;
+    try { this.yt?.destroy?.(); } catch {}
+    this.yt = null;
+    this.box = null;
+  },
+};
 
 /* ------------------------------------------------------------------ picture cards (Wrapped, lyrics) shared to Instagram / WhatsApp */
 const Card = {
@@ -3072,7 +3515,8 @@ const Visits = {
   Blend.fromHash();
   SongLink.fromHash();
   CloudSync.fromHash();
-  window.addEventListener('hashchange', () => { Sync.importFromHash(); Blend.fromHash(); SongLink.fromHash(); CloudSync.fromHash(); });
+  Together.fromHash();
+  window.addEventListener('hashchange', () => { Sync.importFromHash(); Blend.fromHash(); SongLink.fromHash(); CloudSync.fromHash(); Together.fromHash(); });
   if (CloudSync.code) setTimeout(() => CloudSync.sync().catch(() => {}), 3000);
   setTimeout(() => WhatsNew.check(), 1500);
   Community.load().catch(() => {});

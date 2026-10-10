@@ -26,6 +26,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
@@ -116,8 +117,23 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
     var showOptions by remember { mutableStateOf(false) }
     var showLyricsMenu by remember { mutableStateOf(false) }
     var carMode by remember { mutableStateOf(false) }
-    // Long-press a lyrics line: share it on the song's cover as a picture.
-    val shareLine: (String) -> Unit = { line -> c.scope.launch { runCatching { ShareCard.share(context, track, line) } } }
+    var singAlong by remember { mutableStateOf(false) }
+    // Song | Video (like YouTube Music): stays on for the next songs until switched off.
+    var showVideo by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    // Phone files, links and live radio have no video; the Play version has no YouTube.
+    val canVideo = !com.sangeet.player.BuildConfig.PLAY_STORE &&
+        track.source !in setOf(com.sangeet.player.data.model.SourceType.LOCAL, com.sangeet.player.data.model.SourceType.URL)
+    val room by c.together.room.collectAsStateWithLifecycle()
+    // Long-press a lyrics line: its meaning, or share it on the song's cover as a picture.
+    var lineMenu by remember { mutableStateOf<String?>(null) }
+    val shareLine: (String) -> Unit = { line -> lineMenu = line }
+    lineMenu?.let { line ->
+        LyricLineDialog(
+            line, track,
+            onShare = { c.scope.launch { runCatching { ShareCard.share(context, track, line) } } },
+            onDismiss = { lineMenu = null },
+        )
+    }
     var dominant by remember(track.id) { mutableStateOf(spec.accent) }
     var dragging by remember { mutableStateOf(false) }
     var dragValue by remember { mutableFloatStateOf(0f) }
@@ -184,7 +200,10 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                     Icon(Icons.Rounded.KeyboardArrowDown, "Close", tint = textColor, modifier = Modifier.size(32.dp))
                 }
                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("PLAYING FROM ${track.source.label.uppercase()}", color = muted, style = MaterialTheme.typography.labelSmall)
+                    Text(
+                        room?.let { "LISTENING TOGETHER · ${it.code}" } ?: "PLAYING FROM ${track.source.label.uppercase()}",
+                        color = if (room != null) spec.accent else muted, style = MaterialTheme.typography.labelSmall,
+                    )
                     Text(
                         track.album.ifBlank { track.artist },
                         color = textColor,
@@ -192,6 +211,9 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
+                }
+                if (lyrics?.isSynced == true) {
+                    IconButton(onClick = { singAlong = true }) { Icon(Icons.Rounded.Mic, "Sing along", tint = textColor) }
                 }
                 IconButton(onClick = { carMode = true }) { Icon(Icons.Rounded.DirectionsCar, "Car mode", tint = textColor) }
                 IconButton(onClick = { showOptions = true }) { Icon(Icons.Rounded.MoreVert, "Options", tint = textColor) }
@@ -207,16 +229,27 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                     onShareLine = shareLine,
                 )
             } else {
-                Spacer(Modifier.height(24.dp))
-                Artwork(
-                    track.artworkUrl,
-                    modifier = Modifier
-                        .padding(horizontal = 28.dp)
-                        .fillMaxWidth()
-                        .aspectRatio(1f),
-                    shape = RoundedCornerShape(10.dp),
-                    seed = track.title,
-                )
+                Spacer(Modifier.height(if (canVideo) 6.dp else 24.dp))
+                if (canVideo) {
+                    SongVideoSwitch(showVideo, textColor) { showVideo = it }
+                    Spacer(Modifier.height(14.dp))
+                }
+                if (canVideo && showVideo) {
+                    SongVideo(track, Modifier.padding(horizontal = 28.dp).fillMaxWidth()) {
+                        showVideo = false
+                        Toast.makeText(context, "No video for this song", Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    Artwork(
+                        track.artworkUrl,
+                        modifier = Modifier
+                            .padding(horizontal = 28.dp)
+                            .fillMaxWidth()
+                            .aspectRatio(1f),
+                        shape = RoundedCornerShape(10.dp),
+                        seed = track.title,
+                    )
+                }
                 Spacer(Modifier.height(28.dp))
             }
 
@@ -397,7 +430,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                     }
                     if (lyrics != null) {
                         Text(
-                            "Tap to see full lyrics · long-press a line to share it",
+                            "Tap to see full lyrics · long-press a line for its meaning",
                             color = muted,
                             style = MaterialTheme.typography.labelSmall,
                             textAlign = TextAlign.Center,
@@ -409,6 +442,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
             }
         }
         if (carMode) CarModeScreen { carMode = false }
+        if (singAlong && lyrics?.isSynced == true) SingAlongScreen(lyrics!!) { singAlong = false }
     }
 }
 

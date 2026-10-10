@@ -92,6 +92,7 @@ class DownloadRepository(
     /** Starts a download. Returns false when this song (or the same song from another source) is already downloaded. */
     suspend fun download(track: Track): Boolean {
         if (track.source == SourceType.LOCAL) return false
+        if (track.source == SourceType.URL && track.sourceId.startsWith("radio-")) return false // live radio never ends
         if (downloads.value[track.id]?.state == DownloadState.DONE) return false
         if (sameSongDownloaded(track)) {
             android.util.Log.i("Sangeet", "download skipped, same song already downloaded: ${track.title} (${track.artist})")

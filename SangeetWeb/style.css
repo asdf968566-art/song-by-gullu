@@ -265,3 +265,44 @@ body.np-open #toast { bottom: auto; top: calc(env(safe-area-inset-top) + 56px); 
 .whats-new li { margin: 6px 0; line-height: 1.35; color: var(--text); }
 
 .whats-new .wn-kind { color: var(--accent); font-size: 13px; font-weight: 600; margin: 8px 20px 0; }
+
+.row.sotd { margin: 4px 12px 8px; border-radius: 14px; background: var(--card, rgba(255,255,255,.06)); }
+.row.sotd .meta .s:first-child { color: var(--accent); font-weight: 600; font-size: 12px; }
+
+.sing-along { position: fixed; inset: 0; z-index: 60; background: #000; color: #fff; display: flex; flex-direction: column; padding: calc(env(safe-area-inset-top) + 12px) 24px calc(env(safe-area-inset-bottom) + 24px); }
+.sing-along .sa-top { display: flex; align-items: center; gap: 8px; opacity: .7; }
+.sing-along .sa-top span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sing-along .sa-top .icon-btn { color: #fff; }
+.sing-along .sa-lines { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; gap: 22px; }
+.sing-along .sa-now { font-size: 36px; line-height: 1.25; font-weight: 800; }
+.sing-along .sa-side { font-size: 22px; line-height: 1.3; opacity: .4; }
+.room-code { font-size: 44px; font-weight: 800; letter-spacing: 6px; text-align: center; margin: 12px 16px; color: var(--accent); }
+.np-switch { display: flex; gap: 4px; background: rgba(255,255,255,.12); border-radius: 999px; padding: 3px; }
+.np-switch .chip { margin: 0; padding: 6px 14px; border: 0; background: transparent; color: rgba(255,255,255,.75); }
+.np-switch .chip.on { background: rgba(255,255,255,.9); color: #000; }
+.np-video { width: 100%; aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden; background: #000; }
+.np-video iframe, .np-video > div { width: 100%; height: 100%; border: 0; pointer-events: none; }
+.np-body .np-video-wait { position: absolute; }
+.np-body:has(.np-video-wait) { position: relative; }
+
+/* ---------- Settings: grouped cards like the iPhone's */
+.settings { padding-bottom: 12px; }
+.set-group { margin: 0 16px 22px; }
+.set-title { font-size: 13px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); padding: 0 6px 7px; }
+.set-card { background: var(--surface); border-radius: 14px; overflow: hidden; }
+.set-row { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 9px 14px; position: relative; }
+.set-row + .set-row::before { content: ''; position: absolute; top: 0; left: 56px; right: 0; border-top: 1px solid var(--line); }
+.set-row.tap { cursor: pointer; }
+.set-row.tap:active { background: color-mix(in srgb, var(--text) 7%, transparent); }
+.set-ic { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; color: #fff; flex: none; }
+.set-ic svg { width: 19px; height: 19px; }
+.set-main { flex: 1; min-width: 0; }
+.set-label { font-size: 16px; }
+.set-sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.set-value { color: var(--muted); font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 48%; }
+.set-chev { color: var(--muted); opacity: .55; margin-left: -6px; }
+.set-chev svg { width: 22px; height: 22px; }
+.danger-row .set-label { color: #ff453a; }
+.set-swatches { display: flex; gap: 8px; flex-wrap: wrap; padding: 0 12px 14px 56px; }
+.set-swatches .swatch { width: 28px; height: 28px; }
+.set-foot { text-align: center; color: var(--muted); font-size: 12px; padding: 0 16px 24px; }

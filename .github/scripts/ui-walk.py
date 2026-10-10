@@ -300,10 +300,20 @@ def main():
         tap("Cancel", wait=1)
         return ok
     step("Library: Blend with a friend", blend_dialog)
-    for label in ["Online Library", "Your Stats", "Liked Songs", "Downloads", "On this phone"]:
+    for label in ["Online Library", "Live radio", "Your Stats", "Liked Songs", "Downloads", "On this phone"]:
         fresh()
         go_tab("Your Library")
         step(f"Library: {label}", open_and_back(label, scroll=3, wait=5))
+    def together_room():
+        fresh()
+        go_tab("Your Library")
+        if not tap("Listen together", scroll=3, wait=2) or not tap("Start a room", wait=2):
+            return False
+        ok = find("Room code") is not None and find("Invite friends") is not None
+        tap("Leave", wait=1)
+        back()
+        return ok
+    step("Library: Listen together (start a room, leave)", together_room)
     fresh()
     go_tab("Your Library")
     step("Library: Import playlist", open_and_back("Import playlist"))
@@ -315,6 +325,9 @@ def main():
     fresh(play=True)
     step("Now Playing: open", open_now_playing, lambda: (find("Speed") is not None or find("Queue") is not None, "player screen"))
     step("Now Playing: Shuffle on/off", lambda: tap("Shuffle", wait=1) and tap("Shuffle", wait=1))
+    # Song | Video: YouTube often refuses the CI's address, so the video may not come; the screen must stay fine.
+    step("Now Playing: Video, then Song", lambda: tap("Video", wait=10) and (tap("Song", wait=2) or True),
+         lambda: (find("Song") is not None and find("Video") is not None, "switch still there"))
 
     def speed_125():
         if not tap("Speed", wait=2):
@@ -421,7 +434,7 @@ def main():
     step("Settings: open", lambda: tap("Settings", wait=3))
     for label in ["Normalize volume", "Skip silence", "Hook preview in For You", "Resume on headphones", "Smart downloads",
                   "Autoplay", "Auto playlists", "Fetch lyrics automatically", "Offline mode", "Download on Wi-Fi only",
-                  "New song alerts", "Free online AI", "Update automatically"]:
+                  "New song alerts", "Song of the day", "Free online AI", "Update automatically"]:
         far = label in ("Free online AI", "Update automatically")  # further down (AI DJ, App update)
         step(f"Settings switch: {label}", toggle_twice(label, 14 if far else 8))
         for _ in range(6 if far else 2):

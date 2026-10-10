@@ -90,45 +90,47 @@ fun SourcesScreen(nav: NavController) {
             ) { scope.launch { c.settings.setJioSaavnEnabled(it) } }
         }
 
-        SettingsGroup("YouTube / YouTube Music") {
-            SettingsSwitch(
-                Icons.Rounded.SmartDisplay,
-                "YouTube on",
-                "Every song on YouTube. Works without a key (NewPipe).",
-                s.youtubeEnabled,
-            ) { scope.launch { c.settings.setYouTubeEnabled(it) } }
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    "Optional: YouTube Data API v3 key (free). With a key, search and trending music in India " +
-                        "come from the official API. How to get a key:\n" +
-                        "1. Open console.cloud.google.com → create a new project\n" +
-                        "2. APIs & Services → Library → \"YouTube Data API v3\" → Enable\n" +
-                        "3. Credentials → Create credentials → API key → copy it and paste it here\n" +
-                        "Free quota: 10,000 units/day (search = 100, trending = 1).",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = spec.muted,
-                )
-                OutlinedTextField(
-                    value = ytKey,
-                    onValueChange = { ytKey = it },
-                    label = { Text("YouTube API key (optional)") },
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = {
-                        scope.launch {
-                            c.settings.setYouTubeApiKey(ytKey)
-                            ytStatus = "Checking…"
-                            ytStatus = testSource(c, SourceType.YOUTUBE) { it.youtubeApiKey == ytKey.trim() }
+        if (!com.sangeet.player.BuildConfig.PLAY_STORE) {
+            SettingsGroup("YouTube / YouTube Music") {
+                SettingsSwitch(
+                    Icons.Rounded.SmartDisplay,
+                    "YouTube on",
+                    "Every song on YouTube. Works without a key (NewPipe).",
+                    s.youtubeEnabled,
+                ) { scope.launch { c.settings.setYouTubeEnabled(it) } }
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Optional: YouTube Data API v3 key (free). With a key, search and trending music in India " +
+                            "come from the official API. How to get a key:\n" +
+                            "1. Open console.cloud.google.com → create a new project\n" +
+                            "2. APIs & Services → Library → \"YouTube Data API v3\" → Enable\n" +
+                            "3. Credentials → Create credentials → API key → copy it and paste it here\n" +
+                            "Free quota: 10,000 units/day (search = 100, trending = 1).",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = spec.muted,
+                    )
+                    OutlinedTextField(
+                        value = ytKey,
+                        onValueChange = { ytKey = it },
+                        label = { Text("YouTube API key (optional)") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = {
+                            scope.launch {
+                                c.settings.setYouTubeApiKey(ytKey)
+                                ytStatus = "Checking…"
+                                ytStatus = testSource(c, SourceType.YOUTUBE) { it.youtubeApiKey == ytKey.trim() }
+                            }
+                        }) { Text("Save & test") }
+                        if (s.youtubeApiKey.isNotBlank()) {
+                            OutlinedButton(onClick = { scope.launch { c.settings.setYouTubeApiKey(""); ytKey = "" } }) { Text("Remove") }
                         }
-                    }) { Text("Save & test") }
-                    if (s.youtubeApiKey.isNotBlank()) {
-                        OutlinedButton(onClick = { scope.launch { c.settings.setYouTubeApiKey(""); ytKey = "" } }) { Text("Remove") }
                     }
+                    ytStatus?.let { Text(it, color = spec.accent, style = MaterialTheme.typography.bodySmall) }
                 }
-                ytStatus?.let { Text(it, color = spec.accent, style = MaterialTheme.typography.bodySmall) }
             }
         }
 

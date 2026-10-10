@@ -108,7 +108,7 @@ fun PlaylistScreen(nav: NavController, playlistId: Long) {
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = bottomBarPadding()) {
         item {
-            CollectionHeader(nav, name, "Playlist", tracks) {
+            CollectionHeader(nav, name, "Playlist", tracks, playShuffled = true) {
                 Box {
                     IconButton(onClick = { showMenu = true }) { Icon(Icons.Rounded.MoreVert, "Options", tint = spec.muted) }
                     DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {

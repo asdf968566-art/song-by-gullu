@@ -14,6 +14,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.windowInsetsTopHeight
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -291,6 +294,13 @@ fun DiscoverScreen(nav: NavController) {
             }
         }
 
+        // A dark band behind the status bar so the time, network and battery stay readable on any cover.
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .windowInsetsTopHeight(WindowInsets.statusBars)
+                .background(Color.Black.copy(alpha = 0.55f))
+        )
         // Upar ka title + mood buttons
         Column(Modifier.fillMaxWidth().statusBarsPadding()) {
             Row(

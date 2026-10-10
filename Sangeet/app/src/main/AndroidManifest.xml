@@ -80,6 +80,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="sangeet" android:host="play" />
+                <data android:scheme="sangeet" android:host="together" />
             </intent-filter>
         </activity>
 
