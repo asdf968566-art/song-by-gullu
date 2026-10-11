@@ -79,9 +79,11 @@ jobs:
             export FOLDER_REPO=$(REPORT_TOKEN="${DATA_TOKEN:-$REPORT_TOKEN}" python3 .github/scripts/data-repo.py --files)
           fi
           echo "COMMUNITY: data repo ${DATA_REPO:-none}, folder repo ${FOLDER_REPO:-none, the token may not write files in any private repo}" | tee community.log
+          # The website's listening data comes through ntfy.sh (it can't hold a token); its song ids are looked up in
+          # the catalog state.
           python3 .github/scripts/community.py catalog-state/community.json.gz SangeetWeb/data/community.json \
-            catalog-state/community-searches.json | tee -a community.log || true
-          [ -s SangeetWeb/data/community.json ] || echo '{"tracks":[],"together":{},"top":[]}' > SangeetWeb/data/community.json
+            catalog-state/community-searches.json catalog-state/state.json.gz | tee -a community.log || true
+          [ -s SangeetWeb/data/community.json ] || echo '{"tracks":[],"together":{},"top":[],"chart":[]}' > SangeetWeb/data/community.json
           grep -E "COMMUNITY" community.log >> summary.txt || true
       - uses: actions/cache/save@v4
         if: always()

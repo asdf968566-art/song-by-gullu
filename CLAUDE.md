@@ -379,6 +379,41 @@ request the owner made, in order.
     - Theme and quality use `menu()`; keys use `editSheet`. The long notes are gone.
   - The `App reports` cron ("23 * * * *") ran only a few times a day. Run it by hand (workflow_dispatch) to read new
     reports.
+- **Owner's batch of Oct 11** ("Missing gaane catalog mein aur Sangeet Top 50 kr, bs ye bhi Ringtone"):
+  - **Missing songs into the catalog** (so fewer iPhone songs need YouTube, which stops when locked):
+    - Web `Share` (app.js): every 6 h (25 s after opening, hourly check, and when the page is hidden) one message of
+      ≤ 3.8 KB to **ntfy.sh topic `sangeet-web-listens-k4q8`** (keyless, CORS `*`; ntfy keeps it 12 h): random id,
+      `p: 'web'`, build, `m` (iPhone/iPad/browser), languages, `week` (catalog ids played in 7 days), `plays`
+      ([id, count], recent first), `likes`, `searches` (words that found < 8 songs, not 4+-word lyrics lines;
+      `Share.search` in searchPage's YouTube step) and `miss` ([title, singer] of songs that played from YouTube with
+      no catalog match; `Share.miss` in `Player.load`). Setting `S.share` (Settings → Help → "Help improve
+      suggestions", default on). Headless browsers don't send unless `Share.send(true)`.
+    - community.py `fetch_web` reads `<topic>/json?poll=1&since=12h` on every run (message ids kept 2 days so each
+      counts once), looks the ids up in the catalog state (`argv[4]` = catalog-state/state.json.gz) and stores the
+      phone as listener `web-<id>` (searches / misses merged with its earlier ones). So iPhone listeners now count in
+      the owner stats and Community too. Crons are 8 h apart, inside ntfy's 12 h.
+    - The searches file now also has `wanted_query()` of every YouTube song Android listeners play and the web
+      misses ("title singer", label-like channel names dropped). build-web-catalog.py looks up to 800 of them,
+      each at most every 3 days (`searched` in the crawl state). Log: `community searches: N looked up, +M songs`.
+  - **Sangeet Top 50** (both apps): community.py `chart` = songs the most listeners played in the last 7 days
+    (≥ 2 listeners; Android uploads now send `week`: "SOURCE:id" of songs played in 7 days; older builds count their
+    latest 60 plays), then `top`. The apps keep the user's languages and, while there are few listeners, fill up to
+    50 with trending (Android `c.online.saavn.trending`; web the catalog's chart playlists).
+    - Android: `data/community/Top50.kt`, `Community.await()` / `Data.charts()`, Home shelf "🏆 Sangeet Top 50"
+      (after Recommended) → See all = `ListKind.TOP50` (numbered rows, subtitle "This week's most played").
+    - Web: `top50()` / `top50Page()` (`.ranked` rows), first tile of Search → Browse all.
+  - **Set as ringtone** (Android only; a website can't set an iPhone ringtone): song menu → "Set as ringtone"
+    (`ui/components/RingtoneSheet.kt`, `data/ringtone/Ringtone.kt`).
+    - The song comes from its download, the phone file, or is fetched into cache/ringtone in 1 MB pieces.
+    - The part (30 s) starts 0.5 s before the chorus (the synced lyrics line sung most often, ≥ 8 letters, first
+      time after 15 s), else 30% in; a slider moves it, "Listen" plays it on its own ExoPlayer (pauses the song).
+    - Cut without re-encoding (MediaExtractor + MediaMuxer): AAC → .m4a, Opus/Vorbis → .webm, MP3 frames → .mp3.
+      Saved in Ringtones/Sangeet (IS_RINGTONE/ALARM/NOTIFICATION; Android 8–9 use the file path and ask
+      WRITE_EXTERNAL_STORAGE, maxSdk 28).
+    - Ringtone / Alarm / Notification chips; setting needs WRITE_SETTINGS ("Modify system settings": the sheet shows
+      Allow → `ACTION_MANAGE_WRITE_SETTINGS`, and sets it on return).
+    - The UI walk runs `appops set com.sangeet.player WRITE_SETTINGS allow` and checks `settings get system ringtone`
+      plus /sdcard/Ringtones/Sangeet.
 - Other platforms checked Oct 9 from CI: Gaana's old open API is gone (404); Wynk, Hungama, Spotify have no open
   streams. JioSaavn + YouTube stay the sources.
 - In-app "Report a problem" got 403 from GitHub. Cause (found Oct 9 from CI: `REPORT_TOKEN fingerprint/account`
@@ -421,10 +456,13 @@ GitHub artifact/blob downloads and dl.google.com (no local Android SDK — build
 the GitHub MCP `get_job_logs` tool; test the web app locally with Playwright (Chromium is preinstalled) by serving
 `SangeetWeb/` plus a copy of gh-pages `data/` and stubbing network routes.
 
-## 6. Status (2026-10-10)
+## 6. Status (2026-10-11)
 
-- `main` has everything up to PR #30. Latest APK = **build 174** (emulator test passed). The site is live with the
-  same features.
+- `main` has everything up to PR #39 (Crystal theme, phone details in reports). Latest APK before the Oct 11 batch =
+  **build 194** (emulator test passed). The site is live with the same features. The Oct 11 batch (missing songs,
+  Sangeet Top 50, ringtone) is described in §4.
+- App reports are checked by the routine "Check Sangeet app reports" every 2 h (dispatches reports.yml on main,
+  then reads open issues labelled "app report").
 - Secrets the owner set on Oct 9:
   - `GEMINI_API_KEY` (new AI Studio key; the first one was pasted in chat and then deleted by the owner).
   - A new `REPORT_TOKEN`: fine-grained, Vivek account, all repos, Issues + Contents read/write, no expiry,

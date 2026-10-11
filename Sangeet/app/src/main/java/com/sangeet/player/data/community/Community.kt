@@ -156,6 +156,11 @@ object Community {
                         addJsonArray { compact(p.track).forEach { add(it) }; add(p.playCount) }
                     }
                 }
+                // Played in the last 7 days (Sangeet Top 50).
+                val weekAgo = System.currentTimeMillis() - 7 * 86_400_000L
+                putJsonArray("week") {
+                    played.filter { it.playedAt >= weekAgo }.take((300 * keep).toInt()).forEach { add("${it.track.source.name}:${it.track.sourceId}") }
+                }
                 putJsonArray("playlists") {
                     playlists.take((20 * keep).toInt().coerceAtLeast(1)).forEach { (name, tracks) ->
                         add(buildJsonObject { put("n", name); putJsonArray("t") { tracks.forEach { add(compact(it)) } } })
@@ -195,6 +200,8 @@ object Community {
         private val top: IntArray,
         /** Words listeners name playlists with ("gym", "drive") -> songs two or more of them put there. */
         private val words: Map<String, IntArray> = emptyMap(),
+        /** Sangeet Top 50: what the most listeners played in the last 7 days (both apps). */
+        private val chart: IntArray = IntArray(0),
     ) {
         private val index = tracks.withIndex().associate { (i, t) -> t.id to i }
 
@@ -211,6 +218,9 @@ object Community {
 
         /** What the most listeners play right now. */
         fun popular(): List<Track> = top.map { tracks[it] }
+
+        /** This week's most played (then the all-time most played, while there are few listeners). */
+        fun charts(): List<Track> = (chart.toList() + top.toList()).distinct().map { tracks[it] }
 
         /** Songs listeners keep under this word in their playlists' names (what the DJ learned from them). */
         fun learned(word: String): List<Track> = words[word.lowercase()]?.map { tracks[it] }.orEmpty()
@@ -267,6 +277,15 @@ object Community {
         val words = root["words"]?.jsonObject.orEmpty().mapValues { (_, v) ->
             v.jsonArray.mapNotNull { it.jsonPrimitive.intOrNull }.filter { it in tracks.indices }.toIntArray()
         }
-        return Data(tracks, together, top, words)
+        val chart = root["chart"]?.jsonArray.orEmpty().mapNotNull { it.jsonPrimitive.intOrNull }.filter { it in tracks.indices }.toIntArray()
+        return Data(tracks, together, top, words, chart)
+    }
+
+    /** The shared data, loading it now if needed (Sangeet Top 50 waits for it, at most [timeoutMs]). */
+    suspend fun await(context: Context, timeoutMs: Long = 10_000): Data? {
+        data?.let { return it }
+        return kotlinx.coroutines.withTimeoutOrNull(timeoutMs) {
+            runCatching { kotlinx.coroutines.runInterruptible(Dispatchers.IO) { load(context.applicationContext) } }.getOrNull()
+        }?.also { data = it }
     }
 }

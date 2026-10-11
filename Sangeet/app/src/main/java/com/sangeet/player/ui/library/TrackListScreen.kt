@@ -28,9 +28,9 @@ import com.sangeet.player.ui.components.TrackRow
 import kotlinx.coroutines.flow.flowOf
 import com.sangeet.player.ui.theme.bottomBarPadding
 
-enum class ListKind { LIKED, DOWNLOADS, RECENT, LOCAL, ALBUM, ARTIST, GENRE }
+enum class ListKind { LIKED, DOWNLOADS, RECENT, LOCAL, ALBUM, ARTIST, GENRE, TOP50 }
 
-/** Liked / Downloads / Recent / Phone / Album / Artist / Genre ki list. */
+/** Liked / Downloads / Recent / Phone / Album / Artist / Genre / Sangeet Top 50 ki list. */
 @Composable
 fun TrackListScreen(nav: NavController, kind: ListKind, arg: String) {
     val c = LocalAppContainer.current
@@ -56,6 +56,8 @@ fun TrackListScreen(nav: NavController, kind: ListKind, arg: String) {
             else if (cat != null && cat.youtube.isNotEmpty()) c.online.youtubeCategory(cat)
             else if (topic != null) c.online.topicTracks(topic).ifEmpty { if (q != null) c.online.searchAll(q) else emptyList() }
             else if (q != null) c.online.searchAll(q) else c.online.trending(arg).flatMap { it.tracks }.distinctBy { it.id }
+        } else if (kind == ListKind.TOP50) {
+            runCatching { com.sangeet.player.data.community.Top50.tracks(c) }.getOrDefault(emptyList())
         } else emptyList()
     }
 
@@ -63,7 +65,7 @@ fun TrackListScreen(nav: NavController, kind: ListKind, arg: String) {
         ListKind.LOCAL -> localSongs
         ListKind.ALBUM -> localSongs.filter { it.albumId.toString() == arg }
         ListKind.ARTIST -> localSongs.filter { it.artist == arg }
-        ListKind.GENRE -> genreTracks
+        ListKind.GENRE, ListKind.TOP50 -> genreTracks
         else -> fromDb
     }
 
@@ -75,6 +77,7 @@ fun TrackListScreen(nav: NavController, kind: ListKind, arg: String) {
         ListKind.ALBUM -> (tracks?.firstOrNull()?.album?.ifBlank { null } ?: "Album") to (tracks?.firstOrNull()?.artist ?: "")
         ListKind.ARTIST -> arg to "Artist"
         ListKind.GENRE -> (Categories.titleFor(arg) ?: arg) to "Online"
+        ListKind.TOP50 -> "Sangeet Top 50" to "This week's most played"
     }
 
     menuFor?.let { TrackOptionsSheet(it, onDismiss = { menuFor = null }) }
@@ -90,7 +93,7 @@ fun TrackListScreen(nav: NavController, kind: ListKind, arg: String) {
                     when (kind) {
                         ListKind.LIKED -> "Tap ♥ on a song to save it here."
                         ListKind.DOWNLOADS -> "Tap 'Download' in any online song's menu."
-                        ListKind.GENRE -> "Check your connection or turn on a source in Settings."
+                        ListKind.GENRE, ListKind.TOP50 -> "Check your connection or turn on a source in Settings."
                         else -> "Songs you play will show up here."
                     },
                 )

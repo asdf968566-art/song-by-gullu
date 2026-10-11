@@ -4,11 +4,19 @@ repo) into what everyone gets back, keeping only what two or more listeners shar
 
 - together: for a song, the songs that the same listeners like / play / keep in playlists (most shared first)
 - top: the songs most listeners play
+- chart: Sangeet Top 50, the songs the most listeners played in the last 7 days (the apps fill it up to 50 with
+  trending songs while there are few listeners)
 - searches: words two or more listeners searched (the catalog crawl looks them up next time)
 
-Usage: community.py <state.json.gz> <out community.json> <out searches.json>
+The website (iPhone) can't hold a token, so it sends a short message to an ntfy.sh topic instead (WEB_TOPIC, kept
+there 12 hours); each run reads the last 12 hours. Its song ids are looked up in the catalog state.
+
+Usage: community.py <state.json.gz> <out community.json> <out searches.json> [catalog state.json.gz]
 Env: REPORT_TOKEN (reads and closes the issues), DATA_REPO (owner/name; empty = only rebuild from the state),
 FOLDER_REPO (a private repo the token may write files in; else DATA_REPO), DATA_TOKEN (optional, CI only).
+
+The searches file also gets the songs listeners play from YouTube and the website's searches with few results, so
+the crawl adds them (fewer songs on the iPhone need YouTube, which stops when the phone is locked).
 Everything is also kept as sangeet-stats.json, sangeet-listeners.json and sangeet-community.json in a folder that
 repo already has (owner, Oct 9: "cms wali repo", "naya folder mat bana, purana hi use kar"), one commit per run with
 new data.
@@ -26,10 +34,13 @@ import urllib.request
 import zlib
 
 STATE, OUT, SEARCHES = sys.argv[1], sys.argv[2], sys.argv[3]
+CATALOG = sys.argv[4] if len(sys.argv) > 4 else ""
 MARK = "SANGEET-DATA v1"
 API = "https://api.github.com"
 KEEP_DAYS = 60
 MIN_USERS = 2  # nothing about one listener alone goes out
+WEB_TOPIC = os.environ.get("WEB_TOPIC", "https://ntfy.sh/sangeet-web-listens-k4q8")
+CHART_DAYS = 7
 
 
 def call(method, url, token, body=None):
@@ -91,8 +102,121 @@ def fetch(state):
     return got
 
 
+IMG = "https://c.saavncdn.com/"
+AAC = "https://aac.saavncdn.com/"
+WEB_SONG = re.compile(r"js:([\w-]{3,24})")
+
+
+def catalog_tracks(ids):
+    """JioSaavn ids -> the apps' compact track ([source, id, title, singers, language, cover, stream, ms]), from the
+    crawl's state (the website sends only ids, its messages are small)."""
+    if not ids or not CATALOG or not os.path.exists(CATALOG):
+        return {}
+    try:
+        with gzip.open(CATALOG, "rt", encoding="utf-8") as f:
+            songs = json.load(f).get("songs", [])
+    except Exception as e:
+        print("COMMUNITY: catalog state not readable:", e)
+        return {}
+    out = {}
+    for r in songs:
+        if r[0] in ids:
+            img = re.sub(r"\d+x\d+(?=\.\w+$)", "500x500", r[5] if r[5].startswith("http") else IMG + r[5])
+            media = r[6] if r[6].startswith("http") else f"{AAC}{r[6]}_96.mp4"
+            out[r[0]] = ["JIOSAAVN", r[0], r[1], r[2], r[9] if len(r) > 9 else "", img,
+                         media + ("#320" if r[7] else ""), int(r[4] or 0) * 1000]
+    return out
+
+
+def fetch_web(state):
+    """The website's messages of the last 12 hours (ntfy.sh keeps them that long), one per phone every few hours:
+    {"v": 1, "id", "p": "web", "app", "m", "langs", "likes": [id], "plays": [[id, n]] (recent first), "week": [id],
+    "searches": [words with few results], "miss": [[title, singer]] (YouTube songs not in the catalog)}.
+    Song ids are "js:<JioSaavn id>". Each message counts once (its id is kept two days)."""
+    try:
+        req = urllib.request.Request(f"{WEB_TOPIC}/json?poll=1&since=12h", headers={"User-Agent": "sangeet-community"})
+        with urllib.request.urlopen(req, timeout=60) as r:
+            lines = r.read().decode("utf-8", "replace").splitlines()
+    except Exception as e:
+        print("COMMUNITY: website messages not readable:", e)
+        return 0
+    now = int(time.time())
+    done = state.setdefault("web_seen", {})
+    msgs = []
+    for line in lines:
+        try:
+            m = json.loads(line)
+        except ValueError:
+            continue
+        if m.get("event") != "message" or not m.get("id") or m["id"] in done:
+            continue
+        done[m["id"]] = int(m.get("time") or now)
+        try:
+            d = json.loads(m.get("message") or "")
+        except ValueError:
+            continue
+        if isinstance(d, dict) and d.get("v") == 1 and re.fullmatch(r"[\w-]{8,64}", str(d.get("id", ""))):
+            msgs.append(d)
+    for k in [k for k, t in done.items() if now - t > 2 * 86400]:
+        del done[k]
+
+    def songs(xs, n):
+        out = []
+        for x in (xs if isinstance(xs, list) else [])[:n]:
+            hit = WEB_SONG.fullmatch(str(x[0] if isinstance(x, list) and x else x))
+            if hit:
+                out.append((hit.group(1), x[1] if isinstance(x, list) and len(x) > 1 and isinstance(x[1], int) else 1))
+        return out
+
+    def texts(xs, n, size=80):
+        return [x.strip()[:size] for x in (xs if isinstance(xs, list) else [])[:n] if isinstance(x, str) and x.strip()]
+
+    ids = {i for d in msgs for k in ("likes", "plays", "week") for i, _ in songs(d.get(k), 200)}
+    rows = catalog_tracks(ids)
+    for d in msgs:
+        uid = "web-" + str(d["id"])[:60]
+        old = state["users"].get(uid, {})
+        plays = [rows[i] + [max(1, min(n, 999))] for i, n in songs(d.get("plays"), 200) if i in rows]
+        week = [i for i, _ in songs(d.get("week"), 100) if i in rows]
+        have = {t[1] for t in plays}
+        plays += [rows[i] + [1] for i in week if i not in have]
+        miss = [[str(x[0])[:100], str(x[1])[:80]] for x in (d.get("miss") or [])[:20]
+                if isinstance(x, list) and len(x) == 2 and all(isinstance(y, str) for y in x)]
+        # A message has what happened since the one before: keep the earlier searches and misses too.
+        merged = lambda new, before, n: list(dict.fromkeys([json.dumps(x) for x in new + before]))[:n]
+        state["users"][uid] = {
+            "id": uid, "p": "web", "app": str(d.get("app", ""))[:20], "m": str(d.get("m", ""))[:40],
+            "langs": texts(d.get("langs"), 10, 20), "likes": [rows[i] for i, _ in songs(d.get("likes"), 100) if i in rows],
+            "plays": plays, "week": [f"JIOSAAVN:{i}" for i in week], "playlists": [],
+            "searches": [json.loads(x) for x in merged(texts(d.get("searches"), 20), old.get("searches", []), 40)],
+            "miss": [json.loads(x) for x in merged(miss, old.get("miss", []), 40)],
+            "seen": now, "first": old.get("first", now), "uploads": old.get("uploads", 0) + 1,
+        }
+    print(f"COMMUNITY: {len(msgs)} new website messages ({len(lines)} in the last 12 hours), {len(rows)} songs found")
+    return len(msgs)
+
+
 def key(t):
     return f"{t[0]}:{t[1]}"
+
+
+# Channel names that aren't singers ("T-Series", "Speed Records"): not put in a catalog search.
+LABEL = re.compile(r"music|records|series|films?\b|studio|entertainment|official|vevo|production|channel|\btv\b|media|"
+                   r"label|digital|beats|world|india|desi|company|motion|pictures", re.I)
+
+
+def wanted_query(title, singer):
+    """A song played from YouTube -> words to look it up on JioSaavn ("kesariya arijit singh")."""
+    t = re.sub(r"\(.*?\)|\[.*?\]|\{.*?\}", " ", str(title or ""))
+    t = re.split(r"\s[|•]\s|\s[-–]\s", t)[0]
+    t = re.sub(r"\b(official|video|lyrics?|lyrical|full|song|audio|hd|4k|new|latest|feat|ft)\b\.?", " ", t, flags=re.I)
+    t = " ".join(t.split())[:60]
+    if len(t) < 2:
+        return None
+    s = str(singer or "").split(",")[0].strip()
+    if s and len(s) <= 30 and not LABEL.search(s):
+        t = f"{t} {s}"
+    return t.lower()
 
 
 STOPWORDS = {"songs", "song", "my", "playlist", "mix", "the", "and", "for", "best", "new", "all", "fav", "favourite",
@@ -266,6 +390,7 @@ def save_folder(files, got, state):
 def main():
     state = load_state()
     got = fetch(state)
+    got += fetch_web(state)
     # Until build 159 the CI emulator uploaded too; every listener before this reset was a test phone (Oct 9:
     # no owner phone had a build with Community yet). Real listeners re-upload within 6 hours.
     if state.get("v", 1) < 2:
@@ -323,21 +448,53 @@ def main():
         if n >= MIN_USERS:
             near[a].append((n, b)); near[b].append((n, a))
     top = [k for k, n in plays_by.most_common(300) if n >= MIN_USERS]
-    used = sorted(set(top) | set(near) | {b for v in near.values() for _, b in v} | {k for ks in learned.values() for k in ks})
+
+    # Sangeet Top 50: how many listeners played a song in the last 7 days, then how often. "week" = the songs a
+    # listener played this week; older app builds don't send it, so their latest plays count instead.
+    now = time.time()
+    week_by, week_plays = collections.Counter(), collections.Counter()
+    for d in state["users"].values():
+        if now - d.get("seen", 0) > CHART_DAYS * 86400:
+            continue
+        counts = {key(t): (t[8] if len(t) > 8 else 1) for t in d.get("plays", [])}
+        keys = d.get("week")
+        if not isinstance(keys, list):
+            keys = [key(t) for t in d.get("plays", [])[:60]]
+        for k in set(map(str, keys)):
+            if k in info:
+                week_by[k] += 1
+                week_plays[k] += counts.get(k, 1)
+    chart = sorted((k for k, n in week_by.items() if n >= MIN_USERS), key=lambda k: (-week_by[k], -week_plays[k]))[:200]
+
+    used = sorted(set(top) | set(chart) | set(near) | {b for v in near.values() for _, b in v} | {k for ks in learned.values() for k in ks})
     index = {k: i for i, k in enumerate(used)}
     out = {
         "listeners": len(songs_of),
         "tracks": [info[k] for k in used],
         "together": {str(index[a]): [index[b] for _, b in sorted(v, reverse=True)[:20]] for a, v in near.items()},
         "top": [index[k] for k in top],
+        "chart": [index[k] for k in chart],
         "searches": [q for q, n in searched.most_common(300) if n >= MIN_USERS],
         "words": {w: [index[k] for k in ks] for w, ks in learned.items()},
     }
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
-    # Every listener's searches (not published): the catalog crawl looks these words up on JioSaavn.
+    # Songs that aren't in the catalog yet: what listeners play from YouTube, and the website's YouTube songs.
+    wanted = collections.Counter()
+    for d in state["users"].values():
+        for t in d.get("plays", [])[:200]:
+            if t[0] == "YOUTUBE" and (q := wanted_query(t[2], t[3])):
+                wanted[q] += 1
+        for t in d.get("miss", []):
+            if isinstance(t, list) and len(t) == 2 and (q := wanted_query(t[0], t[1])):
+                wanted[q] += 2
+    # Every listener's searches and those songs (not published): the catalog crawl looks them up on JioSaavn.
+    looks = [q for q, _ in searched.most_common(500)]
+    looks += [q for q, _ in wanted.most_common(300) if q not in searched]
     with open(SEARCHES, "w", encoding="utf-8") as f:
-        json.dump([q for q, _ in searched.most_common(500)], f, ensure_ascii=False)
+        json.dump(looks, f, ensure_ascii=False)
+    print(f"COMMUNITY: Top 50 has {len(chart)} songs from listeners; the crawl looks up {len(looks)} searches and songs"
+          f" ({len(wanted)} played from YouTube or missing on the website)")
     stats = owner_stats(state, plays_by, info, searched)
     files = {
         "sangeet-stats.json": json.dumps(stats, ensure_ascii=False, indent=1),

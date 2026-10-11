@@ -221,6 +221,33 @@ def main():
         step(f"Home: {label}", open_and_back(label))
     step("Home: Refresh", lambda: tap("Refresh", wait=4))
     step("Home: AI DJ", open_and_back("AI DJ"))
+
+    # Sangeet Top 50: the shelf's "See all" opens the numbered list.
+    def top50():
+        for _ in range(3):
+            head = find("Sangeet Top 50", contains=True, scroll=3)
+            if head:
+                break
+            time.sleep(4)
+        if not head:
+            return False
+        more = [n for n in nodes(dump()) if n["text"] == "See all" and abs(n["y"] - head["y"]) < 80]
+        if not more:
+            return False
+        sh(f"input tap {more[0]['x']} {more[0]['y']}")
+        time.sleep(10)
+        with open("out/top50.png", "wb") as f:
+            subprocess.run(["adb", "exec-out", "screencap", "-p"], stdout=f)
+        return True
+    def top50_listed():
+        # The header reads "This week's most played • 50 songs • 3 hr 10 min".
+        head = find("This week's most played", contains=True)
+        rows = [n["text"] for n in nodes(dump()) if n["text"] in ("1", "2", "3")]
+        return head is not None and len(rows) >= 2, f"{(head or {}).get('text') or 'no header'}; numbered rows: {rows}"
+    step("Home: Sangeet Top 50 → See all", top50, top50_listed)
+    back()
+    relaunch()
+    go_tab("Home")
     step("Home: scroll to the end", lambda: [swipe_up() for _ in range(8)] and True)
     step("Home: Top charts → See all", lambda: tap("See all", scroll=4, wait=5) and (back() or True))
 
@@ -391,6 +418,38 @@ def main():
                if re.search(r"\s[VDIWEF] (Sangeet|WM-\S+|DownloadWorker)\s*:", l) or "already downloaded" in l.lower()][-20:]
         return False, "not finished in 2 min; now playing: " + now_title() + "\n" + "\n".join(why)
     step("Song menu: Download", download, download_check)
+
+    # Set as ringtone: the part is cut from the (downloaded) song, saved in Ringtones/Sangeet and set.
+    def ringtone():
+        sh(f"appops set {PKG} WRITE_SETTINGS allow")
+        before = sh("settings get system ringtone").strip()
+        if not (tap("Options", wait=2) or tap("More", wait=2)):
+            return False
+        if not tap("Set as ringtone", scroll=2, wait=3):
+            back()
+            return False
+        for _ in range(45):  # getting the song
+            if find("Listen") or find("Allow") or find("Couldn", contains=True):
+                break
+            time.sleep(2)
+        tap("Listen", wait=4)
+        tap("Stop", wait=1)
+        if not tap("Set", wait=2):
+            back()
+            return False
+        for _ in range(30):
+            if sh("settings get system ringtone").strip() != before:
+                break
+            time.sleep(1)
+        if find("Allow") or find("Set as ringtone"):
+            back()
+        return True
+    def ringtone_set():
+        now = sh("settings get system ringtone").strip()
+        files = sh("ls /sdcard/Ringtones/Sangeet/ 2>/dev/null").strip()
+        why = [l for l in adb("logcat", "-d").splitlines() if re.search(r"\sSangeet\s*:.*ringtone", l)][-6:]
+        return "media" in now and bool(files), f"ringtone: {now}; file: {files}\n" + "\n".join(why)
+    step("Song menu: Set as ringtone", ringtone, ringtone_set)
     for item in ["Like", "Play next", "Add to queue", "Add to playlist", "Start radio", "Share"]:
         step(f"Song menu: {item}", menu(item, then_back=item in ("Add to playlist", "Share")))
     step("Song menu: Go to artist", menu("Go to artist", wait=6))

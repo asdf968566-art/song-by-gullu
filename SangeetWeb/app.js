@@ -944,6 +944,8 @@ const Player = {
         if (!y) return this.failed();
         t = this.queue[i] = y;
       }
+      // Not in the catalog: the next crawl looks for it, so it can play in the background next time.
+      if (t.src === 'yt') Share.miss(t);
     }
     let viaAudio = false;
     if (t.src === 'yt' && S.ytAudio) {
@@ -1421,6 +1423,8 @@ function searchPage() {
     results.replaceChildren(albumBox, artistBox, fixBox, line ? ytBox : '', localEl, deepBox, line ? '' : ytBox);
     const shown = new Set(local.map((t) => norm(t.title)));
     const youtube = async () => {
+      // Few songs in the catalog for these words: the next crawl looks them up (not for a lyrics line).
+      if (!line && shown.size < 8) Share.search(raw);
       ytBox.replaceChildren(h('div', { class: 'spinner' }));
       const yt = (await Tube.search(line ? `${raw} song` : raw))
         .map((t) => Catalog.match(t) || t) // in the catalog: show (and play) that one, it keeps playing in the background
@@ -1474,6 +1478,7 @@ function searchPage() {
         h('button', { class: 'chip' + (now ? ' on' : ''), onclick: () => pushPage(() => djPage(q)) }, `${emoji} ${name}`))),
       h('div', { class: 'section' }, 'Browse all'),
       h('div', { class: 'cat-row' },
+        h('div', { class: 'cat top50-tile', style: 'background:linear-gradient(135deg,#7c3aed,#1e1b4b)', onclick: () => pushPage(top50Page) }, '🏆 Sangeet Top 50'),
         h('div', { class: 'cat', style: 'background:linear-gradient(135deg,#b45309,#3b1d02)', onclick: () => pushPage(() => moviesPage()) }, '🎬 Movies'),
         CATEGORIES.map((c) => h('div', { class: 'cat', style: `background:${c.color}`, onclick: () => pushPage(() => categoryPage(c)) }, `${c.emoji} ${c.name}`)),
         BROWSE.map(([name, q, color]) => h('div', { class: 'cat', style: `background:${color}`, onclick: () => pushPage(() => djPage(q)) }, name))),
@@ -2740,6 +2745,8 @@ function settingsPage() {
     setGroup('Your library',
       setRow({ ic: 'sync', color: 'teal', label: 'Sync with another phone', value: CloudSync.code ? 'On' : null, onclick: () => pushPage(syncPage) })),
     setGroup('Help',
+      setRow({ ic: 'chart', color: 'green', label: 'Help improve suggestions', sub: 'Shares what you play, without your name',
+        right: setSwitch(S.share !== false, (on) => { S.share = on; save(); }, 'Help improve suggestions') }),
       setRow({ ic: 'info', color: 'blue', label: "What's new", onclick: () => WhatsNew.show() }),
       setRow({ ic: 'bug', color: 'orange', label: 'Report a problem', onclick: reportProblem }),
       standalone ? null : setRow({ ic: 'phone', color: 'gray', label: 'Install on iPhone', sub: 'Safari: Share, then Add to Home Screen' }),
@@ -2770,6 +2777,131 @@ const Community = {
     }
     if (mine.length > 1) this.data.top.forEach((j, r) => out.set(this.ids[j], (out.get(this.ids[j]) || 0) + 0.5 / (1 + r * 0.05)));
     return out;
+  },
+  /** A shared track ([source, id, title, singers, language, cover, stream, ms]) as the website's track. */
+  track(j) {
+    const t = this.data.tracks[j];
+    if (!t) return null;
+    if (t[0] === 'YOUTUBE') return { id: 'yt:' + t[1], src: 'yt', sid: t[1], title: t[2], artist: t[3], raw: `${t[2]} ${t[3]}`, album: 'YouTube', dur: Math.round((t[7] || 0) / 1000), img: t[5], lang: t[4] };
+    if (t[0] !== 'JIOSAAVN' || !t[6]) return null;
+    return Catalog.byId.get('js:' + t[1]) || { id: 'js:' + t[1], src: 'js', sid: t[1], title: t[2], artist: t[3], album: '', dur: Math.round((t[7] || 0) / 1000),
+      img: String(t[5]).replace(/\d+x\d+(?=\.\w+$)/, '150x150'), media: String(t[6]).replace(/#320$/, ''), hq: /#320$/.test(t[6]), year: 0, lang: t[4] };
+  },
+};
+
+/* ------------------------------------------------------------------ Sangeet Top 50 (same list as the Android app)
+ * What the app's listeners played most this week (both apps, two or more listeners per song), in your languages.
+ * While there are few listeners, the trending charts of your languages fill it up to 50. */
+async function top50() {
+  await Community.load().catch(() => {});
+  const d = Community.data || { chart: [], top: [] };
+  const ours = [...(d.chart || []), ...(d.top || [])].map((j) => Community.track(j)).filter((t) => t && (!t.lang || S.langs.includes(t.lang)));
+  const charts = Catalog.playlists.filter((p) => p.chart);
+  const fill = [];
+  for (let i = 0; i < 60; i++) charts.forEach((p) => { if (p.tracks[i]) fill.push(p.tracks[i]); });
+  const seen = new Set(), out = [];
+  for (const t of [...ours, ...fill]) {
+    const k = norm(`${t.title} ${splitArtists(t.artist)[0] || ''}`);
+    if (seen.has(t.id) || seen.has(k)) continue;
+    seen.add(t.id); seen.add(k); out.push(t);
+    if (out.length >= 50) break;
+  }
+  return out;
+}
+function top50Page() {
+  const list = h('div', null, h('div', { class: 'spinner' }));
+  top50().then((tracks) => fill(list, tracks.length ? [
+    h('div', { class: 'actions' },
+      // Play starts at a random song, like every list (a report, Oct 10); tap a song to start there.
+      h('button', { class: 'pill primary', onclick: () => Player.play(shuffle(tracks)) }, icon('play'), 'Play'),
+      h('button', { class: 'pill', onclick: () => Player.play(shuffle(tracks)) }, icon('shuffle'), 'Shuffle')),
+    tracks.map((t, i) => h('div', { class: 'ranked' }, h('span', { class: 'rank' }, String(i + 1)), trackRow(t, () => Player.play(tracks, i)))),
+  ] : h('div', { class: 'empty' }, 'Nothing yet')));
+  return h('div', null, header('Sangeet Top 50', true), h('div', { class: 'note' }, "This week's most played"), list);
+}
+
+/* ------------------------------------------------------------------ Help improve suggestions (Settings)
+ * Like the Android app's Community upload: every few hours a short message under a random id (no name, account or
+ * phone files) to ntfy.sh (keyless, CORS *). The catalog build reads it (ntfy.sh keeps messages 12 hours): songs
+ * played (recent first) and this week, likes (for Sangeet Top 50 and suggestions), the words that found few songs
+ * and the YouTube songs the catalog doesn't have (the next crawl adds them, so fewer songs need YouTube, which stops
+ * when the iPhone is locked). */
+const Share = {
+  TOPIC: 'https://ntfy.sh/sangeet-web-listens-k4q8',
+  EVERY: 6 * 3600e3,
+  id() {
+    let id = '';
+    try { id = localStorage.getItem('sangeet-share-id') || ''; } catch {}
+    if (!id) {
+      id = (crypto.randomUUID ? crypto.randomUUID() : `${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`).replace(/[^\w-]/g, '');
+      try { localStorage.setItem('sangeet-share-id', id); } catch {}
+    }
+    return id;
+  },
+  wanted() { return S.wanted || (S.wanted = { q: [], yt: [] }); },
+  /** Words the catalog had few songs for (typing has stopped). */
+  search(q) {
+    q = String(q || '').trim();
+    if (S.share === false || q.length < 2 || q.length > 60) return;
+    const w = this.wanted();
+    if (w.q.some((x) => norm(x) === norm(q))) return;
+    w.q.unshift(q);
+    w.q.length = Math.min(w.q.length, 20);
+    save();
+  },
+  /** A song that plays from YouTube because the catalog doesn't have it. */
+  miss(t) {
+    if (S.share === false || !t || t.src !== 'yt' || !t.title) return;
+    const w = this.wanted(), k = norm(`${t.title} ${t.artist}`);
+    if (w.yt.some(([a, b]) => norm(`${a} ${b}`) === k)) return;
+    w.yt.unshift([String(t.title).slice(0, 100), String(t.artist || '').slice(0, 80)]);
+    w.yt.length = Math.min(w.yt.length, 20);
+    save();
+  },
+  message() {
+    const ua = navigator.userAgent;
+    const hist = Object.values(S.history).filter((r) => r.t && r.t.src === 'js').sort((a, b) => b.last - a.last);
+    const weekAgo = Date.now() - 7 * 864e5, w = this.wanted();
+    const m = {
+      v: 1, id: this.id(), p: 'web', app: String(window.SANGEET_BUILD || ''),
+      m: (ua.match(/iPhone|iPad/) || [/Android/.test(ua) ? 'Android browser' : 'Browser'])[0], langs: S.langs.slice(0, 6),
+      week: hist.filter((r) => r.last >= weekAgo).slice(0, 60).map((r) => r.t.id),
+      plays: hist.slice(0, 120).map((r) => [r.t.id, r.c]),
+      likes: S.liked.filter((t) => t.src === 'js').slice(0, 60).map((t) => t.id),
+      searches: w.q.slice(0, 12), miss: w.yt.slice(0, 12),
+    };
+    // ntfy.sh keeps a message as text up to 4 KB: leave out the least needed until it fits.
+    const size = () => new TextEncoder().encode(JSON.stringify(m)).length;
+    while (size() > 3800) {
+      if (m.plays.length > 30) m.plays.length -= 10;
+      else if (m.likes.length > 20) m.likes.length -= 10;
+      else if (m.week.length > 20) m.week.length -= 10;
+      else if (m.searches.length) m.searches.pop();
+      else if (m.miss.length) m.miss.pop();
+      else if (m.plays.length) m.plays.pop();
+      else break;
+    }
+    return m;
+  },
+  send(force = false) {
+    if (S.share === false || !navigator.onLine || Offline.only()) return;
+    if (!force && (/HeadlessChrome|Playwright/.test(navigator.userAgent) || Date.now() - (S.shareAt || 0) < this.EVERY)) return;
+    const w = this.wanted();
+    if (!Object.keys(S.history).length && !S.liked.length && !w.q.length) return;
+    const m = this.message(), was = S.shareAt || 0;
+    S.shareAt = Date.now();
+    save();
+    return fetch(this.TOPIC, { method: 'POST', body: JSON.stringify(m), keepalive: true })
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        // Sent: these words and songs are on their way to the crawl.
+        const sent = new Set(m.miss.map((x) => JSON.stringify(x)));
+        w.q = w.q.filter((x) => !m.searches.includes(x));
+        w.yt = w.yt.filter((x) => !sent.has(JSON.stringify(x)));
+        save();
+        return true;
+      })
+      .catch(() => { S.shareAt = was; save(); return false; });
   },
 };
 
@@ -3539,5 +3671,9 @@ const Visits = {
   setTimeout(() => WhatsNew.check(), 1500);
   Community.load().catch(() => {});
   setTimeout(() => Visits.count(), 4000);
+  // Listening data for Sangeet Top 50 and the catalog: soon after opening, then every few hours (Share.EVERY).
+  setTimeout(() => Share.send(), 25000);
+  setInterval(() => Share.send(), 3600e3);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) Share.send(); });
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
