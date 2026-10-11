@@ -1,5 +1,26 @@
 [
   {
+    "date": "2026-10-11",
+    "title": "Sangeet Top 50 and ringtones",
+    "items": [
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Sangeet Top 50"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Set a song as ringtone"
+      },
+      {
+        "on": "iphone",
+        "type": "new",
+        "text": "Songs you can't find get added"
+      }
+    ]
+  },
+  {
     "date": "2026-10-10",
     "title": "Live radio and listening together",
     "items": [

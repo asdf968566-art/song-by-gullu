@@ -95,6 +95,8 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
         val newFromSingers: List<Track> = emptyList(),
         /** The refresh button was tapped and Home is still loading (its icon spins). */
         val refreshing: Boolean = false,
+        /** Sangeet Top 50: what the app's listeners play most this week. */
+        val top50: List<Track> = emptyList(),
     )
 
     private val _ui = MutableStateFlow(Ui())
@@ -129,6 +131,10 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
                 val picks = runCatching { c.recommendations.suggestions(limit = 20, exclude = onScreen) }.getOrDefault(emptyList())
                     .ifEmpty { runCatching { c.recommendations.suggestions(limit = 20) }.getOrDefault(emptyList()) }
                 _ui.value = _ui.value.copy(suggestions = picks)
+            }
+            launch {
+                val top = runCatching { com.sangeet.player.data.community.Top50.tracks(c) }.getOrDefault(emptyList())
+                _ui.value = _ui.value.copy(top50 = top)
             }
             launch {
                 val charts = runCatching { c.online.saavn.charts(c.settings.current) }.getOrDefault(emptyList())
@@ -317,6 +323,10 @@ fun HomeScreen(nav: NavController) {
         if (suggested.isNotEmpty()) {
             item { SectionHeader("Recommended for you") }
             item { TrackShelf(suggested, onPlay = { c.player.play(suggested, it) }, onMore = { menuFor = it }) }
+        }
+        if (!offline && ui.top50.isNotEmpty()) {
+            item(key = "top50_h") { SectionHeader("🏆 Sangeet Top 50", action = "See all") { nav.navigate(Routes.list(ListKind.TOP50)) } }
+            item(key = "top50_row") { TrackShelf(ui.top50.take(20), onPlay = { c.player.play(ui.top50, it) }, onMore = { menuFor = it }) }
         }
         if (!offline) {
             ui.festivals.forEach { (f, tracks) ->

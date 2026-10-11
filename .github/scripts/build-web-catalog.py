@@ -121,6 +121,7 @@ class Catalog:
         self.artists = {}    # artist id -> {"lang", "page", "done", "seen"}
         self.albums_done = set()
         self.album_queue = {}  # album id -> lang
+        self.searched = {}     # listeners' search words / songs -> when they were last looked up
 
     def load(self, path):
         if not os.path.exists(path):
@@ -133,13 +134,15 @@ class Catalog:
         self.artists = d.get("artists", {})
         self.albums_done = set(d.get("albums_done", []))
         self.album_queue = d.get("album_queue", {})
+        self.searched = d.get("searched", {})
         print(f"state: {len(self.order)} songs, {len(self.artists)} artists", flush=True)
 
     def save(self, path):
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
         with gzip.open(path, "wt", encoding="utf-8") as f:
             json.dump({"order": self.order, "songs": [self.songs[i] for i in self.order], "artists": self.artists,
-                       "albums_done": sorted(self.albums_done), "album_queue": self.album_queue},
+                       "albums_done": sorted(self.albums_done), "album_queue": self.album_queue,
+                       "searched": self.searched},
                       f, ensure_ascii=False, separators=(",", ":"))
 
     def add(self, o, pop=0, small=True):
@@ -406,18 +409,25 @@ def main():
         n = {"hindi": 1500, "punjabi": 1000, "haryanvi": 500, "english": 400}.get(lang, 120)
         playlists[lang] = core(lang, n)
         print(f"core {lang}: {len(playlists[lang])} playlists, total {len(C.order)}", flush=True)
-    # Words the app's listeners searched (Community): their songs join the catalog.
+    # Words the app's listeners searched, and songs they played from YouTube or didn't find on the website
+    # (Community): their songs join the catalog. Each is looked up at most every 3 days.
     try:
         with open(os.path.join(os.path.dirname(STATE), "community-searches.json"), encoding="utf-8") as f:
-            wanted = json.load(f)[:300]
+            wanted = [q for q in json.load(f) if isinstance(q, str)][:800]
     except Exception:
         wanted = []
+    now = time.time()
+    C.searched = {q: t for q, t in C.searched.items() if now - t < 30 * 86400}
+    wanted = [q for q in wanted if now - C.searched.get(q, 0) > 3 * 86400]
     if wanted:
+        before = len(C.order)
         with cf.ThreadPoolExecutor(8) as ex:
-            for res in ex.map(lambda q: call("search.getResults", {"q": q, "n": "30", "p": "1"}), wanted):
+            for q, res in zip(wanted, ex.map(lambda q: call("search.getResults", {"q": q, "n": "30", "p": "1"}), wanted)):
+                if res is not None:
+                    C.searched[q] = now
                 for o in items(res, ["results"]):
                     C.add(o, pop=2)
-        print(f"community searches: {len(wanted)} looked up, total {len(C.order)}", flush=True)
+        print(f"community searches: {len(wanted)} looked up, +{len(C.order) - before} songs, total {len(C.order)}", flush=True)
     C.save(STATE)
     deep_crawl(t0 + MINUTES * 60)
     C.save(STATE)

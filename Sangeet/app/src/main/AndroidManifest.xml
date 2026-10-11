@@ -21,6 +21,14 @@
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
+    <!-- Song as ringtone (Ringtone): set the phone's ringtone / alarm / notification sound ("Modify system settings"),
+         and on Android 8-9 save it in the shared Ringtones folder. -->
+    <uses-permission
+        android:name="android.permission.WRITE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
 
     <application
         android:name=".SangeetApplication"

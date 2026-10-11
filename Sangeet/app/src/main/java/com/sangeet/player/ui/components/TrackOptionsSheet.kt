@@ -55,6 +55,7 @@ import com.sangeet.player.ui.Routes
 import androidx.compose.material.icons.rounded.Radio
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.RingVolume
 import com.sangeet.player.ui.theme.Sangeet
 import kotlinx.coroutines.launch
 
@@ -72,12 +73,17 @@ fun TrackOptionsSheet(
     val favorites by container.library.favoriteIds.collectAsStateWithLifecycle()
     val downloads by container.downloads.downloads.collectAsStateWithLifecycle()
     var showPlaylists by remember { mutableStateOf(false) }
+    var showRingtone by remember { mutableStateOf(false) }
     val spec = Sangeet.spec
     val liked = track.id in favorites
     val dl = downloads[track.id]
 
     if (showPlaylists) {
         AddToPlaylistDialog(listOf(track)) { showPlaylists = false; onDismiss() }
+        return
+    }
+    if (showRingtone) {
+        RingtoneSheet(track) { showRingtone = false; onDismiss() }
         return
     }
 
@@ -123,6 +129,9 @@ fun TrackOptionsSheet(
             SheetItem(Icons.Rounded.Share, "Share") {
                 container.scope.launch { runCatching { ShareCard.share(context, track) } }
                 onDismiss()
+            }
+            if (com.sangeet.player.data.ringtone.Ringtone.possible(track)) {
+                SheetItem(Icons.Rounded.RingVolume, "Set as ringtone") { showRingtone = true }
             }
             if (playlistId != null) {
                 SheetItem(Icons.Rounded.RemoveCircleOutline, "Remove from this playlist") {
