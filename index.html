@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <title>Sangeet</title>
+  <meta name="description" content="Hindi, Punjabi and Indian music. Endless For You feed, lyrics and AI DJ.">
+  <meta name="theme-color" content="#0b0b0f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <script>
+    // Liquid Glass light: dark status bar text (time, battery). iPhone reads this when the app opens.
+    try { if (localStorage.getItem('sangeet-look') === 'light') {
+      document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]').setAttribute('content', 'default');
+      document.querySelector('meta[name="theme-color"]').setAttribute('content', '#f2f2f7');
+    } } catch (e) {}
+  </script>
+  <meta name="apple-mobile-web-app-title" content="Sangeet">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" href="icon-192.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="style.css?v=87">
+</head>
+<body>
+  <section id="feed" class="tab-page"></section>
+  <main id="page" class="tab-page" hidden></main>
+  <div id="ytbox" hidden><div id="yt"></div></div>
+  <div id="mini" hidden></div>
+  <nav id="tabs">
+    <button data-tab="feed" class="on"></button>
+    <button data-tab="search"></button>
+    <button data-tab="library"></button>
+    <button data-tab="settings"></button>
+  </nav>
+  <div id="np" class="sheet" hidden></div>
+  <div id="menu" class="menu" hidden></div>
+  <div id="toast" hidden></div>
+  <audio id="audio" playsinline preload="auto"></audio>
+  <script>window.SANGEET_BUILD = "87";</script>
+  <script src="app.js?v=87"></script>
+</body>
+</html>
