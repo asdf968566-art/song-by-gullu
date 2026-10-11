@@ -240,8 +240,10 @@ def main():
             subprocess.run(["adb", "exec-out", "screencap", "-p"], stdout=f)
         return True
     def top50_listed():
+        # The header reads "This week's most played • 50 songs • 3 hr 10 min".
+        head = find("This week's most played", contains=True)
         rows = [n["text"] for n in nodes(dump()) if n["text"] in ("1", "2", "3")]
-        return find("This week's most played") is not None and len(rows) >= 2, f"numbered rows: {rows}"
+        return head is not None and len(rows) >= 2, f"{(head or {}).get('text') or 'no header'}; numbered rows: {rows}"
     step("Home: Sangeet Top 50 → See all", top50, top50_listed)
     back()
     relaunch()
