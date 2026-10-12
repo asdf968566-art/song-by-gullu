@@ -402,7 +402,8 @@ def main():
         if not menu("Download", then_back=False)():
             return False
         for _ in range(60):
-            if "download done:" in adb("logcat", "-d"):
+            log = adb("logcat", "-d")
+            if "download done:" in log or "download skipped, same song already downloaded" in log:
                 return True
             time.sleep(2)
         return True
@@ -411,11 +412,16 @@ def main():
         m = re.search(r"download done: .*", log)
         if m:
             return True, m.group(0)
+        # The emulator keeps its downloads between runs: when the search finds another copy of a song already
+        # downloaded (same title and singer), the app rightly doesn't download it twice (Oct 12, run 38250751028).
+        m = re.search(r"download skipped, same song already downloaded: .*", log)
+        if m:
+            return True, m.group(0)
         # Explain why: the worker's log lines and what the menu showed.
         # Only the app's own lines and WorkManager's (Android's Bluetooth service also logs "com.sangeet.player"
         # every 3 s, which used to push the useful lines out).
-        why = [l for l in log.splitlines()
-               if re.search(r"\s[VDIWEF] (Sangeet|WM-\S+|DownloadWorker)\s*:", l) or "already downloaded" in l.lower()][-20:]
+        why = [l for l in log.splitlines() if re.search(r"\s[VDIWEF] (Sangeet|DownloadWorker)\s*:", l)][-14:]
+        why += [l for l in log.splitlines() if re.search(r"\s[VDIWEF] WM-\S+\s*:", l) and "DownloadWorker" in l][-6:]
         return False, "not finished in 2 min; now playing: " + now_title() + "\n" + "\n".join(why)
     step("Song menu: Download", download, download_check)
 
