@@ -1,5 +1,21 @@
 [
   {
+    "date": "2026-10-12",
+    "title": "Smoother playback",
+    "items": [
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Smooth pause and play"
+      },
+      {
+        "on": "android",
+        "type": "fix",
+        "text": "Songs no longer skip when the internet drops"
+      }
+    ]
+  },
+  {
     "date": "2026-10-11",
     "title": "Sangeet Top 50 and ringtones",
     "items": [

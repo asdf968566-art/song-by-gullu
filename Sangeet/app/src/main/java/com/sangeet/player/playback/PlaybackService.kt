@@ -26,6 +26,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultLoadControl
+import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaSession
@@ -35,6 +36,9 @@ import com.sangeet.player.MainActivity
 import com.sangeet.player.SangeetApplication
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
@@ -51,17 +55,26 @@ class PlaybackService : MediaLibraryService() {
     private var deviceCallback: AudioDeviceCallback? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var errorStreak = 0
+    /** When the internet went away during the current song (0: it didn't), and the job waiting for it. */
+    private var netLostAt = 0L
+    private var netJob: Job? = null
 
     override fun onCreate() {
         super.onCreate()
         val container = (application as SangeetApplication).container
 
         val player = ExoPlayer.Builder(this)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(container.dataSourceFactory))
-            // 1 second buffer hote hi bajna shuru (default 2.5s) -> gaana jaldi chalta hai.
+            // A short internet drop is tried again for a while before it counts as an error (report #41).
+            .setMediaSourceFactory(
+                DefaultMediaSourceFactory(container.dataSourceFactory)
+                    .setLoadErrorHandlingPolicy(DefaultLoadErrorHandlingPolicy(8))
+            )
+            // 1 second buffer hote hi bajna shuru (default 2.5s) -> gaana jaldi chalta hai. It keeps up to 3 minutes
+            // ahead (by time, not size), so a slow or broken connection doesn't stop the song (report #41).
             .setLoadControl(
                 DefaultLoadControl.Builder()
-                    .setBufferDurationsMs(15_000, 60_000, 1_000, 2_000)
+                    .setBufferDurationsMs(50_000, 180_000, 1_000, 2_000)
+                    .setPrioritizeTimeOverSizeThresholds(true)
                     .build()
             )
             .setAudioAttributes(
@@ -83,13 +96,17 @@ class PlaybackService : MediaLibraryService() {
             }
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                netLostAt = 0L
                 val id = mediaItem?.mediaId ?: return
                 container.recommendations.markSeen(listOf(id))
                 scope.launch { container.library.find(id)?.let { container.library.recordPlay(it) } }
             }
 
             override fun onIsPlayingChanged(isPlaying: Boolean) {
-                if (isPlaying) errorStreak = 0
+                if (isPlaying) {
+                    errorStreak = 0
+                    netLostAt = 0L
+                }
             }
 
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
@@ -101,6 +118,11 @@ class PlaybackService : MediaLibraryService() {
             }
 
             override fun onPlayerError(error: PlaybackException) {
+                // The internet dropped or got too slow: wait for it on this song, don't jump to the next one.
+                if (isNetworkProblem(error)) {
+                    waitForInternet(player)
+                    return
+                }
                 // Ek gaana na chale to agla try karo (max 3 baar lagataar).
                 errorStreak++
                 if (errorStreak <= 3 && player.hasNextMediaItem()) {
@@ -118,6 +140,9 @@ class PlaybackService : MediaLibraryService() {
             }
         }
 
+        // The session (app, notification, lock screen, headset buttons) gets the player that fades pause and play.
+        val fading = FadingPlayer(player)
+
         // Headphone / Bluetooth nikalne se ruka gaana, wapas lagate hi (30 min ke andar) chalu.
         val audio = getSystemService(AudioManager::class.java)
         deviceCallback = object : AudioDeviceCallback() {
@@ -126,7 +151,7 @@ class PlaybackService : MediaLibraryService() {
                 if (System.currentTimeMillis() - pausedByNoisyAt > 30 * 60_000L) return
                 if (addedDevices.any { it.isSink && it.type in HEADSET_TYPES }) {
                     pausedByNoisyAt = 0L
-                    player.play()
+                    fading.play()
                 }
             }
         }.also { audio.registerAudioDeviceCallback(it, Handler(Looper.getMainLooper())) }
@@ -137,7 +162,7 @@ class PlaybackService : MediaLibraryService() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
 
-        session = MediaLibrarySession.Builder(this, player, object : MediaLibrarySession.Callback {
+        session = MediaLibrarySession.Builder(this, fading, object : MediaLibrarySession.Callback {
                 override fun onGetLibraryRoot(
                     session: MediaLibrarySession,
                     browser: MediaSession.ControllerInfo,
@@ -184,6 +209,70 @@ class PlaybackService : MediaLibraryService() {
             })
             .setSessionActivity(openApp)
             .build()
+    }
+
+    // ------------------------------------------------------------ the internet goes away during a song
+
+    /**
+     * A load failed because the phone has no internet, or the connection broke or timed out. Not for offline mode
+     * (then only phone songs play) or a link that doesn't work (a bad link skips to the next song as before).
+     */
+    private fun isNetworkProblem(e: PlaybackException): Boolean {
+        val c = (application as SangeetApplication).container
+        if (c.settings.current.offlineMode) return false
+        if (!c.network.status.value.online) return true
+        if (e.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED ||
+            e.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT
+        ) return true
+        var cause: Throwable? = e.cause
+        while (cause != null) {
+            if (cause is java.net.SocketTimeoutException || cause is java.net.UnknownHostException ||
+                cause is java.net.ConnectException || cause is java.net.SocketException || cause is javax.net.ssl.SSLException
+            ) return true
+            cause = cause.cause
+        }
+        return false
+    }
+
+    /**
+     * Report #41 (Oct 12): "network slow ho jaaye ya down ho jaye to instant next song pe switch na ho, 30 sec network
+     * ka wait karna hai". The song stays where it stopped and is tried again whenever the internet is there, for 30
+     * seconds. After that, a downloaded song or phone file further on plays; with none, the song waits here and goes
+     * on by itself when the internet comes back (within 10 minutes).
+     */
+    private fun waitForInternet(player: ExoPlayer) {
+        val c = (application as SangeetApplication).container
+        if (netLostAt == 0L) netLostAt = System.currentTimeMillis()
+        netJob?.cancel()
+        netJob = scope.launch {
+            android.util.Log.i("Sangeet", "internet problem during a song: waiting for it (${(System.currentTimeMillis() - netLostAt) / 1000}s so far)")
+            val since = netLostAt
+            while (System.currentTimeMillis() - since < NET_WAIT_MS) {
+                delay(2_000)
+                if (player.playerError == null) return@launch // something else is playing now
+                if (c.network.status.value.online) {
+                    player.prepare() // the same song from the same place; if it fails again, this goes on waiting
+                    return@launch
+                }
+            }
+            if (player.playerError == null) return@launch
+            netLostAt = 0L
+            val start = player.currentMediaItemIndex + 1
+            val onPhone = (start until player.mediaItemCount).firstOrNull { i ->
+                val id = player.getMediaItemAt(i).mediaId
+                c.downloads.localPath(id) != null || c.library.peek(id)?.source == com.sangeet.player.data.model.SourceType.LOCAL
+            }
+            if (onPhone != null) {
+                android.util.Log.i("Sangeet", "no internet for 30 s: playing a song that's on the phone")
+                player.seekToDefaultPosition(onPhone)
+                player.prepare()
+                player.play()
+                return@launch
+            }
+            android.util.Log.i("Sangeet", "no internet for 30 s: the song waits for it")
+            val back = withTimeoutOrNull(10 * 60_000L) { c.network.status.first { it.online } }
+            if (back != null && player.playerError != null) player.prepare()
+        }
     }
 
     // ------------------------------------------------------------ Android Auto browse tree
@@ -256,6 +345,7 @@ class PlaybackService : MediaLibraryService() {
         const val DOWNLOADS = "downloads"
         const val CHARTS = "charts"
         const val CHART_PREFIX = "chart:"
+        const val NET_WAIT_MS = 30_000L
 
         val HEADSET_TYPES = setOf(
             AudioDeviceInfo.TYPE_WIRED_HEADSET,
