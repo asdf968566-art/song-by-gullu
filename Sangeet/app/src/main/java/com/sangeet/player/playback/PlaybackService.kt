@@ -26,7 +26,6 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultLoadControl
-import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaSession
@@ -67,7 +66,7 @@ class PlaybackService : MediaLibraryService() {
             // A short internet drop is tried again for a while before it counts as an error (report #41).
             .setMediaSourceFactory(
                 DefaultMediaSourceFactory(container.dataSourceFactory)
-                    .setLoadErrorHandlingPolicy(DefaultLoadErrorHandlingPolicy(8))
+                    .setLoadErrorHandlingPolicy(NetworkRetryPolicy())
             )
             // 1 second buffer hote hi bajna shuru (default 2.5s) -> gaana jaldi chalta hai. It keeps up to 3 minutes
             // ahead (by time, not size), so a slow or broken connection doesn't stop the song (report #41).
@@ -224,14 +223,7 @@ class PlaybackService : MediaLibraryService() {
         if (e.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED ||
             e.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT
         ) return true
-        var cause: Throwable? = e.cause
-        while (cause != null) {
-            if (cause is java.net.SocketTimeoutException || cause is java.net.UnknownHostException ||
-                cause is java.net.ConnectException || cause is java.net.SocketException || cause is javax.net.ssl.SSLException
-            ) return true
-            cause = cause.cause
-        }
-        return false
+        return NetworkRetryPolicy.connectionProblem(e.cause)
     }
 
     /**

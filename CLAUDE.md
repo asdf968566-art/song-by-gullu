@@ -423,8 +423,11 @@ request the owner made, in order.
     something plays or the song changes). After 30 s a downloaded song / phone file further on plays; with none, the
     song waits and goes on when the internet is back (within 10 min). Log lines start with "internet problem" /
     "no internet for 30 s".
-  - Fewer errors to begin with: `DefaultLoadErrorHandlingPolicy(8)` retries, and the buffer keeps up to 3 minutes
-    ahead by time (`setBufferDurationsMs(50_000, 180_000, 1_000, 2_000)`, `setPrioritizeTimeOverSizeThresholds`).
+  - Fewer errors to begin with: `playback/NetworkRetryPolicy.kt` retries a load up to 10 times (1–3 s apart) only
+    when the connection is the problem; anything else (a refused YouTube link, an HTTP 4xx) gives up after 3 tries as
+    before. (The first try, `DefaultLoadErrorHandlingPolicy(8)` for all errors, made CI's blocked YouTube songs take
+    25 s+ to skip and failed "For You: Play".) The buffer keeps up to 3 minutes ahead by time
+    (`setBufferDurationsMs(50_000, 180_000, 1_000, 2_000)`, `setPrioritizeTimeOverSizeThresholds`).
   - `playback/FadingPlayer.kt`: a ForwardingPlayer given to the media session (app, notification, lock screen,
     headset buttons). Pause fades out over 450 ms and then pauses; play starts silent and fades in over 800 ms; a
     tap during a fade turns it around. The app's own volume (crossfade, sleep timer) is multiplied in
