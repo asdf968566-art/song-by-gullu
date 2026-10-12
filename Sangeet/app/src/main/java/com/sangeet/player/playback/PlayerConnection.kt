@@ -129,9 +129,18 @@ class PlayerConnection(
             repeatMode = c.repeatMode,
             queue = queue,
             queueIndex = c.currentMediaItemIndex,
-            error = c.playerError?.let { it.cause?.message ?: it.message },
+            error = c.playerError?.let(::errorText),
         )
         _position.value = PlaybackPosition(_state.value.positionMs, _state.value.durationMs)
+    }
+
+    /** What the mini player and Now Playing say when a song can't play (not "Response code: 403"; report #43). */
+    private fun errorText(e: androidx.media3.common.PlaybackException): String = when (e.errorCode) {
+        androidx.media3.common.PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+        androidx.media3.common.PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> "Waiting for the internet…"
+        androidx.media3.common.PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS,
+        androidx.media3.common.PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND -> "This song can't play right now"
+        else -> e.cause?.message ?: e.message ?: "This song can't play right now"
     }
 
     private fun startTicker() {

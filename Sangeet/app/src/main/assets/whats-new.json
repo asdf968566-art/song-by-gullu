@@ -12,6 +12,11 @@
         "on": "android",
         "type": "fix",
         "text": "Songs no longer skip when the internet drops"
+      },
+      {
+        "on": "android",
+        "type": "fix",
+        "text": "Songs that wouldn't play now play"
       }
     ]
   },

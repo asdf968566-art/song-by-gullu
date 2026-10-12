@@ -122,6 +122,15 @@ class PlaybackService : MediaLibraryService() {
                     waitForInternet(player)
                     return
                 }
+                // The server refused the song's link (403 / 404): try it once more with another link (report #43).
+                if (isRefusedLink(error)) {
+                    val track = player.currentMediaItem?.mediaId?.let { container.library.peek(it) }
+                    if (track != null && container.online.refuse(track)) {
+                        android.util.Log.i("Sangeet", "link refused (${error.errorCodeName}) for ${track.title}: trying another link")
+                        player.prepare()
+                        return
+                    }
+                }
                 // Ek gaana na chale to agla try karo (max 3 baar lagataar).
                 errorStreak++
                 if (errorStreak <= 3 && player.hasNextMediaItem()) {
@@ -224,6 +233,17 @@ class PlaybackService : MediaLibraryService() {
             e.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT
         ) return true
         return NetworkRetryPolicy.connectionProblem(e.cause)
+    }
+
+    /** The server answered, but with an error code (403 Forbidden, 404 Not Found…): the link itself is bad. */
+    private fun isRefusedLink(e: PlaybackException): Boolean {
+        if (e.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS) return true
+        var cause: Throwable? = e.cause
+        while (cause != null) {
+            if (cause is androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException) return true
+            cause = cause.cause
+        }
+        return false
     }
 
     /**
