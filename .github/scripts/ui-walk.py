@@ -471,6 +471,37 @@ def main():
     step("Downloads screen: play downloads", lambda: tap("Play downloads", wait=6), lambda: (playing(), f"playing: {now_title()}"))
     back()
 
+    # Report #41: the internet goes away during a song. The app waits on that song (30 s) instead of skipping
+    # ahead, and plays it when the internet is back.
+    def net(on):
+        for what in ("wifi", "data"):
+            sh(f"svc {what} {'enable' if on else 'disable'}")
+    lost = {}
+    def no_internet():
+        fresh(play=True)
+        time.sleep(4)
+        try:
+            net(False)
+            time.sleep(3)
+            sh("input keyevent KEYCODE_MEDIA_NEXT")
+            time.sleep(3)
+            lost["at"] = now_title()
+            time.sleep(10)
+            lost["after"] = now_title()
+        finally:
+            net(True)
+        for _ in range(30):
+            if playing():
+                break
+            time.sleep(2)
+        lost["back"] = now_title()
+        return True
+    def stayed():
+        log = [l for l in adb("logcat", "-d").splitlines() if "internet" in l and re.search(r"\sSangeet\s*:", l)][-4:]
+        good = bool(lost.get("at")) and lost.get("at") == lost.get("after") == lost.get("back") and playing()
+        return good, f"offline: {lost.get('at')} → {lost.get('after')}; back online: {lost.get('back')}, playing={playing()}\n" + "\n".join(log)
+    step("No internet during a song: waits on it, then plays", no_internet, stayed)
+
     # ---------------------------------------------------------------- tabs: tapping a tab goes to its own screen
     fresh()
     def home_from_settings():
