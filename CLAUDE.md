@@ -434,6 +434,13 @@ request the owner made, in order.
     (`appVolume × level`). Unplugged headphones / calls still pause at once (ExoPlayer's own path).
   - UI walk step "No internet during a song: waits on it, then plays": `svc wifi/data disable`, media Next, the title
     must stay the same for 13 s, then `enable` and it must play that song.
+- **App report #43 of Oct 12** (Xiaomi 23124RN87I, Android 15, build 174): "adhe song nhi chal rhe respond dikha rha
+  hai". The mini player showed the raw error "Response code: 403" (an HTTP 4xx from the stream link, most likely
+  YouTube's). Now `PlaybackService.isRefusedLink` (ERROR_CODE_IO_BAD_HTTP_STATUS / InvalidResponseCodeException) →
+  `OnlineRepository.refuse(track)` once per song and `prepare()` again: a refused YouTube song plays its JioSaavn match
+  (else a fresh YouTube link, `YouTubeSource.forget`), a refused JioSaavn song plays at 96 kbps. A second refusal
+  skips as before. The error line now reads "This song can't play right now" / "Waiting for the internet…"
+  (`PlayerConnection.errorText`). CI can't reproduce it (YouTube is bot-blocked there before any stream).
 - Other platforms checked Oct 9 from CI: Gaana's old open API is gone (404); Wynk, Hungama, Spotify have no open
   streams. JioSaavn + YouTube stay the sources.
 - In-app "Report a problem" got 403 from GitHub. Cause (found Oct 9 from CI: `REPORT_TOKEN fingerprint/account`

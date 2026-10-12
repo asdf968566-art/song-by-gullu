@@ -193,16 +193,33 @@ class OnlineRepository(
         return if (network.status.value.unmetered) s.wifiQuality else s.mobileQuality
     }
 
+    /**
+     * Songs whose stream link the server refused while playing (HTTP 403 / 404…; report #43, Oct 12: "adhe song nhi
+     * chal rhe, respond dikha rha hai", the player showed "Response code: 403"). The next try takes another link: a
+     * YouTube song from JioSaavn (else a fresh YouTube link), a JioSaavn song at 96 kbps, which every song has.
+     */
+    private val refused: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
+    /** Marks [track]'s link as refused. False when it was refused already (then the player moves on). */
+    fun refuse(track: Track): Boolean {
+        if (!refused.add(track.id)) return false
+        if (track.source == SourceType.YOUTUBE) youtube.forget(track.sourceId)
+        return true
+    }
+
     /** Online gaane ka asli stream url (quality ke saath). Local ke liye null. */
     fun streamUrl(track: Track, quality: AudioQuality): String? = when (track.source) {
         SourceType.LOCAL -> null
         SourceType.URL -> track.streamUrl
-        SourceType.YOUTUBE -> try {
+        SourceType.YOUTUBE -> if (track.id in refused) {
+            jioSaavnFallback(track, quality) ?: saavnOrYouTube(track, quality)
+        } else try {
             saavnOrYouTube(track, quality)
         } catch (e: Exception) {
             // YouTube ne roka (bot check / band video) -> wahi gaana JioSaavn pe dhoondh ke bajao.
             jioSaavnFallback(track, quality) ?: throw e
         }
+        SourceType.JIOSAAVN -> saavn.streamUrl(track, if (track.id in refused) AudioQuality.LOW else quality, settings.current)
         else -> source(track.source)?.streamUrl(track, quality, settings.current)
     }
 
