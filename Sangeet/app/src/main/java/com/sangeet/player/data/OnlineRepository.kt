@@ -75,7 +75,7 @@ class OnlineRepository(
      * A category built from several JioSaavn searches (see [Category.more]): only songs in its language,
      * and from the singer searches only songs whose title fits [Category.match]. Same song once.
      */
-    suspend fun categoryTracks(cat: Category): List<Track> = coroutineScope {
+    suspend fun categoryTracks(cat: Category, extra: List<Track> = emptyList()): List<Track> = coroutineScope {
         val match = cat.match
         val found = (listOf(cat.query) + cat.more).map { q ->
             async {
@@ -83,7 +83,7 @@ class OnlineRepository(
                 (1..2).flatMap { page -> runCatching { saavn.searchPage(q, page) }.getOrDefault(emptyList()) }
                     .filter { it.inLanguages(listOf(cat.language)) && (trusted || match!!.containsMatchIn(it.title)) }
             }
-        }.awaitAll()
+        }.awaitAll() + listOf(extra)
         // Take turns from each search so the list isn't one singer after another.
         val mixed = (0 until (found.maxOfOrNull { it.size } ?: 0)).flatMap { i -> found.mapNotNull { it.getOrNull(i) } }
         val seen = HashSet<String>()
@@ -141,15 +141,17 @@ class OnlineRepository(
      * A category whose songs are mostly on YouTube (Pahadi): YouTube and JioSaavn searches, taking turns,
      * only songs that really are in its language, same song once.
      */
-    suspend fun youtubeCategory(cat: Category): List<Track> = coroutineScope {
-        if (!canGoOnline) return@coroutineScope emptyList()
+    suspend fun youtubeCategory(cat: Category, extra: List<Track> = emptyList(), searches: Int = Int.MAX_VALUE): List<Track> = coroutineScope {
+        if (!canGoOnline) return@coroutineScope extra
         val s = settings.current
-        val found = cat.youtube.flatMap { q ->
+        // [extra]: the catalog's songs for it (JioSaavn, so they keep playing with the screen off), taking turns.
+        val searched = cat.youtube.take(searches).flatMap { q ->
             listOf(
                 async { if (youtube.isEnabled(s)) runCatching { youtube.search(q, s) }.getOrDefault(emptyList()) else emptyList() },
                 async { if (saavn.isEnabled(s)) runCatching { saavn.searchPage(q, 1) }.getOrDefault(emptyList()) else emptyList() },
             )
         }.awaitAll().map { list -> list.filter { it.inLanguages(listOf(cat.language)) }.map { it.copy(language = cat.language) } }
+        val found = listOf(extra) + searched
         val seen = HashSet<String>()
         (0 until (found.maxOfOrNull { it.size } ?: 0)).flatMap { i -> found.mapNotNull { it.getOrNull(i) } }
             .filter { seen.add(it.title.lowercase().substringBefore(" (").substringBefore(" |").trim()) }

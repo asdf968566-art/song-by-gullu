@@ -70,7 +70,16 @@ class AppContainer(private val app: Application) {
     val equalizer = EqualizerManager(app)
     val updater = AppUpdater(app, settings)
     val aiDj = com.sangeet.player.data.ai.AiDj(online, settings)
-    val recommendations = RecommendationRepository(app, library, local, online, settings, com.sangeet.player.data.recommend.CatalogPool(app, scope))
+    /** The nightly catalog's popular songs per language (also Pahadi). */
+    val catalog = com.sangeet.player.data.recommend.CatalogPool(app, scope)
+    val recommendations = RecommendationRepository(app, library, local, online, settings, catalog)
+
+    /** The catalog's songs that fit a category (Pahadi, Garhwali, Haryanvi Badmashi...), for its list and Home row. */
+    fun catalogFor(cat: com.sangeet.player.data.Category): List<com.sangeet.player.data.model.Track> =
+        catalog.songs(cat.language)
+            .filter { t -> cat.match?.containsMatchIn(if (cat.youtube.isNotEmpty()) "${t.title} ${t.artist} ${t.album}" else t.title) ?: true }
+            .shuffled()
+            .take(80)
     val player = PlayerConnection(app, library, scope).apply {
         radio = { seed, exclude -> recommendations.radio(seed, exclude) }
         autoplayEnabled = { settings.current.autoplay }

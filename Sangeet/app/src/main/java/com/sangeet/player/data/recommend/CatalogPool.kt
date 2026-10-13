@@ -42,6 +42,12 @@ class CatalogPool(context: Context, private val scope: CoroutineScope) {
         return out.values.toList()
     }
 
+    /** The catalog's songs of one language (Pahadi from pahadi.json...); empty until its file has loaded. */
+    fun songs(lang: String): List<Track> {
+        ensureLoaded(lang)
+        return cache[lang].orEmpty()
+    }
+
     private fun ensureLoaded(lang: String) {
         if (cache.containsKey(lang) || !loading.add(lang)) return
         scope.launch(Dispatchers.IO) {

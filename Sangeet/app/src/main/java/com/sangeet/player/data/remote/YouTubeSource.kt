@@ -449,7 +449,9 @@ object LanguageGuess {
         "garhwali|garwali|gadwali|kumaoni|kumauni|kumaon|jaunsari|himachali|pahadi|pahari|uttarakhand|\\bnati\\b|" +
             "गढ़वाली|गढवाली|कुमाऊँनी|कुमाउनी|जौनसारी|पहाड़ी|पहाडी|हिमाचली|" +
             "narendra singh negi|gajendra rana|meena rana|pritam bhartwan|kishan mahipal|inder arya|saurav maithani|" +
-            "anisha ranghar|rohit chauhan|kuldeep sharma|thakur das rathi|vicky chauhan|basanti bisht",
+            "anisha ranghar|rohit chauhan|kuldeep sharma|thakur das rathi|vicky chauhan|basanti bisht|hema negi karasi|" +
+            "gopal babu goswami|lalit mohan joshi|pappu karki|mangalesh dangwal|manglesh dangwal|darshan farswan|" +
+            "rajnikant semwal|karnail rana|jitendra tomkyal|sunil thapliyal|virendra negi|garhwal|uttrakhand",
         RegexOption.IGNORE_CASE,
     )
 
