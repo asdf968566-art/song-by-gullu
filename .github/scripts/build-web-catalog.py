@@ -184,14 +184,17 @@ class Catalog:
                        "searched": self.searched, "pahadi": sorted(self.pahadi), "seeded": self.seeded},
                       f, ensure_ascii=False, separators=(",", ":"))
 
-    def add(self, o, pop=0, small=True):
+    def add(self, o, pop=0, small=True, as_lang=None):
         """Adds a JioSaavn song object. Returns (id, lang, is_new) or None.
-        small=False: skip the "few songs only" languages (used by the deep crawl)."""
+        small=False: skip the "few songs only" languages (used by the deep crawl).
+        as_lang: keep a song of another language under this one (Pahadi songs JioSaavn files elsewhere)."""
         if not isinstance(o, dict) or o.get("type", "song") != "song" or not o.get("id"):
             return None
         lang = (o.get("language") or "").lower()
         if lang not in DEEP and (lang not in SMALL or not small):
-            return None
+            if not as_lang:
+                return None
+            lang = as_lang
         sid = o["id"]
         info = o.get("more_info") or {}
         with self.lock:
@@ -388,11 +391,14 @@ def pahadi():
         return p, call("playlist.getDetails", {"listid": p["id"], "n": "200", "p": "1"})
 
     playlists = []
+    langs = collections.Counter()
     with cf.ThreadPoolExecutor(12) as ex:
         for p, res in ex.map(details, chosen):
             ids = []
             for o in items(res, ["list", "songs", "results"]):
-                t = C.add(o, pop=3)
+                if isinstance(o, dict):
+                    langs[(o.get("language") or "?").lower()] += 1
+                t = C.add(o, pop=3, as_lang="hindi")
                 if t and t[0] not in ids:
                     ids.append(t[0])
             if ids:
@@ -406,13 +412,15 @@ def pahadi():
     with cf.ThreadPoolExecutor(12) as ex:
         for res in ex.map(lambda q: call("search.getResults", q), searches):
             for o in items(res, ["results"]):
-                t = C.add(o, pop=2)
+                t = C.add(o, pop=2, as_lang="hindi") if isinstance(o, dict) and PAHADI.search(
+                    f"{o.get('title', '')} {o.get('subtitle', '')} {(o.get('more_info') or {}).get('album', '')}") else C.add(o, pop=2)
                 if t:
                     row = C.songs.get(t[0])
                     if row and PAHADI.search(f"{row[1]} {row[2]} {row[3]}"):
                         with C.lock:
                             C.pahadi.add(t[0])
-    print(f"pahadi: {len(found)} playlists found, {len(playlists)} kept, {len(C.pahadi)} songs", flush=True)
+    print(f"pahadi: {len(found)} playlists found, {len(playlists)} kept, {len(C.pahadi)} songs; "
+          f"their languages {dict(langs.most_common(6))}", flush=True)
     return playlists
 
 
