@@ -36,6 +36,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import com.sangeet.player.ui.theme.neonGlass
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -414,16 +417,40 @@ fun SearchScreen(nav: NavController) {
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     row.forEach { (name, color) ->
-                        Box(
+                        val open = {
+                            if (name == MOVIES_TILE) nav.navigate(Routes.movies())
+                            else nav.navigate(Routes.list(ListKind.GENRE, name.substringAfter(' ').takeIf { Categories.find(it) != null } ?: name))
+                        }
+                        if (spec.style == ThemeStyle.NEON) {
+                            // Neon Glass (the reel's Explore tiles): glass with the category's color glowing in a
+                            // corner, its emoji on top and its name below.
+                            val emoji = name.substringBefore(' ').takeIf { name.contains(' ') && it.none(Char::isLetterOrDigit) }
+                            Column(
+                                Modifier
+                                    .weight(1f)
+                                    .height(96.dp)
+                                    .neonGlass(RoundedCornerShape(20.dp))
+                                    .background(Brush.radialGradient(listOf(Color(color).copy(alpha = 0.55f), Color.Transparent), center = Offset.Zero, radius = 360f))
+                                    .clickable { open() }
+                                    .padding(12.dp),
+                                verticalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text(emoji ?: "", style = MaterialTheme.typography.headlineSmall)
+                                Text(
+                                    if (emoji != null) name.substringAfter(' ') else name,
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        } else Box(
                             Modifier
                                 .weight(1f)
                                 .height(96.dp)
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(Color(color))
-                                .clickable {
-                                    if (name == MOVIES_TILE) nav.navigate(Routes.movies())
-                                    else nav.navigate(Routes.list(ListKind.GENRE, name.substringAfter(' ').takeIf { Categories.find(it) != null } ?: name))
-                                }
+                                .clickable { open() }
                                 .padding(12.dp),
                         ) {
                             Text(

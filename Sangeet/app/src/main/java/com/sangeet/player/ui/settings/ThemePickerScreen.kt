@@ -83,8 +83,7 @@ fun ThemePickerScreen(nav: NavController) {
             }
         }
 
-        // Neon Glass has its own colors.
-        if (s.theme != ThemeStyle.NEON) SettingsGroup("Accent color") {
+        SettingsGroup("Accent color") {
             Row(
                 Modifier
                     .horizontalScroll(rememberScrollState())

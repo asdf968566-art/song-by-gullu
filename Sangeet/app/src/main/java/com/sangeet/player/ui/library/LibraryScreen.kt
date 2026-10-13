@@ -69,6 +69,7 @@ import com.sangeet.player.ui.components.AddToPlaylistDialog
 import com.sangeet.player.ui.components.Artwork
 import com.sangeet.player.ui.theme.Sangeet
 import com.sangeet.player.ui.theme.themedCard
+import com.sangeet.player.ui.theme.neonColors
 import kotlinx.coroutines.launch
 import com.sangeet.player.ui.theme.bottomBarPadding
 import androidx.compose.material.icons.rounded.People
@@ -298,7 +299,8 @@ private fun LibraryTile(
         // Tiles follow the theme: its card style (glass, soft shadows…) and its accent color.
         if (gradient != null && icon != null) {
             val neon = spec.style == com.sangeet.player.data.settings.ThemeStyle.NEON
-            val tinted = if (neon) listOf(lerp(gradient.first(), com.sangeet.player.ui.theme.Neon.fill[0], 0.55f), lerp(gradient.last(), com.sangeet.player.ui.theme.Neon.fill[1], 0.6f))
+            val nf = spec.neonColors.fill
+            val tinted = if (neon) listOf(lerp(gradient.first(), nf[0], 0.55f).copy(alpha = 0.78f), lerp(gradient.last(), nf[1], 0.6f).copy(alpha = 0.6f))
             else listOf(lerp(gradient.first(), spec.accent, 0.6f), lerp(gradient.last(), spec.accent, 0.35f))
                 // Crystal: the tile is see-through too, only lightly tinted.
                 .map { if (spec.style == com.sangeet.player.data.settings.ThemeStyle.CRYSTAL) it.copy(alpha = 0.3f) else it }

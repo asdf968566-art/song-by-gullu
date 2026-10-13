@@ -1121,11 +1121,25 @@ if ('mediaSession' in navigator) {
 
 /* ------------------------------------------------------------------ shared UI pieces */
 function trackRow(t, onClick) {
+  // Neon Glass (the reel's song rows): a heart and a round glass play button too.
+  const neon = document.body.classList.contains('neon');
   return h('div', { class: 'row' + (Player.current?.id === t.id ? ' playing' : ''), 'data-id': t.id, onclick: onClick },
     h('img', { class: 'art', src: art(t), loading: 'lazy', alt: '' }),
     h('div', { class: 'meta' }, h('div', { class: 't' }, t.title),
       h('div', { class: 's' }, Offline.has(t) ? h('span', { class: 'saved', title: 'Downloaded' }, icon('download')) : null, t.src === 'yt' ? `${t.artist} · YouTube` : t.artist)),
+    neon && t.src !== 'radio' ? likeBtn(t) : null,
+    neon ? h('button', { class: 'go', 'aria-label': 'Play', onclick: (e) => {
+      e.stopPropagation();
+      if (Player.current?.id !== t.id) onClick();
+      else if (Player.playing) Player.pause(); else Player.resume();
+    } }, icon('play')) : null,
     h('button', { class: 'icon-btn more', 'aria-label': 'More', onclick: (e) => { e.stopPropagation(); trackMenu(t); } }, icon('more')));
+}
+/** A card's cover; on Neon Glass with a round glass play button on it (the reel's "Recently Played"). */
+function coverBox(src) {
+  const img = h('img', { class: 'cover', src, loading: 'lazy', alt: '' });
+  if (!document.body.classList.contains('neon')) return img;
+  return h('div', { class: 'cover-box' }, img, h('span', { class: 'go' }, icon('play')));
 }
 /** Long lists render 60 rows at a time as you scroll. `asRadio`: tapping a song plays it followed by songs like it
  * (search results), instead of the rest of the list (playlists, albums). */
@@ -1479,9 +1493,9 @@ function searchPage() {
       h('div', { class: 'section' }, 'Browse all'),
       h('div', { class: 'cat-row' },
         h('div', { class: 'cat top50-tile', style: 'background:linear-gradient(135deg,#7c3aed,#1e1b4b)', onclick: () => pushPage(top50Page) }, '🏆 Sangeet Top 50'),
-        h('div', { class: 'cat', style: 'background:linear-gradient(135deg,#b45309,#3b1d02)', onclick: () => pushPage(() => moviesPage()) }, '🎬 Movies'),
-        CATEGORIES.map((c) => h('div', { class: 'cat', style: `background:${c.color}`, onclick: () => pushPage(() => categoryPage(c)) }, `${c.emoji} ${c.name}`)),
-        BROWSE.map(([name, q, color]) => h('div', { class: 'cat', style: `background:${color}`, onclick: () => pushPage(() => djPage(q)) }, name))),
+        h('div', { class: 'cat', style: 'background:linear-gradient(135deg,#b45309,#3b1d02);--c:#b45309', onclick: () => pushPage(() => moviesPage()) }, '🎬 Movies'),
+        CATEGORIES.map((c) => h('div', { class: 'cat', style: `background:${c.color};--c:${c.color}`, onclick: () => pushPage(() => categoryPage(c)) }, `${c.emoji} ${c.name}`)),
+        BROWSE.map(([name, q, color]) => h('div', { class: 'cat', style: `background:${color};--c:${color}`, onclick: () => pushPage(() => djPage(q)) }, name))),
       h('div', { class: 'section' }, 'Moods'),
       h('div', { class: 'chips' }, moods.map((m) => h('button', { class: 'chip', onclick: () => pushPage(() => djPage(`${m} ${S.langs[0] || 'hindi'} songs`)) }, m))),
       charts.length ? [h('div', { class: 'section' }, 'Top charts'), h('div', { class: 'grid' }, charts.map(playlistCard))] : null);
@@ -1696,7 +1710,7 @@ function albumCard(a) {
     const m = await Movies.of(a.title, a.year);
     pushPage(() => (m ? moviePage(m) : songsPage(a.title, a.tracks, null, a)));
   } },
-    h('img', { class: 'cover', src: (a.img || '').replace('150x150', '500x500'), loading: 'lazy', alt: '' }),
+    coverBox((a.img || '').replace('150x150', '500x500')),
     h('div', { class: 't' }, a.title),
     h('div', { class: 'note', style: 'padding:0' }, `${a.tracks.length} songs${a.year ? ' · ' + a.year : ''}`));
 }
@@ -2028,7 +2042,7 @@ function madeForYou() {
   if (!mixes.length) return null;
   return [h('div', { class: 'section' }, 'Made for you'),
     h('div', { class: 'grid' }, mixes.map((m) => h('div', { class: 'card', onclick: () => pushPage(() => songsPage(m.title, m.tracks, null, m)) },
-      h('img', { class: 'cover', src: art(m.tracks[0], true), loading: 'lazy', alt: '' }),
+      coverBox(art(m.tracks[0], true)),
       h('div', { class: 't' }, m.title))))];
 }
 
@@ -2097,7 +2111,7 @@ const Sync = {
 };
 function playlistCard(p) {
   return h('div', { class: 'card', onclick: () => pushPage(() => songsPage(p.title, p.tracks, null, p)) },
-    h('img', { class: 'cover', src: (p.img || '').replace('150x150', '500x500'), loading: 'lazy', alt: '' }),
+    coverBox((p.img || '').replace('150x150', '500x500')),
     h('div', { class: 't' }, p.title));
 }
 /** Library → Your Stats: how much you listened, streak, favourite time, top singers and songs. */
@@ -2711,7 +2725,7 @@ function settingsPage() {
       S.look = v; save(); look.setValue(lookName());
       if (applyLook() && standalone) toast('Close and reopen the app for the top bar colors', 4500);
     }])) });
-  const swatches = h('div', { class: 'set-swatches accent-row' }, ACCENTS.map(([name, c]) => {
+  const swatches = h('div', { class: 'set-swatches' }, ACCENTS.map(([name, c]) => {
     const b = h('button', { class: 'swatch' + ((S.accent || '#ff5c6b') === c ? ' on' : ''), style: `background:${c}`, 'aria-label': name, onclick: () => {
       S.accent = c; save(); applyLook();
       swatches.querySelectorAll('.swatch').forEach((x) => x.classList.toggle('on', x === b));
@@ -2733,7 +2747,7 @@ function settingsPage() {
       setRow({ ic: 'download', color: 'green', label: 'Offline mode', sub: 'Only downloaded songs', right: setSwitch(!!S.offlineOnly, (v) => { S.offlineOnly = v; save(); }, 'Offline mode') })),
     setGroup('Look',
       look,
-      h('div', { class: 'set-row accent-row' }, h('span', { class: 'set-ic', style: `background:${SET_COLORS.pink}` }, icon('heartFill')),
+      h('div', { class: 'set-row' }, h('span', { class: 'set-ic', style: `background:${SET_COLORS.pink}` }, icon('heartFill')),
         h('div', { class: 'set-main' }, h('div', { class: 'set-label' }, 'Accent color'))),
       swatches),
     setGroup('AI DJ',
@@ -2960,6 +2974,8 @@ function applyLook() {
   document.documentElement.classList.toggle('crystal', crystal);
   document.body.classList.toggle('neon', neon);
   document.documentElement.classList.toggle('neon', neon);
+  const pal = neon ? Neon.palette(S.accent || '#ff5c6b') : null;
+  if (pal) for (const [k, v] of Object.entries(pal)) document.documentElement.style.setProperty('--n-' + k, v);
   document.body.classList.toggle('light', light);
   Crystal.update();
   // Liquid Glass tab bar: For You, Library and Settings in one glass capsule, Search on its own round button.
@@ -2974,13 +2990,49 @@ function applyLook() {
     ['feed', 'search', 'library', 'settings'].forEach((t) => tabs.append(btn(t)));
     cap.remove();
   }
-  document.querySelector('meta[name="theme-color"]').setAttribute('content', light ? '#f2f2f7' : glass ? '#000000' : crystal ? '#0b0e1a' : neon ? '#2440c8' : '#0b0b0f');
+  document.querySelector('meta[name="theme-color"]').setAttribute('content', light ? '#f2f2f7' : glass ? '#000000' : crystal ? '#0b0e1a' : neon ? pal.top : '#0b0b0f');
   // Status bar text color is read when the app opens (index.html).
   const before = (() => { try { return localStorage.getItem('sangeet-look'); } catch { return null; } })();
   try { localStorage.setItem('sangeet-look', light ? 'light' : 'dark'); } catch {}
   return before != null && before !== (light ? 'light' : 'dark');
 }
 lightQuery.addEventListener?.('change', () => { if (S.look === 'glass-auto') applyLook(); });
+/**
+ * Neon Glass colors, made from the accent (the owner wants the reel's design in any color: "same colour nhi, design
+ * waisa"). Violet gives the reel's blue-to-violet page. Same numbers as Android's NeonPalette.
+ */
+const Neon = {
+  hsv(h, s, v) {
+    h = ((h % 360) + 360) % 360;
+    const c = v * s, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), m = v - c;
+    const [r, g, b] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+    return [r + m, g + m, b + m];
+  },
+  lum(c) { const f = (u) => (u <= 0.03928 ? u / 12.92 : ((u + 0.055) / 1.055) ** 2.4); return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); },
+  /** Darker until white text on it stays easy to read. */
+  fit(c, max) { for (let i = 0; i < 40 && this.lum(c) > max; i++) c = c.map((u) => u * 0.93); return c; },
+  css(c, a = 1) { const [r, g, b] = c.map((u) => Math.round(u * 255)); return a < 1 ? `rgba(${r},${g},${b},${a})` : `rgb(${r},${g},${b})`; },
+  hue(hex) {
+    const n = parseInt(String(hex).replace('#', ''), 16) || 0;
+    const r = ((n >> 16) & 255) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+    const mx = Math.max(r, g, b), d = mx - Math.min(r, g, b);
+    if (!d) return 0;
+    const h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    return (h * 60 + 360) % 360;
+  },
+  palette(hex) {
+    const h = this.hue(hex), f1 = this.fit(this.hsv(h + 25, 0.7, 1), 0.3), f2 = this.fit(this.hsv(h - 5, 0.8, 0.9), 0.16);
+    return {
+      top: this.css(this.fit(this.hsv(h - 35, 0.8, 0.78), 0.11)),
+      mid: this.css(this.fit(this.hsv(h - 10, 0.75, 0.62), 0.065)),
+      bot: this.css(this.fit(this.hsv(h + 15, 0.8, 0.38), 0.03)),
+      g1: this.css(this.hsv(h - 60, 0.75, 1), 0.45), g2: this.css(this.hsv(h + 25, 0.75, 1), 0.45),
+      g3: this.css(this.hsv(h + 50, 0.75, 1), 0.35), g4: this.css(this.hsv(h + 80, 0.7, 1), 0.28),
+      f1: this.css(f1), f2: this.css(f2), solid: this.css(f1.map((u, i) => (u + f2[i]) / 2)),
+      accent: this.css(this.hsv(h + 65, 0.55, 1)), muted: this.css(this.hsv(h - 20, 0.15, 0.97)),
+    };
+  },
+};
 /** Crystal's page backdrop: the playing song's cover, blurred, behind everything. */
 const Crystal = {
   update() {
@@ -3005,6 +3057,7 @@ const UI = {
     for (const p of Feed.el.children) p.ctr?.update(p === ap);
     this.np?.ctr.update();
     if (this.np) this.np.err.textContent = Player.error;
+    document.body.classList.toggle('is-playing', !!(t && Player.playing));
   },
   trackChanged() {
     Crystal.update();
@@ -3047,6 +3100,17 @@ const UI = {
     const lyricsBtn = h('button', { class: 'icon-btn', 'aria-label': 'Lyrics' }, icon('lyrics'));
     const queueBtn = h('button', { class: 'icon-btn', 'aria-label': 'Up next' }, icon('queue'));
     const sleepNote = h('div', { class: 'sleep-note' }, Sleep.label());
+    // Neon Glass (the reel's "Up Next"): the next song on a glass card; tap it to play it, See all for the queue.
+    const upNext = () => {
+      const n = Player.queue[Player.i + 1];
+      if (!n || !document.body.classList.contains('neon')) return null;
+      return h('div', { class: 'up-next' },
+        h('div', { class: 'up-head' }, h('b', {}, 'Up Next'), h('button', { class: 'link', onclick: () => show('queue') }, 'See all')),
+        h('div', { class: 'up-row', onclick: () => Player.next() },
+          h('img', { class: 'art', src: art(n), alt: '' }),
+          h('div', { class: 'meta' }, h('div', { class: 't' }, n.title), h('div', { class: 's' }, n.artist)),
+          icon('next')));
+    };
     const shuffleBtn = h('button', { class: 'icon-btn' + (Player.shuffleOn ? ' on' : ''), 'aria-label': 'Shuffle', onclick: () => { Player.toggleShuffle(); shuffleBtn.classList.toggle('on', Player.shuffleOn); } }, icon('shuffle'));
     const repeatBtn = h('button', { class: 'icon-btn' + (Player.repeat !== 'off' ? ' on' : ''), 'aria-label': 'Repeat', onclick: () => {
       Player.cycleRepeat();
@@ -3088,7 +3152,8 @@ const UI = {
           likeBtn(t)),
         seek, ctr, err,
         h('div', { class: 'row-icons' }, shuffleBtn, repeatBtn, speedBtn, sleepBtn, lyricsBtn, queueBtn),
-        sleepNote));
+        sleepNote,
+        upNext()));
     const state = { seek, ctr, err, view, lyricsTick: null };
     const show = (v) => {
       state.view = v;

@@ -442,7 +442,7 @@ private fun NeonTabBar(tabs: List<Tab>, route: String?, go: (String) -> Unit) {
                     .weight(1f)
                     .fillMaxHeight()
                     .padding(horizontal = 3.dp)
-                    .then(if (selected) Modifier.neonFill(RoundedCornerShape(18.dp), glow = 10.dp) else Modifier.clip(RoundedCornerShape(18.dp)))
+                    .then(if (selected) Modifier.neonFill(Sangeet.spec, RoundedCornerShape(18.dp), glow = 10.dp) else Modifier.clip(RoundedCornerShape(18.dp)))
                     .clickable { go(tab.route) },
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,

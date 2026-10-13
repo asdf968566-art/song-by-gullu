@@ -11,6 +11,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -48,7 +49,7 @@ fun ThemedBackground(modifier: Modifier = Modifier, content: @Composable BoxScop
                     ThemeStyle.AURORA -> Modifier.auroraBackdrop(spec)
                     ThemeStyle.GLASS -> Modifier.glassBackdrop(spec)
                     ThemeStyle.CRYSTAL -> Modifier.glassBackdrop(spec)
-                    ThemeStyle.NEON -> Modifier.neonBackdrop()
+                    ThemeStyle.NEON -> Modifier.neonBackdrop(spec.neonColors)
                     ThemeStyle.SPOTIFY -> Modifier.background(
                         Brush.verticalGradient(
                             0f to spec.accent.copy(alpha = if (spec.isDark) 0.22f else 0.12f),
@@ -137,39 +138,57 @@ private fun Modifier.glassBackdrop(spec: ThemeSpec): Modifier = this
         }
     }
 
-/** Neon Glass: blue at the top to deep violet at the bottom, with soft blue, violet, magenta and pink glows. */
-private fun Modifier.neonBackdrop(): Modifier = this
-    .background(Brush.verticalGradient(listOf(Neon.blue, Neon.indigo, Neon.deep)))
+/** Neon Glass: the page goes from the palette's light top to its deep bottom, with four soft glows. */
+private fun Modifier.neonBackdrop(p: NeonPalette): Modifier = this
+    .background(Brush.verticalGradient(p.page))
     .drawBehind {
         val w = size.width
         val h = size.height
-        val glows = listOf(
-            Triple(Offset(w * 0.95f, h * 0.06f), w * 0.7f, Color(0xFF3D8BFF).copy(alpha = 0.45f)),
-            Triple(Offset(w * 0.0f, h * 0.42f), w * 0.75f, Color(0xFF7A3CFF).copy(alpha = 0.45f)),
-            Triple(Offset(w * 1.0f, h * 0.62f), w * 0.7f, Color(0xFFC13DFF).copy(alpha = 0.35f)),
-            Triple(Offset(w * 0.15f, h * 0.98f), w * 0.8f, Color(0xFFFF3FA8).copy(alpha = 0.28f)),
+        val spots = listOf(
+            Offset(w * 0.95f, h * 0.06f) to w * 0.7f,
+            Offset(w * 0.0f, h * 0.42f) to w * 0.75f,
+            Offset(w * 1.0f, h * 0.62f) to w * 0.7f,
+            Offset(w * 0.15f, h * 0.98f) to w * 0.8f,
         )
-        glows.forEach { (c, r, col) ->
+        spots.zip(p.glows).forEach { (spot, col) ->
+            val (c, r) = spot
             drawCircle(Brush.radialGradient(listOf(col, Color.Transparent), c, r), r, c)
         }
     }
 
-/** A frosted Neon Glass panel: lighter at the top, with a bright edge where the light catches it. */
+/** Neon Glass colors of this theme (made from the accent). */
+val ThemeSpec.neonColors: NeonPalette get() = neon ?: NeonPalette.from(accent)
+
+/**
+ * A Neon Glass panel: see-through and lighter at the top left, a soft shine over its upper half, and a bright
+ * edge where the light catches it (top left) fading round the sides.
+ */
 fun Modifier.neonGlass(shape: Shape): Modifier = this
     .clip(shape)
-    .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.17f), Color.White.copy(alpha = 0.07f))))
+    .background(Brush.linearGradient(listOf(Color.White.copy(alpha = 0.20f), Color.White.copy(alpha = 0.07f))))
+    .background(Brush.verticalGradient(0f to Color.White.copy(alpha = 0.10f), 0.45f to Color.Transparent))
     .border(
         1.dp,
-        Brush.linearGradient(listOf(Color.White.copy(alpha = 0.55f), Color.White.copy(alpha = 0.08f), Color.White.copy(alpha = 0.28f))),
+        Brush.linearGradient(listOf(Color.White.copy(alpha = 0.6f), Color.White.copy(alpha = 0.08f), Color.White.copy(alpha = 0.3f))),
         shape,
     )
 
-/** Neon Glass's chosen tab / chip / play button: a glowing violet gradient with a bright rim. */
-fun Modifier.neonFill(shape: Shape, glow: Dp = 12.dp): Modifier = this
-    .shadow(glow, shape, ambientColor = Neon.violet, spotColor = Color(0xFFC04DFF))
-    .clip(shape)
-    .background(Brush.linearGradient(Neon.fill))
-    .border(1.dp, Brush.linearGradient(listOf(Color.White.copy(alpha = 0.6f), Color.White.copy(alpha = 0.1f), Color.White.copy(alpha = 0.35f))), shape)
+/** Neon Glass's round glass button (play in rows and on covers, the heart on the cover…). */
+fun Modifier.neonCircle(): Modifier = this
+    .clip(CircleShape)
+    .background(Brush.linearGradient(listOf(Color.White.copy(alpha = 0.34f), Color.White.copy(alpha = 0.14f))))
+    .border(1.dp, Brush.linearGradient(listOf(Color.White.copy(alpha = 0.8f), Color.White.copy(alpha = 0.2f))), CircleShape)
+
+/** Neon Glass's chosen tab / chip / play button: a glowing gradient with a bright rim. */
+fun Modifier.neonFill(spec: ThemeSpec, shape: Shape, glow: Dp = 12.dp): Modifier {
+    val p = spec.neonColors
+    return this
+        .shadow(glow, shape, ambientColor = p.fill[1], spotColor = p.fill[0])
+        .clip(shape)
+        .background(Brush.linearGradient(p.fill))
+        .background(Brush.verticalGradient(0f to Color.White.copy(alpha = 0.18f), 0.5f to Color.Transparent))
+        .border(1.dp, Brush.linearGradient(listOf(Color.White.copy(alpha = 0.65f), Color.White.copy(alpha = 0.1f), Color.White.copy(alpha = 0.35f))), shape)
+}
 
 /**
  * Card / tile ki styling. Har theme ka alag look:
@@ -255,7 +274,7 @@ fun Modifier.playButtonStyle(spec: ThemeSpec, size: Dp): Modifier = when (spec.s
         .clip(RoundedCornerShape(50))
         .background(spec.onSurface.copy(alpha = 0.12f))
         .border(1.5.dp, spec.onSurface.copy(alpha = 0.7f), RoundedCornerShape(50))
-    ThemeStyle.NEON -> this.neonFill(RoundedCornerShape(50), glow = size / 4)
+    ThemeStyle.NEON -> this.neonFill(spec, RoundedCornerShape(50), glow = size / 4)
     else -> this
         .clip(RoundedCornerShape(50))
         .background(spec.accent)
