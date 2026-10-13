@@ -5,7 +5,7 @@
 
 const IMG = 'https://c.saavncdn.com/';
 const AAC = 'https://aac.saavncdn.com/';
-const ALL_LANGS = ['hindi', 'punjabi', 'english', 'haryanvi', 'bhojpuri', 'tamil', 'telugu', 'marathi', 'bengali', 'gujarati'];
+const ALL_LANGS = ['hindi', 'punjabi', 'english', 'haryanvi', 'pahadi', 'bhojpuri', 'tamil', 'telugu', 'marathi', 'bengali', 'gujarati'];
 const DEFAULT_YT_KEY = 'AIzaSyB1kFxcI23xi418PgROIaGhT_-p2DG33Pw';
 
 /* ------------------------------------------------------------------ icons */
@@ -1559,13 +1559,31 @@ function festivalsNow() {
 /* ------------------------------------------------------------------ special categories (Haryanvi Badmashi) */
 const BADMASHI = /badma?sh?|bdmash|\bgund[aeiy]|gundagardi|\bgoli|band[ou]+k|raf+al|rifle|pistol|\bkatt[ae]\b|\basla\b|licen[cs]e|\bjail\b|khoon|dushman|gangster|\bgang\b|ak ?47|\bbore\b|encounter|rangdari|dabdaba|hathyar|qatal|\bkatl\b|\bmaut\b|\bbadla\b|warrant|hawalat|\bdaku\b|bahubali|khatarnak|\bthar\b|bawal|rangbaaz|shooter|firing|\bfire\b|\bbullet\b|danger|\bdon\b/i;
 /** Garhwali, Kumaoni, Jaunsari and Himachali songs: words and singers in their names (same list as Android). */
-const PAHADI = /garhwali|garwali|gadwali|kumaoni|kumauni|kumaon|jaunsari|himachali|pahadi|pahari|uttarakhand|\bnati\b|गढ़वाली|गढवाली|कुमाऊँनी|कुमाउनी|जौनसारी|पहाड़ी|पहाडी|हिमाचली|narendra singh negi|gajendra rana|meena rana|pritam bhartwan|kishan mahipal|inder arya|saurav maithani|anisha ranghar|rohit chauhan|kuldeep sharma|thakur das rathi|vicky chauhan|basanti bisht/i;
+const PAHADI = /garhwali|garwali|gadwali|garhwal|kumaoni|kumauni|kumaon|jaunsari|himachali|pahadi|pahari|uttarakhand|uttrakhand|\bnati\b|गढ़वाली|गढवाली|कुमाऊँनी|कुमाउनी|जौनसारी|पहाड़ी|पहाडी|हिमाचली|narendra singh negi|gajendra rana|meena rana|pritam bhartwan|kishan mahipal|inder arya|saurav maithani|anisha ranghar|rohit chauhan|kuldeep sharma|thakur das rathi|vicky chauhan|basanti bisht|hema negi karasi|gopal babu goswami|lalit mohan joshi|pappu karki|mangalesh dangwal|manglesh dangwal|darshan farswan|rajnikant semwal|karnail rana|jitendra tomkyal|sunil thapliyal|virendra negi/i;
+/** Garhwali, Kumaoni and Himachali songs; Haryanvi DJ and folk songs (same lists as Android's Categories.kt). */
+const GARHWALI = /garhwali|garwali|gadwali|garhwal|गढ़वाली|गढवाली|narendra singh negi|gajendra rana|meena rana|pritam bhartwan|kishan mahipal|saurav maithani|anisha ranghar|hema negi karasi|amit sagar|mangalesh dangwal|manglesh dangwal|darshan farswan|rajnikant semwal|sunil thapliyal|virendra negi|jagar/i;
+const KUMAONI = /kumaoni|kumauni|kumaon|कुमाऊँनी|कुमाउनी|inder arya|gopal babu goswami|lalit mohan joshi|pappu karki|jitendra tomkyal|jhoda|chanchari/i;
+const HIMACHALI = /himachali|हिमाचली|\bnati\b|kuldeep sharma|thakur das rathi|vicky chauhan|karnail rana|surender negi|sanjeev dixit/i;
+const HARYANVI_DJ = /\bdj\b|remix|dance|party|nachna|naach|thumka|disco|\bbeat/i;
+const HARYANVI_FOLK = /ragni|ragini|folk|lok ?geet|bhajan|kissa|\bsaang\b|jagran|kirtan/i;
 const CATEGORIES = [
   // The language's popular songs whose titles fit the category, most popular first.
   { name: 'Haryanvi Badmashi', emoji: '😎', color: 'linear-gradient(135deg,#8b1e1e,#2b0b0b)', lang: 'haryanvi', match: BADMASHI },
-  // Pahadi songs are mostly on YouTube: the catalog's few (listed as Hindi) plus YouTube searches.
-  { name: 'Pahadi', emoji: '🏔️', color: 'linear-gradient(135deg,#2e6b5e,#0f2a24)', lang: 'hindi', match: PAHADI, field: 'any',
-    youtube: ['new garhwali songs', 'kumaoni songs', 'himachali pahari nati'] },
+  // More Haryanvi (owner, Oct 13): DJ and folk songs, the catalog's first, then YouTube searches.
+  { name: 'Haryanvi DJ', emoji: '🎛️', color: 'linear-gradient(135deg,#5b2a86,#1e0b2e)', lang: 'haryanvi', match: HARYANVI_DJ,
+    youtube: ['haryanvi dj songs', 'haryanvi dj remix'] },
+  { name: 'Haryanvi Folk', emoji: '🪕', color: 'linear-gradient(135deg,#8a5a14,#2e1d05)', lang: 'haryanvi', match: HARYANVI_FOLK,
+    youtube: ['haryanvi ragni', 'haryanvi lok geet'] },
+  // Pahadi (owner, Oct 13: "pahadi gaane aur add kr"): the crawl's data/pahadi.json (every song of it fits; the Hindi
+  // catalog filtered by name until that file exists), plus YouTube searches.
+  { name: 'Pahadi', emoji: '🏔️', color: 'linear-gradient(135deg,#2e6b5e,#0f2a24)', lang: 'pahadi', alt: 'hindi', all: true, match: PAHADI, field: 'any',
+    youtube: ['new garhwali songs', 'kumaoni songs', 'himachali pahari nati', 'jaunsari songs', 'uttarakhandi songs'] },
+  { name: 'Garhwali', emoji: '⛰️', color: 'linear-gradient(135deg,#3d6b2e,#13240f)', lang: 'pahadi', alt: 'hindi', match: GARHWALI, field: 'any',
+    youtube: ['new garhwali songs', 'garhwali dj songs', 'narendra singh negi songs'] },
+  { name: 'Kumaoni', emoji: '🌄', color: 'linear-gradient(135deg,#2e4f6b,#0f1b24)', lang: 'pahadi', alt: 'hindi', match: KUMAONI, field: 'any',
+    youtube: ['new kumaoni songs', 'kumaoni dj songs', 'inder arya kumaoni songs'] },
+  { name: 'Himachali', emoji: '🌲', color: 'linear-gradient(135deg,#5e2e6b,#200f24)', lang: 'pahadi', alt: 'hindi', match: HIMACHALI, field: 'any',
+    youtube: ['himachali nati', 'new himachali songs', 'kuldeep sharma nati'] },
 ];
 function categoryPage(cat) {
   const body = h('div', null, h('div', { class: 'spinner' }));
@@ -1580,10 +1598,12 @@ function categoryPage(cat) {
     const seen = new Set(), songs = [];
     const add = (t, trusted = false) => {
       const k = norm(t.title);
-      const fits = trusted || (t.lang === cat.lang && cat.match.test(cat.field === 'any' ? `${t.title} ${t.artist} ${t.album}` : t.title));
+      const fits = trusted || ((t.lang === cat.lang || t.lang === cat.alt) && cat.match.test(cat.field === 'any' ? `${t.title} ${t.artist} ${t.album}` : t.title));
       if (fits && !JUNK.test(t.title) && !seen.has(k)) { seen.add(k); songs.push(t); }
     };
-    (await Catalog.loadLang(cat.lang))?.tracks.forEach((t) => add(t));
+    const own = await Catalog.loadLang(cat.lang);
+    if (own) own.tracks.forEach((t) => add(t, !!cat.all));
+    else if (cat.alt) (await Catalog.loadLang(cat.alt))?.tracks.forEach((t) => add(t));
     if (cat.youtube) {
       const lists = await Promise.all(cat.youtube.map((q) => Tube.search(q)));
       // Take turns between the searches; a YouTube song that is in the catalog plays from there.

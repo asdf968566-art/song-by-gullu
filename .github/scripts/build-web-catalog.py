@@ -44,8 +44,9 @@ AAC = "https://aac.saavncdn.com/"
 ROWS = 250
 
 # Mostly Hindi, then Punjabi and Haryanvi, some English. Other languages: a small popular set only.
-DEEP = {"hindi": 1.0, "punjabi": 0.55, "haryanvi": 0.3, "english": 0.15}
-CORE_CAP = {"hindi": 60000, "punjabi": 30000, "haryanvi": 15000, "english": 10000}
+# Haryanvi got more room on Oct 13 (owner: "haryanvi bhi aur add kr").
+DEEP = {"hindi": 1.0, "punjabi": 0.55, "haryanvi": 0.6, "english": 0.15}
+CORE_CAP = {"hindi": 60000, "punjabi": 30000, "haryanvi": 30000, "english": 10000}
 SMALL = {"bhojpuri": 2500, "tamil": 1500, "telugu": 1500, "marathi": 1500, "bengali": 1500, "gujarati": 1200}
 LANGS = list(DEEP) + list(SMALL)
 MOODS = ["hits", "romantic", "sad", "party", "90s", "latest", "lofi", "workout", "devotional", "wedding",
@@ -53,6 +54,40 @@ MOODS = ["hits", "romantic", "sad", "party", "90s", "latest", "lofi", "workout",
          "happy", "feel good", "good vibes", "heartbreak", "sleep", "calm", "road trip", "travel", "rain", "gym",
          "motivation", "bhakti", "acoustic"]
 # The app's moods are made from playlists with these words in their names, so such playlists are always kept.
+# Haryanvi playlist searches beyond the moods ("haryanvi dj", "haryanvi ragni"...).
+HARYANVI_TERMS = ["dj", "dj remix", "ragni", "folk", "lok geet", "badmashi", "jaat", "desi", "new", "superhit",
+                  "2025", "2026", "bhajan", "dance", "sapna choudhary", "masoom sharma", "amanraj gill", "ajay hooda"]
+# Singers whose songs are crawled first (an artist search finds each once a week).
+SEED_SINGERS = {
+    "haryanvi": ["Masoom Sharma", "Amanraj Gill", "Ajay Hooda", "Renuka Panwar", "Raju Punjabi", "Sapna Choudhary",
+                 "Khasa Aala Chahar", "Gulzaar Chhaniwala", "Sumit Goswami", "Diler Kharkiya", "Ndee Kundu",
+                 "Narender Bhagana", "Vishvajeet Choudhary", "Amit Saini Rohtakiya", "Raj Mawar", "Ruchika Jangid",
+                 "Pranjal Dahiya", "MD KD", "Ankit Baliyan", "Surender Romio", "Biru Kataria", "Mohit Sharma",
+                 "Sonika Singh", "Fazilpuriya", "KD Desi Rock", "Mukesh Fouji", "Somvir Kathurwal", "Kay D", "Sandeep Surila",
+                 "Anjali Raghav", "Mahi Panchal", "Vijay Varma", "Shiva Choudhary", "Komal Chaudhary"],
+    # Pahadi (Garhwali, Kumaoni, Jaunsari, Himachali): JioSaavn lists their songs as Hindi.
+    "hindi": ["Narendra Singh Negi", "Gajendra Rana", "Meena Rana", "Pritam Bhartwan", "Kishan Mahipal", "Inder Arya",
+              "Saurav Maithani", "Anisha Ranghar", "Rohit Chauhan", "Kuldeep Sharma", "Thakur Das Rathi",
+              "Vicky Chauhan", "Basanti Bisht", "Hema Negi Karasi", "Amit Sagar", "Gopal Babu Goswami",
+              "Lalit Mohan Joshi", "Pappu Karki", "Mangalesh Dangwal", "Darshan Farswan", "Rajnikant Semwal",
+              "Karnail Rana", "Surender Negi", "Sanjeev Dixit", "Jitendra Tomkyal", "Sunil Thapliyal",
+              "Kalpana Chauhan", "Manglesh Dangwal", "Virendra Negi Rajpoot", "Inderjeet"],
+}
+# Garhwali, Kumaoni, Jaunsari and Himachali songs: words and singers in their names (Android LanguageGuess and the
+# web app use the same list). Such songs, and the songs of playlists named like that, make data/pahadi.json.
+PAHADI = re.compile(
+    r"garhwali|garwali|gadwali|garhwal|kumaoni|kumauni|kumaon|jaunsari|himachali|pahadi|pahari|uttarakhand|uttrakhand|"
+    r"\bnati\b|गढ़वाली|गढवाली|कुमाऊँनी|कुमाउनी|जौनसारी|पहाड़ी|पहाडी|हिमाचली|"
+    r"narendra singh negi|gajendra rana|meena rana|pritam bhartwan|kishan mahipal|inder arya|saurav maithani|"
+    r"anisha ranghar|rohit chauhan|kuldeep sharma|thakur das rathi|vicky chauhan|basanti bisht|hema negi karasi|"
+    r"gopal babu goswami|lalit mohan joshi|pappu karki|mangalesh dangwal|manglesh dangwal|darshan farswan|"
+    r"rajnikant semwal|karnail rana|jitendra tomkyal|sunil thapliyal|virendra negi",
+    re.I,
+)
+PAHADI_TERMS = ["garhwali", "garhwali songs", "new garhwali", "garhwali dj", "kumaoni", "kumaoni songs", "kumaoni dj",
+                "pahadi", "pahadi songs", "pahari", "pahari nati", "himachali", "himachali nati", "himachali songs",
+                "jaunsari", "uttarakhandi", "uttarakhand", "garhwali bhajan", "jagar"]
+PAHADI_CAP = 20000
 MOOD_WORDS = {"romantic", "sad", "party", "lofi", "workout", "devotional", "wedding", "love", "chill", "dance", "drive",
               "unplugged", "happy", "feel good", "good vibes", "heartbreak", "sleep", "calm", "road trip", "travel",
               "rain", "gym", "motivation", "bhakti", "acoustic"}
@@ -122,6 +157,8 @@ class Catalog:
         self.albums_done = set()
         self.album_queue = {}  # album id -> lang
         self.searched = {}     # listeners' search words / songs -> when they were last looked up
+        self.pahadi = set()    # songs from Pahadi playlists / searches (data/pahadi.json)
+        self.seeded = {}       # seed singer -> when an artist search last looked for them
 
     def load(self, path):
         if not os.path.exists(path):
@@ -135,6 +172,8 @@ class Catalog:
         self.albums_done = set(d.get("albums_done", []))
         self.album_queue = d.get("album_queue", {})
         self.searched = d.get("searched", {})
+        self.pahadi = set(d.get("pahadi", []))
+        self.seeded = d.get("seeded", {})
         print(f"state: {len(self.order)} songs, {len(self.artists)} artists", flush=True)
 
     def save(self, path):
@@ -142,7 +181,7 @@ class Catalog:
         with gzip.open(path, "wt", encoding="utf-8") as f:
             json.dump({"order": self.order, "songs": [self.songs[i] for i in self.order], "artists": self.artists,
                        "albums_done": sorted(self.albums_done), "album_queue": self.album_queue,
-                       "searched": self.searched},
+                       "searched": self.searched, "pahadi": sorted(self.pahadi), "seeded": self.seeded},
                       f, ensure_ascii=False, separators=(",", ":"))
 
     def add(self, o, pop=0, small=True):
@@ -230,6 +269,8 @@ def core(lang, n_playlists):
         found.setdefault(p["id"], p)
     jobs = [("content.getFeaturedPlaylists", {"fetch_from_serialized_files": "true", "p": str(p), "n": "50"}) for p in range(1, 25)]
     jobs += [("search.getPlaylistResults", {"q": f"{lang} {m}", "p": "1", "n": "50"}) for m in MOODS]
+    if lang == "haryanvi":
+        jobs += [("search.getPlaylistResults", {"q": f"haryanvi {t}", "p": str(p), "n": "50"}) for t in HARYANVI_TERMS for p in (1, 2)]
     with cf.ThreadPoolExecutor(16) as ex:
         for (_, params), res in zip(jobs, ex.map(lambda j: call(j[0], j[1], lang), jobs)):
             term = params["q"][len(lang) + 1:] if "q" in params else None
@@ -302,6 +343,77 @@ def album(alb):
         C.albums_done.add(alb)
         C.album_queue.pop(alb, None)
     return new
+
+
+def seed_singers():
+    """Finds the seed singers (artist search) once a week and puts them first in the deep crawl."""
+    now = time.time()
+    todo = [(lang, name) for lang, names in SEED_SINGERS.items() for name in names if now - C.seeded.get(name, 0) > 7 * 86400]
+
+    def look(job):
+        lang, name = job
+        return job, call("search.getArtistResults", {"q": name, "p": "1", "n": "5"})
+
+    found = 0
+    with cf.ThreadPoolExecutor(8) as ex:
+        for (lang, name), res in ex.map(look, todo):
+            if res is None:
+                continue
+            C.seeded[name] = now
+            for a in items(res, ["results"])[:2]:
+                if not isinstance(a, dict) or not a.get("id") or norm(name) not in norm(un(a.get("name") or a.get("title"))):
+                    continue
+                with C.lock:
+                    st = C.artists.setdefault(a["id"], {"lang": lang, "page": 0, "done": False, "seen": 0})
+                    st["seen"] = max(st["seen"], 40)
+                    if st["done"] and st["page"] < 40:
+                        st["done"] = False  # look again for their new songs
+                found += 1
+    print(f"seed singers: {len(todo)} looked up, {found} found", flush=True)
+
+
+def pahadi():
+    """Garhwali, Kumaoni, Jaunsari and Himachali songs: playlists named like that, and song searches."""
+    found = {}
+    jobs = [{"q": t, "p": str(p), "n": "50"} for t in PAHADI_TERMS for p in (1, 2)]
+    with cf.ThreadPoolExecutor(12) as ex:
+        for res in ex.map(lambda q: call("search.getPlaylistResults", q), jobs):
+            for p in playlists_of(res):
+                # Only playlists whose own name says Pahadi: their songs are trusted to be Pahadi.
+                if PAHADI.search(p["title"]):
+                    found.setdefault(p["id"], p)
+    chosen = list(found.values())[:160]
+
+    def details(p):
+        return p, call("playlist.getDetails", {"listid": p["id"], "n": "200", "p": "1"})
+
+    playlists = []
+    with cf.ThreadPoolExecutor(12) as ex:
+        for p, res in ex.map(details, chosen):
+            ids = []
+            for o in items(res, ["list", "songs", "results"]):
+                t = C.add(o, pop=3)
+                if t and t[0] not in ids:
+                    ids.append(t[0])
+            if ids:
+                with C.lock:
+                    C.pahadi.update(ids)
+            if len(ids) >= 5:
+                p["songs"] = ids
+                playlists.append(p)
+    # Song searches: only songs whose names or singers say Pahadi.
+    searches = [{"q": t, "p": str(p), "n": "40"} for t in PAHADI_TERMS for p in (1, 2, 3)]
+    with cf.ThreadPoolExecutor(12) as ex:
+        for res in ex.map(lambda q: call("search.getResults", q), searches):
+            for o in items(res, ["results"]):
+                t = C.add(o, pop=2)
+                if t:
+                    row = C.songs.get(t[0])
+                    if row and PAHADI.search(f"{row[1]} {row[2]} {row[3]}"):
+                        with C.lock:
+                            C.pahadi.add(t[0])
+    print(f"pahadi: {len(found)} playlists found, {len(playlists)} kept, {len(C.pahadi)} songs", flush=True)
+    return playlists
 
 
 def deep_crawl(deadline):
@@ -396,6 +508,25 @@ def write(playlists_by_lang):
                       f, ensure_ascii=False, separators=(",", ":"))
         print(f"{lang}: {counts[lang]} songs in catalog, {len(chosen)} popular, {len(pls)} playlists", flush=True)
 
+    # Pahadi isn't a JioSaavn language: songs from Pahadi playlists and searches, and songs whose names or singers
+    # say Pahadi, most popular first.
+    mine = [s for s in order if s in C.pahadi or PAHADI.search(f"{C.songs[s][1]} {C.songs[s][2]} {C.songs[s][3]}")]
+    mine.sort(key=lambda s: (-C.pop[s], number[s]))
+    chosen = mine[:PAHADI_CAP]
+    pos = {s: i for i, s in enumerate(chosen)}
+    pls = []
+    for p in playlists_by_lang.get("pahadi", []):
+        idx = [pos[s] for s in p["songs"] if s in pos]
+        if len(idx) >= 5:
+            img = re.sub(r"\d+x\d+(?=\.\w+$)", "150x150", p["image"] or C.songs[chosen[idx[0]]][5])
+            img = img[len(IMG):] if img.startswith(IMG) else img
+            pls.append([p["id"], p["title"], p["subtitle"], img, idx, 0])
+    with open(os.path.join(OUT, "pahadi.json"), "w", encoding="utf-8") as f:
+        json.dump({"lang": "pahadi", "songs": [C.songs[s][:9] for s in chosen], "playlists": pls},
+                  f, ensure_ascii=False, separators=(",", ":"))
+    counts["pahadi"] = len(mine)
+    print(f"pahadi: {len(mine)} songs in catalog, {len(chosen)} in pahadi.json, {len(pls)} playlists", flush=True)
+
     with open(os.path.join(OUT, "index.json"), "w") as f:
         json.dump({"build": int(time.time()), "total": len(order), "rows": ROWS, "languages": dict(counts)}, f)
     print(f"TOTAL: {len(order)} songs, {len(index)} index files", flush=True)
@@ -406,9 +537,13 @@ def main():
     C.load(STATE)
     playlists = {}
     for lang in LANGS:
-        n = {"hindi": 1500, "punjabi": 1000, "haryanvi": 500, "english": 400}.get(lang, 120)
+        n = {"hindi": 1500, "punjabi": 1000, "haryanvi": 900, "english": 400}.get(lang, 120)
         playlists[lang] = core(lang, n)
         print(f"core {lang}: {len(playlists[lang])} playlists, total {len(C.order)}", flush=True)
+    before = len(C.order)
+    playlists["pahadi"] = pahadi()
+    print(f"core pahadi: +{len(C.order) - before} songs, total {len(C.order)}", flush=True)
+    seed_singers()
     # Words the app's listeners searched, and songs they played from YouTube or didn't find on the website
     # (Community): their songs join the catalog. Each is looked up at most every 3 days.
     try:

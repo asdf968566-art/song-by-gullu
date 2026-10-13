@@ -1,7 +1,7 @@
 [
   {
     "date": "2026-10-13",
-    "title": "Neon Glass theme",
+    "title": "Neon Glass, more Haryanvi and Pahadi",
     "items": [
       {
         "on": "both",
@@ -12,6 +12,21 @@
         "on": "both",
         "type": "new",
         "text": "Neon Glass in any accent color"
+      },
+      {
+        "on": "both",
+        "type": "new",
+        "text": "More Haryanvi and Pahadi songs"
+      },
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Haryanvi DJ, Haryanvi Folk, Garhwali, Kumaoni and Himachali"
+      },
+      {
+        "on": "iphone",
+        "type": "new",
+        "text": "Pahadi song language"
       }
     ]
   },

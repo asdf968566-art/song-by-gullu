@@ -353,6 +353,30 @@ request the owner made, in order.
   - Web: the tab bar and mini player are nearly opaque (`93%`), so text under them can't be read. Rows have no blur,
     so long lists stay smooth.
   - UI walk: `neon-*.png` screenshots (ci-shots `theme-neon-*.png`).
+- **More Haryanvi and Pahadi songs** (Oct 13, owner: "pahadi gaane aur add kr aur haryanvi bhi aur add kr").
+  - Crawler (`build-web-catalog.py`):
+    - Haryanvi gets more room: `DEEP` 0.3 → 0.6, `CORE_CAP` 15k → 30k and 900 playlists. `HARYANVI_TERMS` adds
+      playlist searches like "haryanvi dj" / "ragni" / "folk", 2 pages each.
+    - `SEED_SINGERS`: Haryanvi and Pahadi singers are found with an artist search once a week (`seeded` in the
+      state) and put first in the deep crawl (`seen` 40).
+    - `pahadi()`: playlist searches for `PAHADI_TERMS`. Only playlists whose own names say Pahadi are kept, and all
+      their songs are trusted; song searches keep only songs whose names or singers match `PAHADI`. The ids are kept
+      in the state (`pahadi`).
+    - `write` makes **`data/pahadi.json`** (same format as a language file, up to 20k songs): the trusted songs plus
+      every catalog song matching `PAHADI`. It is also `pahadi.json.gz` in the `catalog` release.
+    - Log lines: `pahadi: N playlists found…`, `seed singers: …`, `pahadi: N songs in catalog…`.
+  - Android:
+    - `CatalogPool.songs(lang)` and `AppContainer.catalog` / `catalogFor(cat)`: the catalog's songs that fit a
+      category (its `match` on name+singer+album for YouTube-style categories, on the title otherwise) are mixed into
+      `categoryTracks` / `youtubeCategory` (`extra`). Home rows use 2 YouTube searches + the catalog.
+    - Users with the Pahadi language get pahadi.json in the feed too.
+    - New categories: "Haryanvi" now has singer searches (`more`), plus "Haryanvi DJ" (`HARYANVI_DJ`) and
+      "Haryanvi Folk" (`HARYANVI_FOLK`). Pahadi has 8 searches, plus "Garhwali" / "Kumaoni" / "Himachali"
+      (`GARHWALI`, `KUMAONI`, `HIMACHALI`).
+    - `LanguageGuess` PAHADI has more singers.
+  - Web: 'pahadi' is in `ALL_LANGS` (a song language on the iPhone too). The same new `CATEGORIES` exist; Pahadi ones
+    read `pahadi.json` (`lang: 'pahadi'`, `all: true` for Pahadi itself) and fall back to the Hindi catalog filtered
+    by name (`alt: 'hindi'`) until that file exists.
 - **Phone details in reports** (Oct 10, owner: "kisi specific phone me problem aaye to us problem ke liye data le
   sakta hai, koi sensitive mt lena"): `data/Diagnostics.kt`, added to every report by `CrashReporter.build`.
   - It sends: maker / model / Android / ROM build, screen dp and density, font scale, the phone's dark mode,

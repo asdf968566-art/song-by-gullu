@@ -18,8 +18,34 @@ data class Category(
     val match: Regex? = null,
     /** A singer's category (Arijit Singh): their name in a song's singers is what we want. */
     val singer: Boolean = false,
-    /** Songs mostly on YouTube (Pahadi): these YouTube + JioSaavn searches instead of JioSaavn playlists. */
+    /**
+     * Songs mostly on YouTube (Pahadi): these YouTube + JioSaavn searches instead of JioSaavn playlists. With
+     * [match], only the nightly catalog's songs whose names or singers fit it join them (Garhwali, Kumaoni...).
+     */
     val youtube: List<String> = emptyList(),
+)
+
+/** Haryanvi DJ / dance songs: words from their titles. */
+val HARYANVI_DJ = Regex("\\bdj\\b|remix|dance|party|nachna|naach|thumka|disco|\\bbeat", RegexOption.IGNORE_CASE)
+
+/** Haryanvi folk songs: ragni, lok geet, bhajan, kissa, saang. */
+val HARYANVI_FOLK = Regex("ragni|ragini|folk|lok ?geet|bhajan|kissa|\\bsaang\\b|jagran|kirtan", RegexOption.IGNORE_CASE)
+
+/** Garhwali, Kumaoni and Himachali songs by their names and singers (for the catalog's Pahadi songs). */
+val GARHWALI = Regex(
+    "garhwali|garwali|gadwali|garhwal|गढ़वाली|गढवाली|narendra singh negi|gajendra rana|meena rana|pritam bhartwan|" +
+        "kishan mahipal|saurav maithani|anisha ranghar|hema negi karasi|amit sagar|mangalesh dangwal|manglesh dangwal|" +
+        "darshan farswan|rajnikant semwal|sunil thapliyal|virendra negi|jagar",
+    RegexOption.IGNORE_CASE,
+)
+val KUMAONI = Regex(
+    "kumaoni|kumauni|kumaon|कुमाऊँनी|कुमाउनी|inder arya|gopal babu goswami|lalit mohan joshi|pappu karki|" +
+        "jitendra tomkyal|jhoda|chanchari",
+    RegexOption.IGNORE_CASE,
+)
+val HIMACHALI = Regex(
+    "himachali|हिमाचली|\\bnati\\b|kuldeep sharma|thakur das rathi|vicky chauhan|karnail rana|surender negi|sanjeev dixit",
+    RegexOption.IGNORE_CASE,
 )
 
 /** Haryanvi badmashi songs: words from their titles (gunda, bandook, jail, dushman...). */
@@ -42,7 +68,25 @@ object Categories {
         Category("Sad Songs", "💔", "hindi sad songs", "hindi", 0xFF1E3264),
         Category("Old is Gold", "📻", "old hindi songs 90s", "hindi", 0xFFBA5D07),
         Category("Punjabi Romantic", "💕", "punjabi romantic songs", "punjabi", 0xFFB06239),
-        Category("Haryanvi", "🌾", "haryanvi songs", "haryanvi", 0xFF608108),
+        // More Haryanvi (owner, Oct 13: "haryanvi bhi aur add kr"): the big singers' songs too.
+        Category(
+            "Haryanvi", "🌾", "haryanvi songs", "haryanvi", 0xFF608108,
+            more = listOf(
+                "new haryanvi songs", "haryanvi hits", "haryanvi superhit songs", "masoom sharma", "amanraj gill",
+                "ajay hooda", "renuka panwar", "raju punjabi", "sapna choudhary", "khasa aala chahar", "diler kharkiya",
+                "gulzaar chhaniwala", "sumit goswami", "pranjal dahiya", "ndee kundu",
+            ),
+        ),
+        Category(
+            "Haryanvi DJ", "🎛️", "haryanvi dj songs", "haryanvi", 0xFF5B2A86,
+            more = listOf("haryanvi dj remix", "haryanvi dance songs", "haryanvi party songs", "masoom sharma dj"),
+            match = HARYANVI_DJ,
+        ),
+        Category(
+            "Haryanvi Folk", "🪕", "haryanvi ragni", "haryanvi", 0xFF8A5A14,
+            more = listOf("haryanvi folk songs", "haryanvi lok geet", "haryanvi bhajan"),
+            match = HARYANVI_FOLK,
+        ),
         Category(
             "Haryanvi Badmashi", "😎", "haryanvi badmashi songs", "haryanvi", 0xFF8B1E1E,
             more = listOf(
@@ -52,9 +96,29 @@ object Categories {
             match = BADMASHI,
         ),
         Category("Bhojpuri", "🎺", "bhojpuri songs", "bhojpuri", 0xFF27856A),
+        // More Pahadi (owner, Oct 13: "pahadi gaane aur add kr"): more searches, the catalog's Pahadi songs
+        // (data/pahadi.json from the nightly crawl), and Garhwali / Kumaoni / Himachali on their own.
         Category(
             "Pahadi", "🏔️", "pahadi songs", "pahadi", 0xFF2E6B5E,
-            youtube = listOf("new garhwali songs", "kumaoni songs", "himachali pahari nati", "pahadi dj songs", "jaunsari songs"),
+            youtube = listOf(
+                "new garhwali songs", "kumaoni songs", "himachali pahari nati", "pahadi dj songs", "jaunsari songs",
+                "uttarakhandi songs", "garhwali dj songs", "new pahadi songs",
+            ),
+        ),
+        Category(
+            "Garhwali", "⛰️", "garhwali songs", "pahadi", 0xFF3D6B2E,
+            match = GARHWALI,
+            youtube = listOf("new garhwali songs", "garhwali dj songs", "narendra singh negi songs", "gajendra rana songs", "garhwali jagar"),
+        ),
+        Category(
+            "Kumaoni", "🌄", "kumaoni songs", "pahadi", 0xFF2E4F6B,
+            match = KUMAONI,
+            youtube = listOf("new kumaoni songs", "kumaoni dj songs", "inder arya kumaoni songs", "kumaoni jhoda chanchari"),
+        ),
+        Category(
+            "Himachali", "🌲", "himachali songs", "pahadi", 0xFF5E2E6B,
+            match = HIMACHALI,
+            youtube = listOf("himachali nati", "new himachali songs", "kuldeep sharma nati", "himachali dj songs"),
         ),
         Category("Devotional", "🙏", "bhakti songs hindi", "hindi", 0xFFF59B23),
         Category("Workout", "💪", "gym workout hindi songs", "hindi", 0xFF148A08),

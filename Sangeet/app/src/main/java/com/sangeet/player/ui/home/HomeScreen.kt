@@ -181,8 +181,10 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
                     async {
                         cat to runCatching {
                             when {
-                                cat.youtube.isNotEmpty() -> c.online.youtubeCategory(cat).take(20)
-                                cat.more.isNotEmpty() -> c.online.saavn.searchPage(cat.query, 1).filter { it.inLanguages(langs) }.take(20)
+                                // Home rows: two searches and the catalog's songs are enough (See all has the rest).
+                                cat.youtube.isNotEmpty() -> c.online.youtubeCategory(cat, c.catalogFor(cat), searches = 2).take(20)
+                                cat.more.isNotEmpty() -> (c.online.saavn.searchPage(cat.query, 1).filter { it.inLanguages(listOf(cat.language)) } +
+                                    c.catalogFor(cat)).distinctBy { it.id }.take(20)
                                 else -> c.online.topicTracks(topicOf(cat.query, langs, cat.singer), limit = 20)
                             }
                         }.getOrDefault(emptyList())
