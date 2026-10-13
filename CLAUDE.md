@@ -327,19 +327,32 @@ request the owner made, in order.
   website") and asked for its "crystal glass" look: the "Liquid Glass" music app mockup (SoundWave).
   - Instagram can't be opened from the session. A one-off CI probe (yt-dlp) cut the reel into frames on the
     branch `probe-shots` (only reel pictures; safe to delete), and the colors were sampled from them.
-  - The look: a blue → indigo → deep violet page with blue, violet, magenta and pink glows, and frosted cards with a
-    bright edge. The chosen tab, chips and the play button are a glowing violet gradient. The accent is pink (the
-    reel's heart).
-  - Android: `ThemeStyle.NEON` with the `Neon` palette in Theme.kt; `neonBackdrop`, `neonGlass` and `neonFill` in
-    Surfaces.kt; `NeonTabBar` in SangeetRoot (a floating frosted bar, the chosen tab on a violet tile).
-    - The mini player is a frosted card. Now Playing keeps the neon page (no cover tint) and the cover glows.
-    - Library tiles are tinted violet with 18 dp corners.
-    - It is always dark and ignores the accent setting, so the theme picker hides "Accent color" for it.
-  - Web: look `neon` ("Neon Glass"); `body.neon` / `html.neon` in style.css.
-    - The tab bar and mini player float and are nearly opaque (`.93`), so text under them can't be read.
-    - Song rows are frosted cards without blur, so long lists stay smooth.
-    - `.accent-row` is hidden.
-  - UI walk: `neon-*.png` screenshots.
+  - Build 213 (PR #45) was v1: fixed blue-violet colors, accent hidden. The owner's feedback: "sbkuch kanch jaisa h
+    … colour option bhi hta diya … same colour nhi, design waisa chahiye". So v2 (PR #46):
+    - **Colors from the accent.** Android `NeonPalette.from(accent)` in Theme.kt (`ThemeSpec.neon`,
+      `spec.neonColors`) and web `Neon.palette(hex)` in app.js (CSS vars `--n-*` on `<html>`) use the same numbers:
+      - the page runs from hue −35° to hue +15°, darkened (`fit`) until white text stays readable;
+      - glows at −60/+25/+50/+80°, the fill gradient at +25° → −5°, and the "on" color (hearts, seek bar) at +65°.
+      - Violet gives the reel's blue → violet page with pink hearts.
+      - The accent picker is back for this theme. It is always dark.
+    - **Everything on glass**, like the reel. `neonGlass` = see-through gradient, a shine on the upper half, and a
+      bright top-left edge. `neonCircle` = a round glass button. `neonFill` = the glowing gradient.
+      - Song rows (`NeonTrackRow` in TrackViews.kt; web `trackRow` when `body.neon`) are glass cards with a heart
+        and a round glass play button. The heart is hidden for radio and on phones under 340 dp.
+      - Shelf / mix / playlist cards are glass with a play button on the cover (web `coverBox`). Quick tiles are
+        rounder.
+      - Home has `NeonHero`, the reel's "Good Vibes Only" card, for the first mix. "Recommended for you" is
+        5 glass rows.
+      - On the web, Library's Song of the day becomes that big card ("Play now").
+      - Search's category tiles are glass with the category color glowing from a corner (web `--c`).
+      - Now Playing: sound bars beside the cover move while playing (`NeonBars`; web `.np-body::before/::after`
+        with `body.is-playing`). There is a glass heart on the cover (Android), round glass tool buttons, and an
+        "Up Next" glass card (tap: next song; See all: the queue).
+      - Tab bar: a floating glass bar, the chosen tab on a glowing tile (`NeonTabBar`). The mini player is a glass
+        card. Settings groups and library tiles use the same glass.
+  - Web: the tab bar and mini player are nearly opaque (`93%`), so text under them can't be read. Rows have no blur,
+    so long lists stay smooth.
+  - UI walk: `neon-*.png` screenshots (ci-shots `theme-neon-*.png`).
 - **Phone details in reports** (Oct 10, owner: "kisi specific phone me problem aaye to us problem ke liye data le
   sakta hai, koi sensitive mt lena"): `data/Diagnostics.kt`, added to every report by `CrashReporter.build`.
   - It sends: maker / model / Android / ROM build, screen dp and density, font scale, the phone's dark mode,

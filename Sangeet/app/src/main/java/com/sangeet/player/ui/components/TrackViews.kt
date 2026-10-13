@@ -41,6 +41,22 @@ import com.sangeet.player.data.model.Track
 import com.sangeet.player.ui.LocalAppContainer
 import com.sangeet.player.ui.theme.Sangeet
 import com.sangeet.player.ui.theme.themedCard
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FavoriteBorder
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.platform.LocalConfiguration
+import com.sangeet.player.data.settings.ThemeStyle
+import com.sangeet.player.ui.theme.neonCircle
+import com.sangeet.player.ui.theme.neonColors
+import com.sangeet.player.ui.theme.neonGlass
+import kotlinx.coroutines.launch
 
 fun formatDuration(ms: Long): String {
     if (ms <= 0) return "--:--"
@@ -66,6 +82,10 @@ fun TrackRow(
     val isCurrent = playing.current?.id == track.id
     val spec = Sangeet.spec
     val dl = downloads[track.id]
+    if (spec.style == ThemeStyle.NEON) {
+        NeonTrackRow(track, onClick, modifier, index, onMore, isCurrent, isCurrent && playing.isPlaying, dl?.state)
+        return
+    }
 
     Row(
         modifier
@@ -114,6 +134,87 @@ fun TrackRow(
         }
         if (onMore != null) {
             IconButton(onClick = onMore) {
+                Icon(Icons.Rounded.MoreVert, "More", tint = spec.muted)
+            }
+        }
+    }
+}
+
+/**
+ * Neon Glass song row (the reel's "Recommended for you" / "Trending Now"): a glass card with the cover, the
+ * names, a heart and a round glass play button.
+ */
+@Composable
+private fun NeonTrackRow(
+    track: Track,
+    onClick: () -> Unit,
+    modifier: Modifier,
+    index: Int?,
+    onMore: (() -> Unit)?,
+    isCurrent: Boolean,
+    isPlaying: Boolean,
+    dl: DownloadState?,
+) {
+    val c = LocalAppContainer.current
+    val spec = Sangeet.spec
+    val favorites by c.library.favoriteIds.collectAsStateWithLifecycle()
+    // A live station can't be liked; small phones (320 dp) leave the heart out so the names still fit.
+    val heart = !track.sourceId.startsWith("radio-") && LocalConfiguration.current.screenWidthDp >= 340
+    Row(
+        modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 4.dp)
+            .neonGlass(RoundedCornerShape(18.dp))
+            .clickable(onClick = onClick)
+            .padding(start = 8.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (index != null) {
+            Text("${index + 1}", color = spec.muted, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.width(26.dp))
+        }
+        Artwork(track.artworkUrl, size = 50.dp, shape = RoundedCornerShape(12.dp), seed = track.title)
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                track.title,
+                style = MaterialTheme.typography.titleSmall,
+                color = if (isCurrent) spec.accent else spec.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                when (dl) {
+                    DownloadState.DONE -> DownloadBadge(Icons.Rounded.CloudDone)
+                    DownloadState.DOWNLOADING, DownloadState.QUEUED -> DownloadBadge(Icons.Rounded.Downloading)
+                    else -> Unit
+                }
+                Text(track.artist, style = MaterialTheme.typography.bodySmall, color = spec.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        if (isPlaying) Icon(Icons.Rounded.GraphicEq, null, tint = spec.accent, modifier = Modifier.padding(start = 4.dp).size(18.dp))
+        if (heart) {
+            val liked = track.id in favorites
+            IconButton(onClick = { c.scope.launch { c.library.toggleFavorite(track) } }, modifier = Modifier.size(38.dp)) {
+                Icon(
+                    if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                    "Like",
+                    tint = if (liked) spec.accent else spec.onSurface.copy(alpha = 0.85f),
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        }
+        Box(
+            Modifier
+                .padding(horizontal = 2.dp)
+                .size(34.dp)
+                .neonCircle()
+                .clickable { if (isCurrent) c.player.togglePlay() else onClick() },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, if (isPlaying) "Pause" else "Play", tint = Color.White, modifier = Modifier.size(20.dp))
+        }
+        if (onMore != null) {
+            IconButton(onClick = onMore, modifier = Modifier.size(38.dp)) {
                 Icon(Icons.Rounded.MoreVert, "More", tint = spec.muted)
             }
         }
@@ -182,6 +283,35 @@ fun ShelfCard(
     circle: Boolean = false,
 ) {
     val spec = Sangeet.spec
+    if (spec.style == ThemeStyle.NEON) {
+        // Neon Glass (the reel's "Recently Played"): a glass card, the cover with a round glass play button on it.
+        Column(
+            Modifier
+                .width(150.dp)
+                .neonGlass(RoundedCornerShape(20.dp))
+                .combinedClickableCompat(onClick, onLongClick)
+                .padding(8.dp)
+        ) {
+            Box {
+                Artwork(
+                    artwork,
+                    modifier = Modifier.fillMaxWidth().aspectRatio(1f),
+                    shape = if (circle) CircleShape else RoundedCornerShape(14.dp),
+                    seed = title,
+                )
+                if (!circle) {
+                    Box(
+                        Modifier.align(Alignment.BottomEnd).padding(6.dp).size(32.dp).neonCircle(),
+                        contentAlignment = Alignment.Center,
+                    ) { Icon(Icons.Rounded.PlayArrow, null, tint = Color.White, modifier = Modifier.size(20.dp)) }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(title, style = MaterialTheme.typography.titleSmall, color = spec.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = spec.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        return
+    }
     Column(
         Modifier
             .width(150.dp)
@@ -220,14 +350,15 @@ fun ShelfCard(
 @Composable
 fun QuickTile(title: String, artwork: String?, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val spec = Sangeet.spec
+    val r = if (spec.style == ThemeStyle.NEON) 16.dp else 6.dp
     Row(
         modifier
             .height(56.dp)
-            .themedCard(spec, RoundedCornerShape(6.dp), corner = 6.dp, elevation = 4.dp)
+            .themedCard(spec, RoundedCornerShape(r), corner = r, elevation = 4.dp)
             .clickable(onClick = onClick),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Artwork(artwork, size = 56.dp, shape = RoundedCornerShape(topStart = 6.dp, bottomStart = 6.dp), seed = title)
+        Artwork(artwork, size = 56.dp, shape = RoundedCornerShape(topStart = r, bottomStart = r), seed = title)
         Text(
             title,
             style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
@@ -236,6 +367,54 @@ fun QuickTile(title: String, artwork: String?, onClick: () -> Unit, modifier: Mo
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(horizontal = 10.dp),
         )
+    }
+}
+
+/**
+ * Neon Glass's big card at the top of Home (the reel's "Good Vibes Only"): the names and a Play now button on
+ * glass, with the cover on the right fading into it.
+ */
+@Composable
+fun NeonHero(title: String, subtitle: String, artwork: String?, onPlay: () -> Unit, onOpen: () -> Unit) {
+    val spec = Sangeet.spec
+    val page = spec.neonColors.page
+    Box(
+        Modifier
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .fillMaxWidth()
+            .height(164.dp)
+            .neonGlass(RoundedCornerShape(26.dp))
+            .clickable(onClick = onOpen)
+    ) {
+        Artwork(
+            artwork,
+            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().aspectRatio(1f),
+            shape = RectangleShape,
+            seed = title,
+        )
+        Box(
+            Modifier.matchParentSize().background(
+                Brush.horizontalGradient(0f to page[1].copy(alpha = 0.92f), 0.45f to page[1].copy(alpha = 0.7f), 0.8f to Color.Transparent)
+            )
+        )
+        Column(Modifier.align(Alignment.CenterStart).fillMaxWidth(0.66f).padding(18.dp)) {
+            Text(title, style = MaterialTheme.typography.headlineSmall, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(4.dp))
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = spec.muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(12.dp))
+            Row(
+                Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(Color.White.copy(alpha = 0.9f))
+                    .clickable(onClick = onPlay)
+                    .padding(start = 10.dp, end = 14.dp, top = 7.dp, bottom = 7.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Rounded.PlayArrow, null, tint = page[2], modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Play now", style = MaterialTheme.typography.labelLarge, color = page[2])
+            }
+        }
     }
 }
 

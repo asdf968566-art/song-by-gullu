@@ -65,7 +65,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.border
-import com.sangeet.player.ui.theme.Neon
+import com.sangeet.player.ui.theme.neonColors
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import com.sangeet.player.ui.theme.neonGlass
+import com.sangeet.player.ui.theme.neonCircle
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
@@ -249,22 +258,46 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                     }
                 } else {
                     val coverShape = RoundedCornerShape(if (neon) 26.dp else 10.dp)
-                    Artwork(
-                        track.artworkUrl,
-                        modifier = Modifier
-                            .padding(horizontal = 28.dp)
-                            .fillMaxWidth()
-                            .aspectRatio(1f)
-                            // Neon Glass: the cover glows pink and violet, with a bright glass edge.
-                            .then(
-                                if (neon) Modifier
-                                    .shadow(28.dp, coverShape, ambientColor = Neon.violet, spotColor = Neon.pink)
-                                    .border(1.5.dp, Brush.linearGradient(listOf(Color.White.copy(alpha = 0.7f), Color.White.copy(alpha = 0.1f), Color.White.copy(alpha = 0.4f))), coverShape)
-                                else Modifier
-                            ),
-                        shape = coverShape,
-                        seed = track.title,
-                    )
+                    Box(Modifier.fillMaxWidth()) {
+                        // Neon Glass (the reel's Now Playing): sound bars beside the cover, moving while it plays.
+                        if (neon) NeonBars(state.isPlaying, Modifier.matchParentSize())
+                        Artwork(
+                            track.artworkUrl,
+                            modifier = Modifier
+                                .padding(horizontal = 28.dp)
+                                .fillMaxWidth()
+                                .aspectRatio(1f)
+                                // Neon Glass: the cover glows in the theme's colors, with a bright glass edge.
+                                .then(
+                                    if (neon) Modifier
+                                        .shadow(28.dp, coverShape, ambientColor = spec.neonColors.fill[1], spotColor = spec.neonColors.accent)
+                                        .border(1.5.dp, Brush.linearGradient(listOf(Color.White.copy(alpha = 0.7f), Color.White.copy(alpha = 0.1f), Color.White.copy(alpha = 0.4f))), coverShape)
+                                    else Modifier
+                                ),
+                            shape = coverShape,
+                            seed = track.title,
+                        )
+                        if (neon) {
+                            // A round glass heart on the cover's corner.
+                            val liked = track.id in favorites
+                            Box(
+                                Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(top = 12.dp, end = 40.dp)
+                                    .size(40.dp)
+                                    .neonCircle()
+                                    .clickable { scope.launch { c.library.toggleFavorite(track) } },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                                    "Like",
+                                    tint = if (liked) spec.accent else Color.White,
+                                    modifier = Modifier.size(22.dp),
+                                )
+                            }
+                        }
+                    }
                 }
                 Spacer(Modifier.height(28.dp))
             }
@@ -380,13 +413,47 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                             .padding(horizontal = 10.dp, vertical = 4.dp),
                     )
                 }
-                IconButton(onClick = { showSpeed = true }) {
+                // Neon Glass: the tools are round glass buttons.
+                val tool = if (neon) Modifier.padding(horizontal = 3.dp).size(40.dp).neonCircle() else Modifier
+                IconButton(onClick = { showSpeed = true }, modifier = tool) {
                     Icon(Icons.Rounded.Speed, "Speed", tint = if (settings.playbackSpeed != 1f) spec.accent else textColor)
                 }
-                IconButton(onClick = { showSleep = true }) {
+                IconButton(onClick = { showSleep = true }, modifier = tool) {
                     Icon(Icons.Rounded.Bedtime, "Sleep timer", tint = if (sleep.mode != SleepTimerMode.OFF) spec.accent else textColor)
                 }
-                IconButton(onClick = { showQueue = true }) { Icon(Icons.Rounded.QueueMusic, "Queue", tint = textColor) }
+                IconButton(onClick = { showQueue = true }, modifier = tool) { Icon(Icons.Rounded.QueueMusic, "Queue", tint = textColor) }
+            }
+
+            // Neon Glass (the reel's "Up Next"): the next song on a glass card; tap it to play it, See all for the queue.
+            val next = state.queue.getOrNull(state.queueIndex + 1)
+            if (neon && !lyricsFull && next != null) {
+                Column(
+                    Modifier
+                        .padding(start = 16.dp, end = 16.dp, top = 14.dp)
+                        .fillMaxWidth()
+                        .neonGlass(RoundedCornerShape(20.dp))
+                        .padding(12.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Up Next", color = textColor, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                        Text(
+                            "See all",
+                            color = muted,
+                            style = MaterialTheme.typography.labelLarge,
+                            modifier = Modifier.clickable { showQueue = true }.padding(4.dp),
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Row(Modifier.fillMaxWidth().clickable { c.player.next() }, verticalAlignment = Alignment.CenterVertically) {
+                        Artwork(next.artworkUrl, size = 44.dp, shape = RoundedCornerShape(10.dp), seed = next.title)
+                        Spacer(Modifier.width(10.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(next.title, color = textColor, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(next.artist, color = muted, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        Icon(Icons.Rounded.SkipNext, "Play next song", tint = textColor)
+                    }
+                }
             }
 
             // Lyrics card
@@ -481,5 +548,32 @@ private suspend fun dominantColor(context: android.content.Context, url: String?
             val lum = 0.2126f * color.red + 0.7152f * color.green + 0.0722f * color.blue
             if (lum > 0.6f) Color(color.red * 0.6f, color.green * 0.6f, color.blue * 0.6f) else color
         }.getOrNull()
+    }
+}
+
+/** Neon Glass: thin sound bars in the margins beside the cover, moving while the song plays. */
+@Composable
+private fun NeonBars(playing: Boolean, modifier: Modifier) {
+    val spec = Sangeet.spec
+    val colors = listOf(spec.neonColors.accent.copy(alpha = 0.85f), spec.neonColors.fill[0].copy(alpha = 0.6f))
+    val phase = rememberInfiniteTransition(label = "bars").animateFloat(
+        0f, (2 * Math.PI).toFloat(), infiniteRepeatable(tween(1400, easing = LinearEasing)), label = "phase",
+    )
+    androidx.compose.foundation.Canvas(modifier) {
+        val margin = 28.dp.toPx()
+        val bar = 2.5.dp.toPx()
+        val gap = 5.dp.toPx()
+        val t = if (playing) phase.value else 0f
+        val brush = Brush.verticalGradient(colors)
+        for (side in 0..1) {
+            for (i in 0 until 3) {
+                val x = if (side == 0) margin - 8.dp.toPx() - i * gap else size.width - margin + 8.dp.toPx() + i * gap
+                // Whole-number speeds, so the bars don't jump when the phase starts over.
+                val k = side * 3 + i
+                val level = if (playing) 0.18f + 0.3f * (0.5f + 0.5f * kotlin.math.sin(t * (1 + k % 3) + k * 1.3f)) else 0.1f
+                val h = size.height * level * (1f - i * 0.2f)
+                drawLine(brush, Offset(x, size.height / 2 - h / 2), Offset(x, size.height / 2 + h / 2), bar, cap = StrokeCap.Round)
+            }
+        }
     }
 }

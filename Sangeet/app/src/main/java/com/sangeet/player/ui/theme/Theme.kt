@@ -14,6 +14,9 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -36,6 +39,8 @@ data class ThemeSpec(
     /** Neumorphism ke shadows. */
     val lightShadow: Color = Color.White,
     val darkShadow: Color = Color.Black,
+    /** Neon Glass colors, made from the accent. */
+    val neon: NeonPalette? = null,
 )
 
 val LocalThemeSpec = staticCompositionLocalOf {
@@ -45,28 +50,68 @@ val LocalThemeSpec = staticCompositionLocalOf {
     )
 }
 
-/** The fill of a chosen chip or tab: the accent, clear glass on Crystal, glowing violet on Neon Glass. */
+/** The fill of a chosen chip or tab: the accent, clear glass on Crystal, glowing color on Neon Glass. */
 val ThemeSpec.selectedFill: Color
     get() = when (style) {
         ThemeStyle.CRYSTAL -> onSurface.copy(alpha = 0.22f)
-        ThemeStyle.NEON -> Neon.violet
+        ThemeStyle.NEON -> (neon ?: NeonPalette.from(accent)).solid
         else -> accent
     }
 
 /**
- * Neon Glass (owner, Oct 13, from an Instagram reel's "Liquid Glass" music app): a blue-to-violet page with soft
- * pink and violet glows, frosted cards with a bright edge, and chosen tabs / chips / the play button filled with
- * a glowing violet gradient. Always dark; its own pink accent (the reel's heart) instead of the accent setting.
+ * Neon Glass (owner, Oct 13, from an Instagram reel's "Liquid Glass" music app): a deep gradient page with soft
+ * glows, everything on frosted glass with a bright edge, and the chosen tab / chips / play button in a glowing
+ * gradient. The owner wants the reel's design in any color ("same colour nhi, design waisa"), so every color is
+ * made from the accent: Violet gives the reel's blue-to-violet page with pink hearts. Always dark.
  */
-object Neon {
-    val blue = Color(0xFF2440C8)
-    val indigo = Color(0xFF2E2AA8)
-    val deep = Color(0xFF1F1470)
-    val violet = Color(0xFF8E3DF0)
-    val pink = Color(0xFFFF5CC8)
-    val muted = Color(0xFFC9CCF5)
+@Immutable
+data class NeonPalette(
+    /** The page, top to bottom. */
+    val page: List<Color>,
+    /** Soft glows over the page (with their alpha): top right, left, right, bottom left. */
+    val glows: List<Color>,
     /** Chosen tab, chip and the big play button. */
-    val fill = listOf(Color(0xFFC04DFF), Color(0xFF6E30E8))
+    val fill: List<Color>,
+    /** A single color for the same (chips, filled buttons). */
+    val solid: Color,
+    /** Icons that are on (like, shuffle) and the seek bar: the accent's partner color, bright on the page. */
+    val accent: Color,
+    val muted: Color,
+) {
+    companion object {
+        private fun hsv(h: Float, s: Float, v: Float) =
+            Color(android.graphics.Color.HSVToColor(floatArrayOf(((h % 360f) + 360f) % 360f, s, v)))
+
+        /** Darkens [c] until white text on it stays easy to read. */
+        private fun fit(c: Color, maxLuminance: Float): Color {
+            var x = c
+            repeat(40) {
+                if (x.luminance() <= maxLuminance) return x
+                x = Color(x.red * 0.93f, x.green * 0.93f, x.blue * 0.93f)
+            }
+            return x
+        }
+
+        fun from(accent: Color): NeonPalette {
+            val parts = FloatArray(3)
+            android.graphics.Color.colorToHSV(accent.toArgb(), parts)
+            val h = parts[0]
+            val fill = listOf(fit(hsv(h + 25, 0.70f, 1f), 0.30f), fit(hsv(h - 5, 0.80f, 0.90f), 0.16f))
+            return NeonPalette(
+                page = listOf(fit(hsv(h - 35, 0.80f, 0.78f), 0.11f), fit(hsv(h - 10, 0.75f, 0.62f), 0.065f), fit(hsv(h + 15, 0.80f, 0.38f), 0.03f)),
+                glows = listOf(
+                    hsv(h - 60, 0.75f, 1f).copy(alpha = 0.45f),
+                    hsv(h + 25, 0.75f, 1f).copy(alpha = 0.45f),
+                    hsv(h + 50, 0.75f, 1f).copy(alpha = 0.35f),
+                    hsv(h + 80, 0.70f, 1f).copy(alpha = 0.28f),
+                ),
+                fill = fill,
+                solid = lerp(fill[0], fill[1], 0.5f),
+                accent = hsv(h + 65, 0.55f, 1f),
+                muted = hsv(h - 20, 0.15f, 0.97f),
+            )
+        }
+    }
 }
 
 object Sangeet {
@@ -120,9 +165,9 @@ private fun specFor(style: ThemeStyle, dark: Boolean, accent: Color, scheme: Col
         style, true, accent, Color.Black, Color(0xFF0E0E0E), Color.White, Color(0xFF9E9E9E), Color.Black,
     )
 
-    ThemeStyle.NEON -> ThemeSpec(
-        style, true, Neon.pink, Neon.indigo, Color(0x24FFFFFF), Color.White, Neon.muted, Color(0x00000000),
-    )
+    ThemeStyle.NEON -> NeonPalette.from(accent).let { n ->
+        ThemeSpec(style, true, n.accent, n.page[1], Color(0x24FFFFFF), Color.White, n.muted, Color(0x00000000), neon = n)
+    }
 
     ThemeStyle.MATERIAL_YOU -> {
         val s = scheme ?: if (dark) darkColorScheme() else lightColorScheme()

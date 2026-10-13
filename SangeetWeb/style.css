@@ -343,56 +343,102 @@ body.crystal .menu .box { background: var(--sheet); -webkit-backdrop-filter: blu
 body.crystal .row:active, body.crystal .set-row.tap:active { background: var(--surface); }
 
 /* ---------- Neon Glass (Settings → Theme; owner, Oct 13, from an Instagram reel's "Liquid Glass" music app):
- * a blue-to-violet page with soft glows, frosted cards with a bright edge, and the chosen tab, chips and the
- * play button filled with a glowing violet gradient. Always dark, with its own pink accent. */
+ * a deep gradient page with soft glows, everything on frosted glass with a bright edge, and the chosen tab, chips
+ * and the play button in a glowing gradient. Colors come from the accent (--n-*, set by applyLook / Neon.palette):
+ * the owner wants the reel's design in any color. Always dark. */
 html.neon {
-  background: radial-gradient(circle at 95% 6%, rgba(61, 139, 255, .45), transparent 50%),
-    radial-gradient(circle at 0% 42%, rgba(122, 60, 255, .45), transparent 55%),
-    radial-gradient(circle at 100% 62%, rgba(193, 61, 255, .35), transparent 50%),
-    radial-gradient(circle at 15% 98%, rgba(255, 63, 168, .28), transparent 55%),
-    linear-gradient(#2440c8, #2e2aa8 50%, #1f1470) fixed;
+  background: radial-gradient(circle at 95% 6%, var(--n-g1), transparent 50%),
+    radial-gradient(circle at 0% 42%, var(--n-g2), transparent 55%),
+    radial-gradient(circle at 100% 62%, var(--n-g3), transparent 50%),
+    radial-gradient(circle at 15% 98%, var(--n-g4), transparent 55%),
+    linear-gradient(var(--n-top), var(--n-mid) 50%, var(--n-bot)) fixed;
 }
 body.neon {
-  --bg: #2e2aa8; --surface: rgba(255, 255, 255, .12); --line: rgba(255, 255, 255, .22); --text: #fff; --muted: #c9ccf5;
-  --accent: #ff5cc8; --neon-fill: linear-gradient(135deg, #c04dff, #6e30e8);
-  --neon-glass: linear-gradient(rgba(255, 255, 255, .17), rgba(255, 255, 255, .07));
-  --neon-edge: inset 0 1px 0 rgba(255, 255, 255, .45), 0 0 0 1px rgba(255, 255, 255, .16);
-  --neon-glow: 0 6px 20px rgba(142, 61, 240, .55), inset 0 1px 0 rgba(255, 255, 255, .5);
+  --bg: var(--n-mid); --surface: rgba(255, 255, 255, .12); --line: rgba(255, 255, 255, .22); --text: #fff; --muted: var(--n-muted);
+  --accent: var(--n-accent); --neon-fill: linear-gradient(135deg, var(--n-f1), var(--n-f2));
+  --neon-glass: linear-gradient(rgba(255, 255, 255, .10), transparent 45%), linear-gradient(135deg, rgba(255, 255, 255, .20), rgba(255, 255, 255, .07));
+  --neon-edge: inset 0 1px 0 rgba(255, 255, 255, .5), inset 1px 0 0 rgba(255, 255, 255, .18), 0 0 0 1px rgba(255, 255, 255, .14);
+  --neon-glow: 0 6px 20px color-mix(in srgb, var(--n-f1) 55%, transparent), inset 0 1px 0 rgba(255, 255, 255, .55);
+  --neon-circle: linear-gradient(135deg, rgba(255, 255, 255, .34), rgba(255, 255, 255, .14));
   --bar-h: 64px;
   background: transparent;
 }
 body.neon .tab-page, body.neon.has-mini #page { bottom: 0; }
 body.neon #page { padding-bottom: calc(env(safe-area-inset-bottom) + 96px); }
 body.neon.has-mini #page { padding-bottom: calc(env(safe-area-inset-bottom) + 170px); }
+/* The floating tab bar and mini player: glass, nearly opaque so the words under them can't be read. */
 body.neon #tabs, body.neon #mini {
-  background: var(--neon-glass), rgba(42, 40, 165, .93); -webkit-backdrop-filter: blur(22px) saturate(160%); backdrop-filter: blur(22px) saturate(160%);
-  box-shadow: 0 10px 30px rgba(10, 6, 60, .45), var(--neon-edge); border: 0;
+  background: var(--neon-glass), color-mix(in srgb, var(--n-mid) 93%, transparent);
+  -webkit-backdrop-filter: blur(22px) saturate(160%); backdrop-filter: blur(22px) saturate(160%);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .3), var(--neon-edge); border: 0;
 }
 body.neon #tabs { left: 12px; right: 12px; bottom: calc(env(safe-area-inset-bottom) + 8px); height: var(--bar-h); padding: 5px; gap: 6px; border-radius: 24px; }
 body.neon #tabs button { border-radius: 18px; color: rgba(255, 255, 255, .72); transition: background .2s; }
 body.neon #tabs button.on { background: var(--neon-fill); color: #fff; box-shadow: var(--neon-glow); }
 body.neon #tabs button.on svg { fill: #fff; }
 body.neon #mini { left: 12px; right: 12px; bottom: calc(env(safe-area-inset-bottom) + 8px + var(--bar-h) + 8px); height: 62px; border-radius: 20px; overflow: hidden; padding: 0 10px; }
-body.neon #mini .bar { top: auto; bottom: 0; background: linear-gradient(to right, #ff5cc8, #c04dff); }
+body.neon #mini .art { border-radius: 10px; }
+body.neon #mini .bar { top: auto; bottom: 0; background: linear-gradient(to right, var(--n-accent), var(--n-f1)); }
 body.neon .fp { padding-bottom: calc(env(safe-area-inset-bottom) + 96px); }
 body.neon #toast { bottom: calc(env(safe-area-inset-bottom) + 160px); }
-body.neon .search-box { background: rgba(36, 64, 200, .35); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); }
-body.neon .pill, body.neon .chip, body.neon input, body.neon select, body.neon .set-card { background: var(--neon-glass); border: 0; box-shadow: var(--neon-edge); }
+body.neon .search-box { background: color-mix(in srgb, var(--n-top) 40%, transparent); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); }
+body.neon .pill, body.neon .chip, body.neon input, body.neon select, body.neon .set-card, body.neon .link-row { background: var(--neon-glass); border: 0; box-shadow: var(--neon-edge); }
 body.neon .chip { color: #fff; }
 body.neon .pill.primary, body.neon .chip.on, body.neon .switch.on { background: var(--neon-fill); color: #fff; box-shadow: var(--neon-glow); }
-/* Song rows are frosted cards (no blur on them, so long lists stay smooth). */
-body.neon .row { margin: 6px 12px; padding: 8px 10px; border-radius: 16px; background: var(--neon-glass); box-shadow: var(--neon-edge); }
+body.neon .link-row { margin: 6px 12px; border-radius: 16px; padding: 12px 14px; }
+body.neon .link-row svg { fill: var(--n-accent); }
+/* Song rows: glass cards with a heart and a round glass play button (no blur on them, so long lists stay smooth). */
+body.neon .row { margin: 6px 12px; padding: 8px 6px 8px 8px; gap: 10px; border-radius: 18px; background: var(--neon-glass); box-shadow: var(--neon-edge); }
 body.neon .ranked .row { margin-left: 4px; }
-body.neon .row .art { border-radius: 10px; }
+body.neon .row .art { border-radius: 12px; }
+body.neon .row .t { font-size: 15px; font-weight: 600; }
+body.neon .row .s { font-size: 13px; }
+body.neon .row .like { width: 34px; height: 34px; color: rgba(255, 255, 255, .85); }
+body.neon .row .like svg { width: 21px; height: 21px; }
+body.neon .row .more { width: 32px; }
+body.neon .go { width: 34px; height: 34px; flex: none; border-radius: 50%; display: grid; place-items: center; color: #fff; background: var(--neon-circle); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .55), 0 2px 8px rgba(0, 0, 0, .2); }
+body.neon .go svg { width: 20px; height: 20px; }
 body.neon .row:active, body.neon .set-row.tap:active { background: rgba(255, 255, 255, .2); }
-body.neon .card .cover, body.neon .cat { border-radius: 18px; box-shadow: 0 8px 22px rgba(20, 8, 90, .45), var(--neon-edge); }
-body.neon .menu .box { background: rgba(44, 38, 160, .9); -webkit-backdrop-filter: blur(30px); backdrop-filter: blur(30px); border-radius: 28px 28px 0 0; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45); }
-/* Now Playing: the same blue and violet page; the cover glows and the play button is the violet gradient. */
-body.neon .sheet { background: radial-gradient(circle at 90% 30%, rgba(193, 61, 255, .4), transparent 55%), radial-gradient(circle at 10% 85%, rgba(255, 63, 168, .25), transparent 55%), linear-gradient(#2440c8, #2e2aa8 50%, #1f1470); }
+/* Cards: glass, the cover with a round glass play button on it. */
+body.neon .card { padding: 8px; border-radius: 20px; background: var(--neon-glass); box-shadow: var(--neon-edge); }
+body.neon .card .cover { border-radius: 14px; box-shadow: none; }
+body.neon .cover-box { position: relative; }
+body.neon .cover-box .go { position: absolute; right: 7px; bottom: 7px; width: 32px; height: 32px; }
+/* Category tiles: glass with the category's color glowing from a corner. */
+body.neon .cat { border-radius: 20px; height: 84px; background: radial-gradient(circle at 0 0, color-mix(in srgb, var(--c, #fff) 60%, transparent), transparent 75%), var(--neon-glass) !important; box-shadow: var(--neon-edge); }
+/* Song of the day (top of Library): the reel's big "Good Vibes Only" card. */
+body.neon .row.sotd { position: relative; overflow: hidden; min-height: 150px; display: grid; align-content: center; justify-items: start; gap: 10px; padding: 18px; border-radius: 26px; margin: 8px 12px 10px; }
+body.neon .row.sotd .art { position: absolute; top: 0; right: 0; width: 46%; height: 100%; border-radius: 0; -webkit-mask-image: linear-gradient(to right, transparent, #000 55%); mask-image: linear-gradient(to right, transparent, #000 55%); }
+body.neon .row.sotd .meta { position: relative; max-width: 62%; }
+body.neon .row.sotd .t { font-size: 21px; font-weight: 700; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+body.neon .row.sotd .icon-btn { position: relative; width: auto; height: auto; border-radius: 999px; padding: 7px 14px 7px 10px; gap: 4px; display: flex; align-items: center; background: rgba(255, 255, 255, .9); color: var(--n-bot); font-weight: 600; font-size: 14px; }
+body.neon .row.sotd .icon-btn svg { width: 20px; height: 20px; }
+body.neon .row.sotd .icon-btn::after { content: 'Play now'; }
+body.neon .menu .box { background: color-mix(in srgb, var(--n-mid) 92%, transparent); -webkit-backdrop-filter: blur(30px); backdrop-filter: blur(30px); border-radius: 28px 28px 0 0; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45); }
+/* Now Playing: the same page; the cover glows, sound bars move beside it, round glass tools, and Up Next. */
+body.neon .sheet { background: radial-gradient(circle at 90% 30%, var(--n-g3), transparent 55%), radial-gradient(circle at 10% 85%, var(--n-g4), transparent 55%), linear-gradient(var(--n-top), var(--n-mid) 50%, var(--n-bot)); }
 body.neon .sheet .bg { opacity: .18; }
-body.neon .np-body .cover { border-radius: 26px; box-shadow: 0 0 46px rgba(192, 77, 255, .6), 0 0 0 1.5px rgba(255, 255, 255, .45); }
-body.neon .controls .big { background: var(--neon-fill); color: #fff; box-shadow: 0 0 28px rgba(192, 77, 255, .7), inset 0 1px 0 rgba(255, 255, 255, .55); }
-body.neon .seek input { background: linear-gradient(to right, #ff5cc8, #c04dff var(--p, 0%), rgba(255, 255, 255, .25) var(--p, 0%)); }
-body.neon .seek input::-webkit-slider-thumb { box-shadow: 0 0 12px rgba(255, 92, 200, .9); }
-/* Neon Glass has its own colors: the accent color choice doesn't apply. */
-body.neon .accent-row { display: none; }
+body.neon .np-body .cover { border-radius: 26px; box-shadow: 0 0 46px color-mix(in srgb, var(--n-f1) 65%, transparent), 0 0 0 1.5px rgba(255, 255, 255, .45); }
+body.neon .np-body::before, body.neon .np-body::after {
+  content: ''; position: absolute; top: 30%; bottom: 30%; width: 13px; transform: scaleY(.3); transition: transform .4s; opacity: .85;
+  background: linear-gradient(var(--n-accent), var(--n-f1)) 0 50% / 3px 60% no-repeat, linear-gradient(var(--n-accent), var(--n-f1)) 5px 50% / 3px 100% no-repeat, linear-gradient(var(--n-accent), var(--n-f1)) 10px 50% / 3px 45% no-repeat;
+}
+body.neon .np-body::before { left: -19px; }
+body.neon .np-body::after { right: -19px; transform: scaleY(.3) scaleX(-1); }
+body.neon.is-playing .np-body::before { animation: neon-bars .9s ease-in-out infinite alternate; }
+body.neon.is-playing .np-body::after { animation: neon-bars .9s ease-in-out .45s infinite alternate; }
+@keyframes neon-bars { from { transform: scaleY(.35); } to { transform: scaleY(1); } }
+body.neon .controls .big { background: var(--neon-fill); color: #fff; box-shadow: 0 0 28px color-mix(in srgb, var(--n-f1) 70%, transparent), inset 0 1px 0 rgba(255, 255, 255, .55); }
+body.neon .np-bottom .row-icons .icon-btn { background: var(--neon-circle); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .4); }
+body.neon .np-bottom .row-icons .icon-btn svg { width: 21px; height: 21px; }
+body.neon .seek input { background: linear-gradient(to right, var(--n-accent), var(--n-f1) var(--p, 0%), rgba(255, 255, 255, .25) var(--p, 0%)); }
+body.neon .seek input::-webkit-slider-thumb { box-shadow: 0 0 12px var(--n-accent); }
+.up-next { display: none; }
+body.neon .up-next { display: block; margin-top: 12px; padding: 10px 12px; border-radius: 18px; background: var(--neon-glass); box-shadow: var(--neon-edge); }
+.up-head { display: flex; align-items: center; justify-content: space-between; font-size: 15px; }
+.up-head .link { padding: 2px 0; }
+.up-row { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+.up-row .art { width: 40px; height: 40px; border-radius: 10px; object-fit: cover; }
+.up-row .meta { flex: 1; min-width: 0; }
+.up-row .t { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.up-row .s { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
