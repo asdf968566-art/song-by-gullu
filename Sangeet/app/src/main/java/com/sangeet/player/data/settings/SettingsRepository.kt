@@ -28,6 +28,7 @@ enum class ThemeStyle(val label: String, val tagline: String) {
     MATERIAL_YOU("Material You", "Colors from your wallpaper (Android 12+)"),
     LIQUID_GLASS("Liquid Glass", "iOS 26 style: floating glass bars over the content"),
     CRYSTAL("Crystal", "See-through tabs, buttons and cards over your song's colors"),
+    NEON("Neon Glass", "Glowing glass on blue and violet"),
 }
 
 enum class DarkMode(val label: String) { SYSTEM("System"), LIGHT("Light"), DARK("Dark") }

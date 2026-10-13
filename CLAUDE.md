@@ -323,6 +323,23 @@ request the owner made, in order.
   - Web: Theme → "Crystal · Dark / Light" (`body.crystal`, `html.crystal`, `#backdrop` with the cover, the
     `Crystal.update()` hook in `applyLook` / `trackChanged`).
   - The UI walk screenshots it (`crystal-*.png`).
+- **Neon Glass theme** (Oct 13). The owner sent an Instagram reel (egpg.builds, "Never say: Build me a beautiful
+  website") and asked for its "crystal glass" look: the "Liquid Glass" music app mockup (SoundWave).
+  - Instagram can't be opened from the session. A one-off CI probe (yt-dlp) cut the reel into frames on the
+    branch `probe-shots` (only reel pictures; safe to delete), and the colors were sampled from them.
+  - The look: a blue → indigo → deep violet page with blue, violet, magenta and pink glows, and frosted cards with a
+    bright edge. The chosen tab, chips and the play button are a glowing violet gradient. The accent is pink (the
+    reel's heart).
+  - Android: `ThemeStyle.NEON` with the `Neon` palette in Theme.kt; `neonBackdrop`, `neonGlass` and `neonFill` in
+    Surfaces.kt; `NeonTabBar` in SangeetRoot (a floating frosted bar, the chosen tab on a violet tile).
+    - The mini player is a frosted card. Now Playing keeps the neon page (no cover tint) and the cover glows.
+    - Library tiles are tinted violet with 18 dp corners.
+    - It is always dark and ignores the accent setting, so the theme picker hides "Accent color" for it.
+  - Web: look `neon` ("Neon Glass"); `body.neon` / `html.neon` in style.css.
+    - The tab bar and mini player float and are nearly opaque (`.93`), so text under them can't be read.
+    - Song rows are frosted cards without blur, so long lists stay smooth.
+    - `.accent-row` is hidden.
+  - UI walk: `neon-*.png` screenshots.
 - **Phone details in reports** (Oct 10, owner: "kisi specific phone me problem aaye to us problem ke liye data le
   sakta hai, koi sensitive mt lena"): `data/Diagnostics.kt`, added to every report by `CrashReporter.build`.
   - It sends: maker / model / Android / ROM build, screen dp and density, font scale, the phone's dark mode,

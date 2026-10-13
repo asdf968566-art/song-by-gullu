@@ -45,9 +45,29 @@ val LocalThemeSpec = staticCompositionLocalOf {
     )
 }
 
-/** The fill of a chosen chip or tab: the accent, or clear glass on Crystal. */
+/** The fill of a chosen chip or tab: the accent, clear glass on Crystal, glowing violet on Neon Glass. */
 val ThemeSpec.selectedFill: Color
-    get() = if (style == ThemeStyle.CRYSTAL) onSurface.copy(alpha = 0.22f) else accent
+    get() = when (style) {
+        ThemeStyle.CRYSTAL -> onSurface.copy(alpha = 0.22f)
+        ThemeStyle.NEON -> Neon.violet
+        else -> accent
+    }
+
+/**
+ * Neon Glass (owner, Oct 13, from an Instagram reel's "Liquid Glass" music app): a blue-to-violet page with soft
+ * pink and violet glows, frosted cards with a bright edge, and chosen tabs / chips / the play button filled with
+ * a glowing violet gradient. Always dark; its own pink accent (the reel's heart) instead of the accent setting.
+ */
+object Neon {
+    val blue = Color(0xFF2440C8)
+    val indigo = Color(0xFF2E2AA8)
+    val deep = Color(0xFF1F1470)
+    val violet = Color(0xFF8E3DF0)
+    val pink = Color(0xFFFF5CC8)
+    val muted = Color(0xFFC9CCF5)
+    /** Chosen tab, chip and the big play button. */
+    val fill = listOf(Color(0xFFC04DFF), Color(0xFF6E30E8))
+}
 
 object Sangeet {
     val spec: ThemeSpec
@@ -100,6 +120,10 @@ private fun specFor(style: ThemeStyle, dark: Boolean, accent: Color, scheme: Col
         style, true, accent, Color.Black, Color(0xFF0E0E0E), Color.White, Color(0xFF9E9E9E), Color.Black,
     )
 
+    ThemeStyle.NEON -> ThemeSpec(
+        style, true, Neon.pink, Neon.indigo, Color(0x24FFFFFF), Color.White, Neon.muted, Color(0x00000000),
+    )
+
     ThemeStyle.MATERIAL_YOU -> {
         val s = scheme ?: if (dark) darkColorScheme() else lightColorScheme()
         ThemeSpec(
@@ -113,7 +137,7 @@ fun SangeetTheme(settings: AppSettings, styleOverride: ThemeStyle? = null, conte
     val style = styleOverride ?: settings.theme
     val systemDark = isSystemInDarkTheme()
     val dark = when {
-        style == ThemeStyle.AMOLED -> true
+        style == ThemeStyle.AMOLED || style == ThemeStyle.NEON -> true
         settings.darkMode == DarkMode.SYSTEM -> systemDark
         else -> settings.darkMode == DarkMode.DARK
     }
@@ -128,9 +152,10 @@ fun SangeetTheme(settings: AppSettings, styleOverride: ThemeStyle? = null, conte
     val base = dynamic ?: if (dark) darkColorScheme() else lightColorScheme()
     // Crystal: filled buttons and chosen chips are clear glass too, with the page's own text color on them.
     val crystal = style == ThemeStyle.CRYSTAL
+    val neon = style == ThemeStyle.NEON
     val scheme = base.copy(
-        primary = if (crystal) spec.onSurface.copy(alpha = 0.22f) else spec.accent,
-        onPrimary = if (crystal) spec.onSurface else if (dark || style == ThemeStyle.SPOTIFY) Color.Black else Color.White,
+        primary = if (crystal || neon) spec.selectedFill else spec.accent,
+        onPrimary = if (crystal) spec.onSurface else if (neon) Color.White else if (dark || style == ThemeStyle.SPOTIFY) Color.Black else Color.White,
         secondary = spec.accent,
         background = spec.background,
         onBackground = spec.onSurface,

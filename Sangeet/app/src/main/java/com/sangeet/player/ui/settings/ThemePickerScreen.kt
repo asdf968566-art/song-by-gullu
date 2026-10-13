@@ -78,12 +78,13 @@ fun ThemePickerScreen(nav: NavController) {
         }
 
         SettingsGroup("Light / Dark") {
-            ChoiceRow("Mode", "AMOLED is always dark", DarkMode.entries, s.darkMode, { it.label }) {
+            ChoiceRow("Mode", "AMOLED and Neon Glass are always dark", DarkMode.entries, s.darkMode, { it.label }) {
                 scope.launch { c.settings.setDarkMode(it) }
             }
         }
 
-        SettingsGroup("Accent color") {
+        // Neon Glass has its own colors.
+        if (s.theme != ThemeStyle.NEON) SettingsGroup("Accent color") {
             Row(
                 Modifier
                     .horizontalScroll(rememberScrollState())

@@ -341,3 +341,58 @@ body.crystal .pill.primary, body.crystal .chip.on { background: var(--clear); co
 body.crystal .switch.on { background: var(--clear); box-shadow: inset 0 0 0 1px var(--edge); }
 body.crystal .menu .box { background: var(--sheet); -webkit-backdrop-filter: blur(24px); backdrop-filter: blur(24px); border: 1px solid var(--line); }
 body.crystal .row:active, body.crystal .set-row.tap:active { background: var(--surface); }
+
+/* ---------- Neon Glass (Settings → Theme; owner, Oct 13, from an Instagram reel's "Liquid Glass" music app):
+ * a blue-to-violet page with soft glows, frosted cards with a bright edge, and the chosen tab, chips and the
+ * play button filled with a glowing violet gradient. Always dark, with its own pink accent. */
+html.neon {
+  background: radial-gradient(circle at 95% 6%, rgba(61, 139, 255, .45), transparent 50%),
+    radial-gradient(circle at 0% 42%, rgba(122, 60, 255, .45), transparent 55%),
+    radial-gradient(circle at 100% 62%, rgba(193, 61, 255, .35), transparent 50%),
+    radial-gradient(circle at 15% 98%, rgba(255, 63, 168, .28), transparent 55%),
+    linear-gradient(#2440c8, #2e2aa8 50%, #1f1470) fixed;
+}
+body.neon {
+  --bg: #2e2aa8; --surface: rgba(255, 255, 255, .12); --line: rgba(255, 255, 255, .22); --text: #fff; --muted: #c9ccf5;
+  --accent: #ff5cc8; --neon-fill: linear-gradient(135deg, #c04dff, #6e30e8);
+  --neon-glass: linear-gradient(rgba(255, 255, 255, .17), rgba(255, 255, 255, .07));
+  --neon-edge: inset 0 1px 0 rgba(255, 255, 255, .45), 0 0 0 1px rgba(255, 255, 255, .16);
+  --neon-glow: 0 6px 20px rgba(142, 61, 240, .55), inset 0 1px 0 rgba(255, 255, 255, .5);
+  --bar-h: 64px;
+  background: transparent;
+}
+body.neon .tab-page, body.neon.has-mini #page { bottom: 0; }
+body.neon #page { padding-bottom: calc(env(safe-area-inset-bottom) + 96px); }
+body.neon.has-mini #page { padding-bottom: calc(env(safe-area-inset-bottom) + 170px); }
+body.neon #tabs, body.neon #mini {
+  background: var(--neon-glass), rgba(42, 40, 165, .93); -webkit-backdrop-filter: blur(22px) saturate(160%); backdrop-filter: blur(22px) saturate(160%);
+  box-shadow: 0 10px 30px rgba(10, 6, 60, .45), var(--neon-edge); border: 0;
+}
+body.neon #tabs { left: 12px; right: 12px; bottom: calc(env(safe-area-inset-bottom) + 8px); height: var(--bar-h); padding: 5px; gap: 6px; border-radius: 24px; }
+body.neon #tabs button { border-radius: 18px; color: rgba(255, 255, 255, .72); transition: background .2s; }
+body.neon #tabs button.on { background: var(--neon-fill); color: #fff; box-shadow: var(--neon-glow); }
+body.neon #tabs button.on svg { fill: #fff; }
+body.neon #mini { left: 12px; right: 12px; bottom: calc(env(safe-area-inset-bottom) + 8px + var(--bar-h) + 8px); height: 62px; border-radius: 20px; overflow: hidden; padding: 0 10px; }
+body.neon #mini .bar { top: auto; bottom: 0; background: linear-gradient(to right, #ff5cc8, #c04dff); }
+body.neon .fp { padding-bottom: calc(env(safe-area-inset-bottom) + 96px); }
+body.neon #toast { bottom: calc(env(safe-area-inset-bottom) + 160px); }
+body.neon .search-box { background: rgba(36, 64, 200, .35); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); }
+body.neon .pill, body.neon .chip, body.neon input, body.neon select, body.neon .set-card { background: var(--neon-glass); border: 0; box-shadow: var(--neon-edge); }
+body.neon .chip { color: #fff; }
+body.neon .pill.primary, body.neon .chip.on, body.neon .switch.on { background: var(--neon-fill); color: #fff; box-shadow: var(--neon-glow); }
+/* Song rows are frosted cards (no blur on them, so long lists stay smooth). */
+body.neon .row { margin: 6px 12px; padding: 8px 10px; border-radius: 16px; background: var(--neon-glass); box-shadow: var(--neon-edge); }
+body.neon .ranked .row { margin-left: 4px; }
+body.neon .row .art { border-radius: 10px; }
+body.neon .row:active, body.neon .set-row.tap:active { background: rgba(255, 255, 255, .2); }
+body.neon .card .cover, body.neon .cat { border-radius: 18px; box-shadow: 0 8px 22px rgba(20, 8, 90, .45), var(--neon-edge); }
+body.neon .menu .box { background: rgba(44, 38, 160, .9); -webkit-backdrop-filter: blur(30px); backdrop-filter: blur(30px); border-radius: 28px 28px 0 0; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45); }
+/* Now Playing: the same blue and violet page; the cover glows and the play button is the violet gradient. */
+body.neon .sheet { background: radial-gradient(circle at 90% 30%, rgba(193, 61, 255, .4), transparent 55%), radial-gradient(circle at 10% 85%, rgba(255, 63, 168, .25), transparent 55%), linear-gradient(#2440c8, #2e2aa8 50%, #1f1470); }
+body.neon .sheet .bg { opacity: .18; }
+body.neon .np-body .cover { border-radius: 26px; box-shadow: 0 0 46px rgba(192, 77, 255, .6), 0 0 0 1.5px rgba(255, 255, 255, .45); }
+body.neon .controls .big { background: var(--neon-fill); color: #fff; box-shadow: 0 0 28px rgba(192, 77, 255, .7), inset 0 1px 0 rgba(255, 255, 255, .55); }
+body.neon .seek input { background: linear-gradient(to right, #ff5cc8, #c04dff var(--p, 0%), rgba(255, 255, 255, .25) var(--p, 0%)); }
+body.neon .seek input::-webkit-slider-thumb { box-shadow: 0 0 12px rgba(255, 92, 200, .9); }
+/* Neon Glass has its own colors: the accent color choice doesn't apply. */
+body.neon .accent-row { display: none; }

@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.shadow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.toArgb
@@ -47,6 +48,7 @@ fun ThemedBackground(modifier: Modifier = Modifier, content: @Composable BoxScop
                     ThemeStyle.AURORA -> Modifier.auroraBackdrop(spec)
                     ThemeStyle.GLASS -> Modifier.glassBackdrop(spec)
                     ThemeStyle.CRYSTAL -> Modifier.glassBackdrop(spec)
+                    ThemeStyle.NEON -> Modifier.neonBackdrop()
                     ThemeStyle.SPOTIFY -> Modifier.background(
                         Brush.verticalGradient(
                             0f to spec.accent.copy(alpha = if (spec.isDark) 0.22f else 0.12f),
@@ -135,6 +137,40 @@ private fun Modifier.glassBackdrop(spec: ThemeSpec): Modifier = this
         }
     }
 
+/** Neon Glass: blue at the top to deep violet at the bottom, with soft blue, violet, magenta and pink glows. */
+private fun Modifier.neonBackdrop(): Modifier = this
+    .background(Brush.verticalGradient(listOf(Neon.blue, Neon.indigo, Neon.deep)))
+    .drawBehind {
+        val w = size.width
+        val h = size.height
+        val glows = listOf(
+            Triple(Offset(w * 0.95f, h * 0.06f), w * 0.7f, Color(0xFF3D8BFF).copy(alpha = 0.45f)),
+            Triple(Offset(w * 0.0f, h * 0.42f), w * 0.75f, Color(0xFF7A3CFF).copy(alpha = 0.45f)),
+            Triple(Offset(w * 1.0f, h * 0.62f), w * 0.7f, Color(0xFFC13DFF).copy(alpha = 0.35f)),
+            Triple(Offset(w * 0.15f, h * 0.98f), w * 0.8f, Color(0xFFFF3FA8).copy(alpha = 0.28f)),
+        )
+        glows.forEach { (c, r, col) ->
+            drawCircle(Brush.radialGradient(listOf(col, Color.Transparent), c, r), r, c)
+        }
+    }
+
+/** A frosted Neon Glass panel: lighter at the top, with a bright edge where the light catches it. */
+fun Modifier.neonGlass(shape: Shape): Modifier = this
+    .clip(shape)
+    .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.17f), Color.White.copy(alpha = 0.07f))))
+    .border(
+        1.dp,
+        Brush.linearGradient(listOf(Color.White.copy(alpha = 0.55f), Color.White.copy(alpha = 0.08f), Color.White.copy(alpha = 0.28f))),
+        shape,
+    )
+
+/** Neon Glass's chosen tab / chip / play button: a glowing violet gradient with a bright rim. */
+fun Modifier.neonFill(shape: Shape, glow: Dp = 12.dp): Modifier = this
+    .shadow(glow, shape, ambientColor = Neon.violet, spotColor = Color(0xFFC04DFF))
+    .clip(shape)
+    .background(Brush.linearGradient(Neon.fill))
+    .border(1.dp, Brush.linearGradient(listOf(Color.White.copy(alpha = 0.6f), Color.White.copy(alpha = 0.1f), Color.White.copy(alpha = 0.35f))), shape)
+
 /**
  * Card / tile ki styling. Har theme ka alag look:
  * Neumorphism = do shadow wala ubhra hua, Glass = frosted + border, baaki = flat.
@@ -167,6 +203,7 @@ fun Modifier.themedCard(
         .clip(shape)
         .background(spec.surface)
         .border(1.dp, if (spec.isDark) Color.White.copy(alpha = 0.3f) else Color.Black.copy(alpha = 0.12f), shape)
+    ThemeStyle.NEON -> this.neonGlass(shape)
     // Liquid Glass keeps content plain (glass is only for the controls floating above it).
     ThemeStyle.LIQUID_GLASS -> this
         .clip(shape)
@@ -218,6 +255,7 @@ fun Modifier.playButtonStyle(spec: ThemeSpec, size: Dp): Modifier = when (spec.s
         .clip(RoundedCornerShape(50))
         .background(spec.onSurface.copy(alpha = 0.12f))
         .border(1.5.dp, spec.onSurface.copy(alpha = 0.7f), RoundedCornerShape(50))
+    ThemeStyle.NEON -> this.neonFill(RoundedCornerShape(50), glow = size / 4)
     else -> this
         .clip(RoundedCornerShape(50))
         .background(spec.accent)
@@ -229,6 +267,7 @@ fun playIconColor(spec: ThemeSpec): Color = when (spec.style) {
     ThemeStyle.GLASS -> if (spec.isDark) Color.White else Color(0xFF1C1433)
     ThemeStyle.AURORA -> Color.White
     ThemeStyle.CRYSTAL -> spec.onSurface
+    ThemeStyle.NEON -> Color.White
     else -> if (spec.accent.luminance() > 0.45f) Color.Black else Color.White
 }
 

@@ -2711,7 +2711,7 @@ function settingsPage() {
       S.look = v; save(); look.setValue(lookName());
       if (applyLook() && standalone) toast('Close and reopen the app for the top bar colors', 4500);
     }])) });
-  const swatches = h('div', { class: 'set-swatches' }, ACCENTS.map(([name, c]) => {
+  const swatches = h('div', { class: 'set-swatches accent-row' }, ACCENTS.map(([name, c]) => {
     const b = h('button', { class: 'swatch' + ((S.accent || '#ff5c6b') === c ? ' on' : ''), style: `background:${c}`, 'aria-label': name, onclick: () => {
       S.accent = c; save(); applyLook();
       swatches.querySelectorAll('.swatch').forEach((x) => x.classList.toggle('on', x === b));
@@ -2733,7 +2733,7 @@ function settingsPage() {
       setRow({ ic: 'download', color: 'green', label: 'Offline mode', sub: 'Only downloaded songs', right: setSwitch(!!S.offlineOnly, (v) => { S.offlineOnly = v; save(); }, 'Offline mode') })),
     setGroup('Look',
       look,
-      h('div', { class: 'set-row' }, h('span', { class: 'set-ic', style: `background:${SET_COLORS.pink}` }, icon('heartFill')),
+      h('div', { class: 'set-row accent-row' }, h('span', { class: 'set-ic', style: `background:${SET_COLORS.pink}` }, icon('heartFill')),
         h('div', { class: 'set-main' }, h('div', { class: 'set-label' }, 'Accent color'))),
       swatches),
     setGroup('AI DJ',
@@ -2944,18 +2944,22 @@ const WhatsNew = {
 };
 
 /* ------------------------------------------------------------------ look: Classic or Liquid Glass */
-const LOOKS = [['classic', 'Classic dark'], ['glass-dark', 'Liquid Glass · Dark'], ['glass-light', 'Liquid Glass · Light'], ['glass-auto', 'Liquid Glass · Same as iPhone'], ['crystal-dark', 'Crystal · Dark'], ['crystal-light', 'Crystal · Light']];
+const LOOKS = [['classic', 'Classic dark'], ['glass-dark', 'Liquid Glass · Dark'], ['glass-light', 'Liquid Glass · Light'], ['glass-auto', 'Liquid Glass · Same as iPhone'], ['crystal-dark', 'Crystal · Dark'], ['crystal-light', 'Crystal · Light'], ['neon', 'Neon Glass']];
 const lightQuery = matchMedia('(prefers-color-scheme: light)');
 function applyLook() {
   const look = S.look || 'classic';
   // Crystal (owner, Oct 10: "sb kuch transparent"): clear tabs, buttons and cards over the song's cover.
   const crystal = look.startsWith('crystal');
   const glass = look.startsWith('glass');
+  // Neon Glass (owner, Oct 13, from an Instagram reel): blue-violet glass with glowing violet tabs. Always dark.
+  const neon = look === 'neon';
   const light = look === 'glass-light' || look === 'crystal-light' || (look === 'glass-auto' && lightQuery.matches);
   document.documentElement.style.setProperty('--accent', S.accent || '#ff5c6b');
   document.body.classList.toggle('glass', glass);
   document.body.classList.toggle('crystal', crystal);
   document.documentElement.classList.toggle('crystal', crystal);
+  document.body.classList.toggle('neon', neon);
+  document.documentElement.classList.toggle('neon', neon);
   document.body.classList.toggle('light', light);
   Crystal.update();
   // Liquid Glass tab bar: For You, Library and Settings in one glass capsule, Search on its own round button.
@@ -2970,7 +2974,7 @@ function applyLook() {
     ['feed', 'search', 'library', 'settings'].forEach((t) => tabs.append(btn(t)));
     cap.remove();
   }
-  document.querySelector('meta[name="theme-color"]').setAttribute('content', light ? '#f2f2f7' : glass ? '#000000' : crystal ? '#0b0e1a' : '#0b0b0f');
+  document.querySelector('meta[name="theme-color"]').setAttribute('content', light ? '#f2f2f7' : glass ? '#000000' : crystal ? '#0b0e1a' : neon ? '#2440c8' : '#0b0b0f');
   // Status bar text color is read when the app opens (index.html).
   const before = (() => { try { return localStorage.getItem('sangeet-look'); } catch { return null; } })();
   try { localStorage.setItem('sangeet-look', light ? 'light' : 'dark'); } catch {}

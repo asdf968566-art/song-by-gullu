@@ -308,7 +308,8 @@ fun SearchScreen(nav: NavController) {
                 if (r.resultCode == Activity.RESULT_OK && !said.isNullOrBlank()) { vm.onVoice(said); focus.clearFocus() }
             }
             val fieldText = if (classic) Color(0xFF121212) else spec.onSurface
-            val shape = RoundedCornerShape(if (spec.style == ThemeStyle.LIQUID_GLASS) 24.dp else 8.dp)
+            val fieldCorner = when (spec.style) { ThemeStyle.LIQUID_GLASS -> 24.dp; ThemeStyle.NEON -> 20.dp; else -> 8.dp }
+            val shape = RoundedCornerShape(fieldCorner)
             TextField(
                 value = ui.query,
                 onValueChange = vm::onQuery,
@@ -347,7 +348,7 @@ fun SearchScreen(nav: NavController) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp)
-                    .then(if (classic) Modifier else Modifier.themedCard(spec, shape, corner = if (spec.style == ThemeStyle.LIQUID_GLASS) 24.dp else 8.dp, elevation = 4.dp)),
+                    .then(if (classic) Modifier else Modifier.themedCard(spec, shape, corner = fieldCorner, elevation = 4.dp)),
             )
         }
 

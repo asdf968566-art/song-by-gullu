@@ -292,11 +292,14 @@ private fun LibraryTile(
 ) {
     val spec = Sangeet.spec
     Column(Modifier.fillMaxWidth().clickable(onClick = onClick)) {
-        val shape = if (circle) CircleShape else RoundedCornerShape(10.dp)
-        val corner = if (circle) 80.dp else 10.dp
+        val round = if (spec.style == com.sangeet.player.data.settings.ThemeStyle.NEON) 18.dp else 10.dp
+        val shape = if (circle) CircleShape else RoundedCornerShape(round)
+        val corner = if (circle) 80.dp else round
         // Tiles follow the theme: its card style (glass, soft shadows…) and its accent color.
         if (gradient != null && icon != null) {
-            val tinted = listOf(lerp(gradient.first(), spec.accent, 0.6f), lerp(gradient.last(), spec.accent, 0.35f))
+            val neon = spec.style == com.sangeet.player.data.settings.ThemeStyle.NEON
+            val tinted = if (neon) listOf(lerp(gradient.first(), com.sangeet.player.ui.theme.Neon.fill[0], 0.55f), lerp(gradient.last(), com.sangeet.player.ui.theme.Neon.fill[1], 0.6f))
+            else listOf(lerp(gradient.first(), spec.accent, 0.6f), lerp(gradient.last(), spec.accent, 0.35f))
                 // Crystal: the tile is see-through too, only lightly tinted.
                 .map { if (spec.style == com.sangeet.player.data.settings.ThemeStyle.CRYSTAL) it.copy(alpha = 0.3f) else it }
             Box(

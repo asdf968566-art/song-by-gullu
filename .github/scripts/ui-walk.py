@@ -667,6 +667,13 @@ def main():
     step("Crystal: Now Playing", lambda: open_now_playing() and shot("crystal-NowPlaying"))
     if find("Close"):
         tap("Close", wait=2)
+    # Neon Glass: blue-violet glass with glowing violet tabs (owner, Oct 13, from an Instagram reel).
+    step("Theme: choose Neon Glass", set_theme("Neon Glass"))
+    for t in ["Home", "Search", "Your Library"]:
+        step(f"Neon Glass: {t} page", lambda t=t: go_tab(t) and shot("neon-" + t.replace(" ", "")))
+    step("Neon Glass: Now Playing", lambda: open_now_playing() and shot("neon-NowPlaying"))
+    if find("Close"):
+        tap("Close", wait=2)
     step("Theme: back to Classic Dark", set_theme("Classic Dark"))
 
     # ---------------------------------------------------------------- report
