@@ -326,7 +326,7 @@ request the owner made, in order.
 - **Neon Glass theme** (Oct 13). The owner sent an Instagram reel (egpg.builds, "Never say: Build me a beautiful
   website") and asked for its "crystal glass" look: the "Liquid Glass" music app mockup (SoundWave).
   - Instagram can't be opened from the session. A one-off CI probe (yt-dlp) cut the reel into frames on the
-    branch `probe-shots`, and the colors were sampled from them.
+    branch `probe-shots` (only reel pictures; safe to delete), and the colors were sampled from them.
   - The look: a blue → indigo → deep violet page with blue, violet, magenta and pink glows, and frosted cards with a
     bright edge. The chosen tab, chips and the play button are a glowing violet gradient. The accent is pink (the
     reel's heart).
