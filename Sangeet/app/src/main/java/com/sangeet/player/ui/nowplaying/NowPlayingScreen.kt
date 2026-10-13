@@ -63,6 +63,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.shadow
+import androidx.compose.foundation.border
+import com.sangeet.player.ui.theme.Neon
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
@@ -175,7 +178,8 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
 
     val textColor = if (spec.isDark) Color.White else spec.onSurface
     val muted = textColor.copy(alpha = 0.7f)
-    val glassy = spec.style in setOf(ThemeStyle.GLASS, ThemeStyle.AURORA, ThemeStyle.NEUMORPHISM, ThemeStyle.CRYSTAL)
+    val glassy = spec.style in setOf(ThemeStyle.GLASS, ThemeStyle.AURORA, ThemeStyle.NEUMORPHISM, ThemeStyle.CRYSTAL, ThemeStyle.NEON)
+    val neon = spec.style == ThemeStyle.NEON
     val quality = c.online.streamingQuality()
     val qualityText = when {
         downloads[track.id]?.filePath != null -> "Downloaded • ${downloads[track.id]?.quality?.label}"
@@ -188,8 +192,9 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
         // Neeche ki screen tak touch na jaye.
         Modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
     ) {
-        val top = if (spec.isDark) 0.9f else 0.7f
-        Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(bg.copy(alpha = top), bg.copy(alpha = top * 0.45f), Color.Transparent))))
+        // Neon Glass keeps its own blue and violet page; the cover glows instead.
+        val top = if (neon) 0f else if (spec.isDark) 0.9f else 0.7f
+        if (top > 0f) Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(bg.copy(alpha = top), bg.copy(alpha = top * 0.45f), Color.Transparent))))
         Column(
             Modifier
                 .fillMaxSize()
@@ -243,13 +248,21 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                         Toast.makeText(context, "No video for this song", Toast.LENGTH_SHORT).show()
                     }
                 } else {
+                    val coverShape = RoundedCornerShape(if (neon) 26.dp else 10.dp)
                     Artwork(
                         track.artworkUrl,
                         modifier = Modifier
                             .padding(horizontal = 28.dp)
                             .fillMaxWidth()
-                            .aspectRatio(1f),
-                        shape = RoundedCornerShape(10.dp),
+                            .aspectRatio(1f)
+                            // Neon Glass: the cover glows pink and violet, with a bright glass edge.
+                            .then(
+                                if (neon) Modifier
+                                    .shadow(28.dp, coverShape, ambientColor = Neon.violet, spotColor = Neon.pink)
+                                    .border(1.5.dp, Brush.linearGradient(listOf(Color.White.copy(alpha = 0.7f), Color.White.copy(alpha = 0.1f), Color.White.copy(alpha = 0.4f))), coverShape)
+                                else Modifier
+                            ),
+                        shape = coverShape,
                         seed = track.title,
                     )
                 }
@@ -289,7 +302,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                 },
                 colors = SliderDefaults.colors(
                     thumbColor = textColor,
-                    activeTrackColor = textColor,
+                    activeTrackColor = if (neon) spec.accent else textColor,
                     inactiveTrackColor = textColor.copy(alpha = 0.25f),
                 ),
                 modifier = Modifier.padding(horizontal = 16.dp),

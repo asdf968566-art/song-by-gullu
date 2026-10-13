@@ -60,6 +60,10 @@ fun MiniPlayer(onExpand: () -> Unit, modifier: Modifier = Modifier) {
                     .padding(start = 16.dp, end = 16.dp, top = 4.dp)
                     .liquidGlass(spec, RoundedCornerShape(30.dp))
                     .clip(RoundedCornerShape(30.dp))
+                // Neon Glass: a frosted card above the floating tab bar, as wide as it.
+                else if (spec.style == ThemeStyle.NEON) Modifier
+                    .padding(start = 12.dp, end = 12.dp, top = 4.dp)
+                    .themedCard(spec, RoundedCornerShape(20.dp))
                 else Modifier
                     .padding(horizontal = 8.dp, vertical = 4.dp)
                     .themedCard(spec, RoundedCornerShape(10.dp), corner = 10.dp, elevation = 5.dp)
@@ -123,7 +127,7 @@ fun MiniPlayer(onExpand: () -> Unit, modifier: Modifier = Modifier) {
                     .fillMaxWidth()
                     .padding(horizontal = 8.dp)
                     .height(2.dp),
-                color = spec.onSurface,
+                color = if (spec.style == ThemeStyle.NEON) spec.accent else spec.onSurface,
                 trackColor = spec.muted.copy(alpha = 0.3f),
                 drawStopIndicator = {},
             )

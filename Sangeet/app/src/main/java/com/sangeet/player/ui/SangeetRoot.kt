@@ -83,6 +83,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.sangeet.player.data.settings.ThemeStyle
 import com.sangeet.player.ui.theme.liquidGlass
+import com.sangeet.player.ui.theme.neonFill
+import com.sangeet.player.ui.theme.neonGlass
 import com.sangeet.player.ui.theme.rememberGlassSource
 import com.sangeet.player.ui.theme.glassSource
 import com.sangeet.player.ui.theme.LocalGlassSource
@@ -396,6 +398,10 @@ private fun BottomNav(nav: NavHostController) {
         LiquidTabBar(tabs, route, go)
         return
     }
+    if (spec.style == ThemeStyle.NEON) {
+        NeonTabBar(tabs, route, go)
+        return
+    }
     NavigationBar(containerColor = spec.navBar, tonalElevation = 0.dp) {
         tabs.forEach { tab ->
             val selected = route == tab.route
@@ -412,6 +418,39 @@ private fun BottomNav(nav: NavHostController) {
                     indicatorColor = Color.Transparent,
                 ),
             )
+        }
+    }
+}
+
+/** Neon Glass tab bar: a floating frosted panel; the chosen tab sits on a glowing violet tile. */
+@Composable
+private fun NeonTabBar(tabs: List<Tab>, route: String?, go: (String) -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 8.dp)
+            .height(64.dp)
+            .neonGlass(RoundedCornerShape(24.dp))
+            .padding(5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        tabs.forEach { tab ->
+            val selected = route == tab.route
+            Column(
+                Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .padding(horizontal = 3.dp)
+                    .then(if (selected) Modifier.neonFill(RoundedCornerShape(18.dp), glow = 10.dp) else Modifier.clip(RoundedCornerShape(18.dp)))
+                    .clickable { go(tab.route) },
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                val tint = if (selected) Color.White else Color.White.copy(alpha = 0.72f)
+                Icon(if (selected) tab.selectedIcon else tab.icon, tab.label, tint = tint, modifier = Modifier.size(23.dp))
+                Text(tab.label, color = tint, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+            }
         }
     }
 }

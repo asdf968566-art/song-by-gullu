@@ -1,5 +1,16 @@
 [
   {
+    "date": "2026-10-13",
+    "title": "Neon Glass theme",
+    "items": [
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Neon Glass theme"
+      }
+    ]
+  },
+  {
     "date": "2026-10-12",
     "title": "Smoother playback",
     "items": [
