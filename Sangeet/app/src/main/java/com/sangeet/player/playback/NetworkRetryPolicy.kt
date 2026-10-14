@@ -29,6 +29,10 @@ class NetworkRetryPolicy : DefaultLoadErrorHandlingPolicy(CONNECTION_RETRIES) {
             var cause = e
             while (cause != null) {
                 if (cause is HttpDataSource.InvalidResponseCodeException) return false
+                // No internet when the song's link was looked up (StreamResolver).
+                if (cause is androidx.media3.datasource.DataSourceException &&
+                    cause.reason == androidx.media3.common.PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED
+                ) return true
                 if (cause is java.net.SocketTimeoutException || cause is java.net.UnknownHostException ||
                     cause is java.net.ConnectException || cause is java.net.SocketException ||
                     cause is javax.net.ssl.SSLException

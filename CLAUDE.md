@@ -495,6 +495,20 @@ request the owner made, in order.
   (else a fresh YouTube link, `YouTubeSource.forget`), a refused JioSaavn song plays at 96 kbps. A second refusal
   skips as before. The error line now reads "This song can't play right now" / "Waiting for the internet…"
   (`PlayerConnection.errorText`). CI can't reproduce it (YouTube is bot-blocked there before any stream).
+- **App report #48 of Oct 14** (LAVA LXX525 tester, build 221): "app open karte hi jab playlist se song play karte
+  hai toh you are offline ka error … jabki internet connection hota hai", and "100% buffering honi chahiye taki
+  connection lost ho toh song ruke nahi". Android only.
+  - Cause: when the app process starts in the background (an update check, Song of the day…), Android can block its
+    network, and `activeNetwork` is then null. `NetworkMonitor` didn't handle `onBlockedStatusChanged`, so the status
+    stayed "offline" after the app came on screen, and `StreamResolver` threw "You're offline or offline mode is on"
+    (the mini player showed that raw text).
+  - Fix: `NetworkMonitor` handles `onBlockedStatusChanged`, falls back to `allNetworks`, and has `refresh()` (asks the
+    phone now). SangeetRoot calls it on every ON_RESUME. `StreamResolver` asks again for up to 4 s
+    (`OnlineRepository.waitForInternet`) and then throws `DataSourceException(ERROR_CODE_IO_NETWORK_CONNECTION_FAILED)`,
+    so `NetworkRetryPolicy` retries it and PlaybackService's 30 s internet wait takes over (it uses `refresh()` too)
+    instead of skipping. Offline mode still says "Offline mode is on".
+  - Buffer: `setBufferDurationsMs(600_000, 900_000, 1_000, 2_000)` with time over size, i.e. the whole song (and the
+    start of the next) loads ahead. A 5-minute song at 320 kbps is ~12 MB of memory.
 - Other platforms checked Oct 9 from CI: Gaana's old open API is gone (404); Wynk, Hungama, Spotify have no open
   streams. JioSaavn + YouTube stay the sources.
 - In-app "Report a problem" got 403 from GitHub. Cause (found Oct 9 from CI: `REPORT_TOKEN fingerprint/account`

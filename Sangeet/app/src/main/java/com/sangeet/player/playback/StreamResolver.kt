@@ -3,6 +3,8 @@ package com.sangeet.player.playback
 import android.net.Uri
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.common.PlaybackException
+import androidx.media3.datasource.DataSourceException
 import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.ResolvingDataSource
 import com.sangeet.player.data.LibraryRepository
@@ -39,7 +41,14 @@ class StreamResolver(
             val uri = track.streamUrl ?: throw IOException("File missing")
             return dataSpec.withUri(Uri.parse(uri))
         }
-        if (!online.canGoOnline) throw IOException("You're offline or offline mode is on")
+        if (!online.canGoOnline) {
+            if (online.offlineMode) throw IOException("Offline mode is on")
+            // The saved status can be old (report #48): ask the phone again and give it a few seconds. A connection
+            // error then makes the player wait for the internet instead of skipping.
+            if (!online.waitForInternet(4_000)) {
+                throw DataSourceException("No internet connection", PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED)
+            }
+        }
         val url = online.streamUrl(track, online.streamingQuality())
             ?: throw IOException("Couldn't get stream URL")
         return dataSpec.withUri(Uri.parse(url))

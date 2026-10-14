@@ -68,11 +68,13 @@ class PlaybackService : MediaLibraryService() {
                 DefaultMediaSourceFactory(container.dataSourceFactory)
                     .setLoadErrorHandlingPolicy(NetworkRetryPolicy())
             )
-            // 1 second buffer hote hi bajna shuru (default 2.5s) -> gaana jaldi chalta hai. It keeps up to 3 minutes
-            // ahead (by time, not size), so a slow or broken connection doesn't stop the song (report #41).
+            // 1 second buffer hote hi bajna shuru (default 2.5s) -> gaana jaldi chalta hai. Then it keeps loading,
+            // by time and not size, up to 15 minutes ahead: the whole song (and the start of the next one) is
+            // loaded, so a lost connection doesn't stop it (reports #41, #48: "100% buffering honi chahiye").
+            // A 5-minute song at 320 kbps is ~12 MB.
             .setLoadControl(
                 DefaultLoadControl.Builder()
-                    .setBufferDurationsMs(50_000, 180_000, 1_000, 2_000)
+                    .setBufferDurationsMs(600_000, 900_000, 1_000, 2_000)
                     .setPrioritizeTimeOverSizeThresholds(true)
                     .build()
             )
@@ -228,7 +230,7 @@ class PlaybackService : MediaLibraryService() {
     private fun isNetworkProblem(e: PlaybackException): Boolean {
         val c = (application as SangeetApplication).container
         if (c.settings.current.offlineMode) return false
-        if (!c.network.status.value.online) return true
+        if (!c.network.refresh().online) return true
         if (e.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED ||
             e.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT
         ) return true
@@ -262,7 +264,8 @@ class PlaybackService : MediaLibraryService() {
             while (System.currentTimeMillis() - since < NET_WAIT_MS) {
                 delay(2_000)
                 if (player.playerError == null) return@launch // something else is playing now
-                if (c.network.status.value.online) {
+                // Ask the phone itself: the saved status can be old (report #48).
+                if (c.network.refresh().online) {
                     player.prepare() // the same song from the same place; if it fails again, this goes on waiting
                     return@launch
                 }
@@ -282,7 +285,10 @@ class PlaybackService : MediaLibraryService() {
                 return@launch
             }
             android.util.Log.i("Sangeet", "no internet for 30 s: the song waits for it")
-            val back = withTimeoutOrNull(10 * 60_000L) { c.network.status.first { it.online } }
+            val back = withTimeoutOrNull(10 * 60_000L) {
+                while (!c.network.refresh().online) delay(3_000)
+                true
+            }
             if (back != null && player.playerError != null) player.prepare()
         }
     }

@@ -244,7 +244,11 @@ fun SangeetRoot() {
     val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
     androidx.compose.runtime.DisposableEffect(lifecycle, darkTop) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, e ->
-            if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) view.post { applyBars() }
+            if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                view.post { applyBars() }
+                // The internet status saved while the app was in the background can be old (report #48).
+                container.network.refresh()
+            }
         }
         lifecycle.addObserver(observer)
         onDispose { lifecycle.removeObserver(observer) }
