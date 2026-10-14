@@ -40,8 +40,24 @@ class OnlineRepository(
     /** The YouTube Data API key (Settings, or the built-in one). */
     val youtubeKey: String get() = settings.current.youtubeApiKey.trim()
 
+    val offlineMode: Boolean get() = settings.current.offlineMode
+
     val canGoOnline: Boolean
         get() = !settings.current.offlineMode && network.status.value.online
+
+    /**
+     * Before a song gives up on the internet: the phone is asked again, for up to [ms] (report #48: the saved status
+     * said offline while the internet was on). Blocking: only for the player's loading thread.
+     */
+    fun waitForInternet(ms: Long): Boolean {
+        if (settings.current.offlineMode) return false
+        val until = System.currentTimeMillis() + ms
+        while (true) {
+            if (network.status.value.online || network.refresh().online) return true
+            if (System.currentTimeMillis() >= until) return false
+            Thread.sleep(400)
+        }
+    }
 
     suspend fun trending(genre: String? = null): List<SourceResult> = fanOut { it.trending(settings.current, genre) }
 

@@ -1,5 +1,21 @@
 [
   {
+    "date": "2026-10-14",
+    "title": "Smoother playback",
+    "items": [
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Whole song loads ahead"
+      },
+      {
+        "on": "android",
+        "type": "fix",
+        "text": "Offline error with the internet on"
+      }
+    ]
+  },
+  {
     "date": "2026-10-13",
     "title": "Neon Glass, more Haryanvi and Pahadi",
     "items": [
