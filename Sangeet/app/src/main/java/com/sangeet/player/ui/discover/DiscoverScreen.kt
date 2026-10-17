@@ -71,9 +71,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.rounded.ThumbDown
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
-import androidx.compose.runtime.mutableFloatStateOf as floatState
 import com.sangeet.player.ui.components.formatDuration
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -651,24 +648,14 @@ private fun FeedButton(feed: ThemeSpec, onClick: () -> Unit, size: androidx.comp
     else IconButton(onClick = onClick, modifier = Modifier.size(size), content = content)
 }
 
-/** Feed ka seek bar: sirf yahi har tick pe update hota hai. Kheencho = gaana aage/peeche. */
+/** Feed ka seek bar: sirf yahi har tick pe update hota hai. Tap / kheencho = gaana aage/peeche; the loaded part shows too. */
 @Composable
 private fun FeedSeekBar(positionMs: () -> Long, durationMs: () -> Long, onSeek: (Long) -> Unit, active: Color = Color.White) {
-    var dragging by remember { mutableStateOf(false) }
-    var dragValue by remember { floatState(0f) }
-    val dur = durationMs().coerceAtLeast(1)
-    val pos = positionMs()
-    Column(Modifier.fillMaxWidth()) {
-        Slider(
-            value = if (dragging) dragValue else (pos.toFloat() / dur).coerceIn(0f, 1f),
-            onValueChange = { dragging = true; dragValue = it },
-            onValueChangeFinished = { onSeek((dragValue * dur).toLong()); dragging = false },
-            colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = active, inactiveTrackColor = Color.White.copy(alpha = 0.25f)),
-        )
-        Row(Modifier.fillMaxWidth()) {
-            Text(formatDuration(if (dragging) (dragValue * dur).toLong() else pos), color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall)
-            Spacer(Modifier.weight(1f))
-            Text(formatDuration(durationMs()), color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall)
-        }
-    }
+    val buffered by LocalAppContainer.current.player.position.collectAsStateWithLifecycle()
+    com.sangeet.player.ui.components.SeekBar(
+        com.sangeet.player.playback.PlaybackPosition(positionMs(), durationMs(), buffered.bufferedMs),
+        onSeek,
+        color = active,
+        textColor = Color.White,
+    )
 }

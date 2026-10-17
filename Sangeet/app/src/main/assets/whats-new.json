@@ -37,6 +37,31 @@
         "on": "android",
         "type": "fix",
         "text": "Overlapping glass buttons"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Lyrics on screen without scrolling"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "New seek bar that shows loading"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Sort your playlists"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Hold and drag songs in the queue"
+      },
+      {
+        "on": "android",
+        "type": "fix",
+        "text": "Same song added twice to a playlist"
       }
     ]
   },

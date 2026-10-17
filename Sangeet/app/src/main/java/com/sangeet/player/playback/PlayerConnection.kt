@@ -31,8 +31,8 @@ data class PlayerState(
     val error: String? = null,
 )
 
-/** Seek bar ki position alag flow mein, taaki har 250ms pe poori UI dobara na bane. */
-data class PlaybackPosition(val positionMs: Long = 0, val durationMs: Long = 0)
+/** Seek bar ki position alag flow mein, taaki har 250ms pe poori UI dobara na bane. [bufferedMs]: how far the song has loaded. */
+data class PlaybackPosition(val positionMs: Long = 0, val durationMs: Long = 0, val bufferedMs: Long = 0)
 
 enum class SleepTimerMode { OFF, MINUTES, END_OF_TRACK }
 
@@ -131,7 +131,7 @@ class PlayerConnection(
             queueIndex = c.currentMediaItemIndex,
             error = c.playerError?.let(::errorText),
         )
-        _position.value = PlaybackPosition(_state.value.positionMs, _state.value.durationMs)
+        _position.value = PlaybackPosition(_state.value.positionMs, _state.value.durationMs, c.bufferedPosition.coerceAtLeast(0))
     }
 
     /** What the mini player and Now Playing say when a song can't play (not "Response code: 403"; report #43). */
@@ -154,7 +154,12 @@ class PlayerConnection(
                     _position.value = PlaybackPosition(
                         positionMs = c.currentPosition.coerceAtLeast(0),
                         durationMs = c.duration.takeIf { it > 0 } ?: _position.value.durationMs,
+                        bufferedMs = c.bufferedPosition.coerceAtLeast(0),
                     )
+                } else if (c != null) {
+                    // Paused: the song keeps loading, and the seek bar shows it.
+                    val buffered = c.bufferedPosition.coerceAtLeast(0)
+                    if (buffered != _position.value.bufferedMs) _position.value = _position.value.copy(bufferedMs = buffered)
                 }
                 delay(250)
             }

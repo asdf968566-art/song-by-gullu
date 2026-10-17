@@ -546,6 +546,33 @@ request the owner made, in order.
   - Liquid Glass's play button (`playButtonStyle`) is see-through accent glass with a colored glow, the sheen and
     the rim (white icon unless the accent is very light). On glass themes, Now Playing's Previous / Next are 54 dp
     glass buttons.
+- **App report #55 of Oct 17** (same tester, build 236, Liquid Glass dark): no Up Next card in Now Playing, "sirf lyrics
+  … sahi se visible" (they had to scroll), a stylish progress bar that shows what has loaded, Sort by in own
+  playlists, no song twice in a playlist ("version ya singer alag ho toh ho jaaye"), long-press drag in the queue,
+  and no animation beside the cover. Android only.
+  - **Now Playing:** the Up Next card and the sound bars (`NeonBars`) are gone on every theme. In a `BoxWithConstraints`,
+    `fits` = height ≥ 740 dp: then nothing scrolls, the cover box takes the room that is left (`weight(1f)`, a square
+    via `aspectRatio(1f)`, so it shrinks) and the lyrics card is a fixed `LYRICS_H` (120 dp) under the tools. Shorter
+    phones scroll as before. The glass heart sits inside the cover's own box. Errors show between the two times.
+  - **Seek bar:** `ui/components/SeekBar.kt` (Now Playing and For You): a rounded track, the loaded part
+    (`PlaybackPosition.bufferedMs`, from `bufferedPosition`; PlayerConnection's ticker updates it while paused too), the
+    played part as an accent gradient with a glow, a ringed thumb that grows while dragging; tap or drag to seek.
+    The mini player's 2 dp line shows the loaded part as well.
+  - **Same song once:** `data/SameSong.kt` (`key` / `sameAs`): same clean title (brackets, " - …", " | …", "official
+    video"… dropped), same version words (remix, lofi, slowed, reverb, sped up, unplugged, acoustic, reprise,
+    female/male, sad, cover, live, instrumental, karaoke, mashup, 8d, dj, extended, duet, version) and a shared singer;
+    with no real singer on a side (label channels, `SameSong.LABELS`, also used by Recommendations) the length within
+    5 s decides. `LibraryRepository.addToPlaylist` skips those and returns how many were added (log "playlist add:
+    added N of M"); the dialog says "Already in …" / "Added N to … · M already there".
+  - **Sort by** (PlaylistScreen ⋮ → "Sort by: …"): Date added, Recently added, Title, Singer, Duration. Only the view
+    (and what Play / Add to queue / Export use); kept per playlist in SharedPreferences `playlist_sort`; the stored
+    order and CloudSync don't change.
+  - **Queue drag:** QueueSheet keeps its own `rows` (stable keys, the same song twice gets `#2`); a
+    `detectDragGesturesAfterLongPress` on the LazyColumn (`QueueDrag`) moves the row under the finger, swaps it with
+    the row it passes, scrolls near the edges, and calls `player.move(from, to)` once on lift. Up/down arrows are
+    replaced by a drag handle ("Hold and drag to move").
+  - UI walk: "Now Playing: hold and drag a song in the queue" (`input motionevent`, then reopens the queue to check the
+    player's order), "Song menu: Add to playlist twice: added once" (playlist "Walk55"), "Playlist: Sort by Title".
 - Other platforms checked Oct 9 from CI: Gaana's old open API is gone (404); Wynk, Hungama, Spotify have no open
   streams. JioSaavn + YouTube stay the sources.
 - In-app "Report a problem" got 403 from GitHub. Cause (found Oct 9 from CI: `REPORT_TOKEN fingerprint/account`

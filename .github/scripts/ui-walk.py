@@ -384,6 +384,51 @@ def main():
          lambda: (speed_is("1.0"), "player speed is 1.0"))
     step("Now Playing: Sleep timer", lambda: tap("Sleep timer", wait=2) and (back() or True))
     step("Now Playing: Queue", lambda: tap("Queue", scroll=2, wait=2) and (back() or True))
+
+    # Report #55: long-press a song in the queue and drag it down one place.
+    def queue_titles():
+        ns = [n for n in nodes(dump()) if n["h"] > 0]
+        out = []
+        for hd in (n for n in ns if n["desc"] == "Hold and drag to move"):
+            row = [n for n in ns if n["text"] and n["x"] < hd["x"] and abs(n["y"] - hd["y"]) < hd["h"] * 1.3]
+            if row:
+                top = min(row, key=lambda n: n["y"])
+                out.append((top["text"], top["x"], hd["y"]))
+        return out
+    moved = {}
+    def drag_in_queue():
+        if not tap("Queue", scroll=2, wait=2):
+            return False
+        rows = queue_titles()
+        if len(rows) < 3:
+            # Not enough songs yet: a radio fills the queue.
+            back()
+            if tap("Options", wait=2):
+                tap("Start radio", scroll=2, wait=12)
+            if not tap("Queue", scroll=2, wait=2):
+                return False
+            rows = queue_titles()
+        if len(rows) < 3:
+            back()
+            return False
+        title, x, y = rows[1]
+        gap = rows[2][2] - y
+        moved["title"], moved["before"] = title, [r[0] for r in rows]
+        sh(f"input motionevent DOWN {x} {y}")
+        time.sleep(1.2)
+        for k in range(1, 9):
+            sh(f"input motionevent MOVE {x} {y + int(gap * 1.4 * k / 8)}")
+        sh(f"input motionevent UP {x} {y + int(gap * 1.4)}")
+        time.sleep(3)
+        # Close and open the queue again: the player's own queue must have the new order.
+        back()
+        tap("Queue", scroll=2, wait=2)
+        moved["after"] = [r[0] for r in queue_titles()]
+        back()
+        return True
+    step("Now Playing: hold and drag a song in the queue", drag_in_queue,
+         lambda: (moved["title"] in moved["after"] and moved["after"].index(moved["title"]) > moved["before"].index(moved["title"]),
+                  f"'{moved['title']}': {moved['before'][:4]} → {moved['after'][:4]}"))
     step("Now Playing: Car mode", lambda: tap("Car mode", wait=2),
          lambda: (find("Close car mode") is not None and find("Play/Pause") is not None, "big buttons shown"))
     tap("Close car mode", wait=2)
@@ -472,6 +517,48 @@ def main():
     step("Song menu: Go to artist", menu("Go to artist", wait=6))
 
     back(2)
+
+    # Report #55: a song isn't added to a playlist twice, and an own playlist can be sorted.
+    fresh(play=True)
+    open_now_playing()
+    def add_twice():
+        if not menu("Add to playlist", then_back=False)():
+            return False
+        if not tap("New playlist", wait=2):
+            back()
+            return False
+        tap("Name", wait=1)
+        sh("input text Walk55")
+        time.sleep(1)
+        if not tap("Create", wait=3):
+            back()
+            return False
+        adb("logcat", "-c")
+        if not menu("Add to playlist", then_back=False)():
+            return False
+        if not tap("Walk55", wait=3):
+            back()
+            return False
+        return True
+    def added_once():
+        log = [l for l in adb("logcat", "-d").splitlines() if "playlist add:" in l]
+        return any("added 0 of 1" in l for l in log), "\n".join(log[-3:]) or "no log line"
+    step("Song menu: Add to playlist twice: added once", add_twice, added_once)
+    def sort_title():
+        back()
+        go_tab("Your Library")
+        if not tap("Walk55", scroll=3, wait=3):
+            return False
+        if not (tap("Options", wait=2) and tap("Sort by", contains=True, wait=2) and tap("Title", wait=2)):
+            back()
+            return False
+        return True
+    def sorted_title():
+        tap("Options", wait=2)
+        ok = find("Sort by: Title") is not None
+        back()
+        return ok, "menu says Sort by: Title" if ok else "sort not kept"
+    step("Playlist: Sort by Title", sort_title, sorted_title)
 
     # Download status screen: the downloaded song must be listed there.
     fresh()

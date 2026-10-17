@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.QueueMusic
 import androidx.compose.material3.AlertDialog
@@ -51,12 +52,19 @@ fun PlaylistScreen(nav: NavController, playlistId: Long) {
     val scope = rememberCoroutineScope()
     val spec = Sangeet.spec
     val playlist by remember(playlistId) { c.library.playlist(playlistId) }.collectAsState(initial = null)
-    val tracks by remember(playlistId) { c.library.playlistTracks(playlistId) }.collectAsState(initial = emptyList())
+    val allTracks by remember(playlistId) { c.library.playlistTracks(playlistId) }.collectAsState(initial = emptyList())
     var menuFor by remember { mutableStateOf<Track?>(null) }
     var showMenu by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     val name = playlist?.name ?: "Playlist"
+    // Sort by (report #55): only how this phone shows the playlist; its own order stays as it is.
+    val sortPrefs = remember { context.getSharedPreferences("playlist_sort", android.content.Context.MODE_PRIVATE) }
+    var sort by remember(playlistId) {
+        mutableStateOf(PlaylistSort.entries.firstOrNull { it.name == sortPrefs.getString("$playlistId", null) } ?: PlaylistSort.ADDED)
+    }
+    var showSort by remember { mutableStateOf(false) }
+    val tracks = remember(allTracks, sort) { sort.apply(allTracks) }
 
     val exporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("audio/x-mpegurl")) { uri ->
         if (uri != null) scope.launch {
@@ -112,10 +120,24 @@ fun PlaylistScreen(nav: NavController, playlistId: Long) {
                 Box {
                     IconButton(onClick = { showMenu = true }) { Icon(Icons.Rounded.MoreVert, "Options", tint = spec.muted) }
                     DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                        DropdownMenuItem(text = { Text("Sort by: ${sort.label}") }, onClick = { showMenu = false; showSort = true })
                         DropdownMenuItem(text = { Text("Rename") }, onClick = { showMenu = false; renaming = true })
                         DropdownMenuItem(text = { Text("Add to queue") }, onClick = { showMenu = false; c.player.addToQueue(tracks) })
                         DropdownMenuItem(text = { Text("Export (.m3u8)") }, onClick = { showMenu = false; exporter.launch("$name.m3u8") })
                         DropdownMenuItem(text = { Text("Delete playlist") }, onClick = { showMenu = false; confirmDelete = true })
+                    }
+                    DropdownMenu(expanded = showSort, onDismissRequest = { showSort = false }) {
+                        PlaylistSort.entries.forEach { s ->
+                            DropdownMenuItem(
+                                text = { Text(s.label) },
+                                trailingIcon = { if (s == sort) Icon(Icons.Rounded.Check, null, tint = spec.accent) },
+                                onClick = {
+                                    showSort = false
+                                    sort = s
+                                    sortPrefs.edit().putString("$playlistId", s.name).apply()
+                                },
+                            )
+                        }
                     }
                 }
             }
@@ -133,5 +155,22 @@ fun PlaylistScreen(nav: NavController, playlistId: Long) {
             TrackRow(t, onClick = { c.player.play(tracks, i) }, index = i, onMore = { menuFor = t })
         }
         item { Spacer(Modifier.height(24.dp)) }
+    }
+}
+
+/** How an own playlist is shown (report #55: "sort by name, date etc"). */
+private enum class PlaylistSort(val label: String) {
+    ADDED("Date added"),
+    RECENT("Recently added"),
+    TITLE("Title"),
+    SINGER("Singer"),
+    DURATION("Duration");
+
+    fun apply(t: List<Track>): List<Track> = when (this) {
+        ADDED -> t
+        RECENT -> t.asReversed()
+        TITLE -> t.sortedBy { it.title.lowercase() }
+        SINGER -> t.sortedWith(compareBy({ it.artist.lowercase() }, { it.title.lowercase() }))
+        DURATION -> t.sortedBy { it.durationMs }
     }
 }

@@ -1,6 +1,19 @@
 package com.sangeet.player.ui.nowplaying
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.rounded.DragHandle
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.zIndex
+import com.sangeet.player.data.model.Track
 import androidx.compose.material3.FilterChip
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -17,8 +30,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -54,7 +65,19 @@ fun QueueSheet(onDismiss: () -> Unit) {
     val state by c.player.state.collectAsStateWithLifecycle()
     val spec = Sangeet.spec
     val listState = rememberLazyListState()
+    val haptics = LocalHapticFeedback.current
     LaunchedEffect(Unit) { listState.scrollToItem(state.queueIndex.coerceAtLeast(0)) }
+    // Report #55: long-press a song and drag it up or down. The rows move on screen while dragging; the queue
+    // itself changes once, when the finger lifts.
+    val rows = remember { mutableStateListOf<QueueRow>().apply { addAll(queueRows(state.queue)) } }
+    val drag = remember { QueueDrag(listState, rows) { from, to -> c.player.move(from, to) } }
+    LaunchedEffect(state.queue) {
+        if (drag.key == null) {
+            rows.clear()
+            rows.addAll(queueRows(state.queue))
+        }
+    }
+    val currentKey = queueRows(state.queue).getOrNull(state.queueIndex)?.key
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -66,14 +89,40 @@ fun QueueSheet(onDismiss: () -> Unit) {
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
         )
-        LazyColumn(state = listState, modifier = Modifier.navigationBarsPadding().heightIn(max = 600.dp)) {
-            itemsIndexed(state.queue, key = { i, t -> "$i-${t.id}" }) { i, t ->
-                val current = i == state.queueIndex
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .navigationBarsPadding()
+                .heightIn(max = 600.dp)
+                .pointerInput(Unit) {
+                    detectDragGesturesAfterLongPress(
+                        onDragStart = { o ->
+                            if (drag.start(o.y)) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        },
+                        onDrag = { change, amount -> change.consume(); drag.by(amount.y) },
+                        onDragEnd = { drag.end() },
+                        onDragCancel = { drag.end() },
+                    )
+                },
+        ) {
+            itemsIndexed(rows, key = { _, r -> r.key }) { i, r ->
+                val t = r.track
+                val current = r.key == currentKey
+                val dragged = r.key == drag.key
                 Row(
                     Modifier
+                        .then(
+                            if (dragged) Modifier
+                                .zIndex(1f)
+                                .graphicsLayer { translationY = drag.offset }
+                                .shadow(8.dp, RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.surfaceContainerHighest, RoundedCornerShape(12.dp))
+                            else Modifier.animateItem()
+                        )
                         .fillMaxWidth()
                         .background(if (current) spec.accent.copy(alpha = 0.12f) else androidx.compose.ui.graphics.Color.Transparent)
-                        .clickable { c.player.skipTo(i) }
+                        // The lift after a drag isn't a tap.
+                        .clickable { if (drag.key == null) c.player.skipTo(i) }
                         .padding(start = 16.dp, top = 6.dp, bottom = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -89,12 +138,78 @@ fun QueueSheet(onDismiss: () -> Unit) {
                         )
                         Text(t.artist, color = spec.muted, style = MaterialTheme.typography.bodySmall, maxLines = 1)
                     }
-                    if (i > 0) IconButton(onClick = { c.player.move(i, i - 1) }) { Icon(Icons.Rounded.KeyboardArrowUp, "Move up") }
-                    if (i < state.queue.lastIndex) IconButton(onClick = { c.player.move(i, i + 1) }) { Icon(Icons.Rounded.KeyboardArrowDown, "Move down") }
                     if (!current) IconButton(onClick = { c.player.removeAt(i) }) { Icon(Icons.Rounded.Close, "Remove") }
+                    Icon(Icons.Rounded.DragHandle, "Hold and drag to move", tint = spec.muted, modifier = Modifier.padding(horizontal = 12.dp))
                 }
             }
         }
+    }
+}
+
+/** A queue row; [key] stays the same while it moves (the same song twice gets #2). */
+private class QueueRow(val key: String, val track: Track)
+
+private fun queueRows(queue: List<Track>): List<QueueRow> {
+    val seen = HashMap<String, Int>()
+    return queue.map { t ->
+        val n = (seen[t.id] ?: 0) + 1
+        seen[t.id] = n
+        QueueRow(if (n == 1) t.id else "${t.id}#$n", t)
+    }
+}
+
+/** Long-press drag in the queue: the dragged row follows the finger and swaps places with the row it passes. */
+private class QueueDrag(
+    private val list: LazyListState,
+    private val rows: MutableList<QueueRow>,
+    private val onMove: (from: Int, to: Int) -> Unit,
+) {
+    var key by mutableStateOf<String?>(null)
+        private set
+    var offset by mutableFloatStateOf(0f)
+        private set
+    private var from = -1
+
+    private fun at(index: Int) = list.layoutInfo.visibleItemsInfo.firstOrNull { it.index == index }
+
+    fun start(y: Float): Boolean {
+        val hit = list.layoutInfo.visibleItemsInfo.firstOrNull { y.toInt() in it.offset until it.offset + it.size } ?: return false
+        if (hit.index !in rows.indices) return false
+        from = hit.index
+        key = rows[hit.index].key
+        offset = 0f
+        return true
+    }
+
+    fun by(dy: Float) {
+        val k = key ?: return
+        offset += dy
+        val i = rows.indexOfFirst { it.key == k }
+        val cur = at(i) ?: return
+        // Near the top or bottom edge the list scrolls along.
+        val top = cur.offset + offset
+        val edge = 48f
+        val scroll = when {
+            top < list.layoutInfo.viewportStartOffset + edge -> -12f
+            top + cur.size > list.layoutInfo.viewportEndOffset - edge -> 12f
+            else -> 0f
+        }
+        if (scroll != 0f) offset += list.dispatchRawDelta(scroll)
+        val mid = cur.offset + offset + cur.size / 2f
+        val target = list.layoutInfo.visibleItemsInfo.firstOrNull {
+            it.index != i && it.index in rows.indices && mid >= it.offset && mid < it.offset + it.size
+        } ?: return
+        rows.add(target.index, rows.removeAt(i))
+        offset += cur.offset - target.offset
+    }
+
+    fun end() {
+        val k = key ?: return
+        val to = rows.indexOfFirst { it.key == k }
+        key = null
+        offset = 0f
+        if (from >= 0 && to >= 0 && from != to) onMove(from, to)
+        from = -1
     }
 }
 

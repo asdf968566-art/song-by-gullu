@@ -562,11 +562,6 @@ class RecommendationRepository(
         private const val KEY_LAST_SYNC = "last_sync"
         private const val MAX_SEEN = 20_000
         /** YouTube channels of music labels: their name is not a singer. */
-        private val LABELS = listOf(
-            "t series", "zee music", "sony music", "saregama", "tips", "speed records", "desi music factory",
-            "white hill", "yrf", "eros", "venus", "shemaroo", "times music", "geet mp3", "vyrl", "jjust music",
-            "panj aab", "lokdhun", "aditya music", "lahari", "think music", "ultra", "worldwide records", "records",
-            "music company", "music india",
-        )
+        private val LABELS = com.sangeet.player.data.SameSong.LABELS
     }
 }

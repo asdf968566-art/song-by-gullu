@@ -226,8 +226,14 @@ fun AddToPlaylistDialog(tracks: List<Track>, startCreating: Boolean = false, onD
                                 .fillMaxWidth()
                                 .clickable {
                                     scope.launch {
-                                        container.library.addToPlaylist(p.id, tracks)
-                                        Toast.makeText(context, "Added to ${p.name}", Toast.LENGTH_SHORT).show()
+                                        // The same song isn't added twice (report #55).
+                                        val added = container.library.addToPlaylist(p.id, tracks)
+                                        val text = when {
+                                            added == tracks.size -> "Added to ${p.name}"
+                                            added == 0 -> if (tracks.size == 1) "Already in ${p.name}" else "All already in ${p.name}"
+                                            else -> "Added $added to ${p.name} · ${tracks.size - added} already there"
+                                        }
+                                        Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
                                         onDone()
                                     }
                                 }
