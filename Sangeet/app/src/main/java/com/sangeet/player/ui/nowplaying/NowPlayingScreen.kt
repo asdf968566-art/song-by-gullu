@@ -11,6 +11,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -49,13 +50,10 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -67,17 +65,11 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.border
 import com.sangeet.player.ui.theme.neonColors
 import androidx.compose.foundation.layout.width
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import com.sangeet.player.ui.theme.glassCircle
 import com.sangeet.player.ui.components.GlassIconButton
+import com.sangeet.player.ui.components.SeekBar
 import com.sangeet.player.ui.theme.glassEverywhere
 import com.sangeet.player.ui.theme.glassInk
-import com.sangeet.player.ui.theme.glassPanel
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
@@ -94,7 +86,6 @@ import com.sangeet.player.playback.SleepTimerMode
 import com.sangeet.player.ui.LocalAppContainer
 import com.sangeet.player.ui.components.Artwork
 import com.sangeet.player.ui.components.TrackOptionsSheet
-import com.sangeet.player.ui.components.formatDuration
 import com.sangeet.player.ui.theme.Sangeet
 import com.sangeet.player.ui.theme.playButtonStyle
 import com.sangeet.player.ui.theme.playIconColor
@@ -107,6 +98,9 @@ import com.sangeet.player.ui.theme.ThemedBackground
 import com.sangeet.player.ui.theme.themedCard
 import androidx.compose.material.icons.rounded.DirectionsCar
 import com.sangeet.player.ui.components.ShareCard
+
+/** The lyrics' height in Now Playing when they fit on screen with the cover (report #55). */
+private val LYRICS_H = 120.dp
 
 /** Poori screen ka player (Spotify jaisa): cover ke rang ka gradient, seek bar, lyrics card. */
 @Composable
@@ -153,8 +147,6 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
         )
     }
     var dominant by remember(track.id) { mutableStateOf(spec.accent) }
-    var dragging by remember { mutableStateOf(false) }
-    var dragValue by remember { mutableFloatStateOf(0f) }
 
     LaunchedEffect(track.id) {
         lyricsLoading = true
@@ -192,7 +184,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
     val muted = textColor.copy(alpha = 0.7f)
     val glassy = spec.style in setOf(ThemeStyle.GLASS, ThemeStyle.AURORA, ThemeStyle.NEUMORPHISM, ThemeStyle.CRYSTAL, ThemeStyle.NEON, ThemeStyle.LIQUID_GLASS)
     val neon = spec.style == ThemeStyle.NEON
-    // Neon Glass's glass heart, tools, Up Next card and sound bars; Liquid Glass has them too (report #51).
+    // Neon Glass's glass heart and tools; Liquid Glass has them too (report #51).
     val glassAll = spec.glassEverywhere
     val quality = c.online.streamingQuality()
     val qualityText = when {
@@ -209,348 +201,309 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
         // Neon Glass keeps its own blue and violet page; the cover glows instead.
         val top = if (neon) 0f else if (spec.isDark) 0.9f else 0.7f
         if (top > 0f) Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(bg.copy(alpha = top), bg.copy(alpha = top * 0.45f), Color.Transparent))))
-        Column(
-            Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-                .navigationBarsPadding()
-                .let { if (lyricsFull) it else it.verticalScroll(rememberScrollState()) },
-        ) {
-            // Top bar
-            Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { if (lyricsFull) lyricsFull = false else onCollapse() }) {
-                    Icon(Icons.Rounded.KeyboardArrowDown, "Close", tint = textColor, modifier = Modifier.size(32.dp))
-                }
-                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        room?.let { "LISTENING TOGETHER · ${it.code}" } ?: "PLAYING FROM ${track.source.label.uppercase()}",
-                        color = if (room != null) spec.accent else muted, style = MaterialTheme.typography.labelSmall,
-                    )
-                    Text(
-                        track.album.ifBlank { track.artist },
-                        color = textColor,
-                        style = MaterialTheme.typography.labelLarge,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                if (lyrics?.isSynced == true) {
-                    IconButton(onClick = { singAlong = true }) { Icon(Icons.Rounded.Mic, "Sing along", tint = textColor) }
-                }
-                IconButton(onClick = { carMode = true }) { Icon(Icons.Rounded.DirectionsCar, "Car mode", tint = textColor) }
-                IconButton(onClick = { showOptions = true }) { Icon(Icons.Rounded.MoreVert, "Options", tint = textColor) }
-            }
-
-            if (lyricsFull && lyrics != null) {
-                LyricsView(
-                    lyrics!!,
-                    pos.positionMs,
-                    onSeek = c.player::seekTo,
-                    textColor = textColor,
-                    modifier = Modifier.weight(1f),
-                    onShareLine = shareLine,
-                )
-            } else {
-                Spacer(Modifier.height(if (canVideo) 6.dp else 24.dp))
-                if (canVideo) {
-                    SongVideoSwitch(showVideo, textColor) { showVideo = it }
-                    Spacer(Modifier.height(14.dp))
-                }
-                if (canVideo && showVideo) {
-                    SongVideo(track, Modifier.padding(horizontal = 28.dp).fillMaxWidth()) {
-                        showVideo = false
-                        Toast.makeText(context, "No video for this song", Toast.LENGTH_SHORT).show()
-                    }
-                } else {
-                    val coverShape = RoundedCornerShape(if (glassAll) 26.dp else 10.dp)
-                    Box(Modifier.fillMaxWidth()) {
-                        // Neon Glass (the reel's Now Playing): sound bars beside the cover, moving while it plays.
-                        if (glassAll) NeonBars(state.isPlaying, Modifier.matchParentSize())
-                        Artwork(
-                            track.artworkUrl,
-                            modifier = Modifier
-                                .padding(horizontal = 28.dp)
-                                .fillMaxWidth()
-                                .aspectRatio(1f)
-                                // Neon Glass: the cover glows in the theme's colors, with a bright glass edge.
-                                .then(
-                                    if (neon) Modifier
-                                        .shadow(28.dp, coverShape, ambientColor = spec.neonColors.fill[1], spotColor = spec.neonColors.accent)
-                                        .border(1.5.dp, Brush.linearGradient(listOf(Color.White.copy(alpha = 0.7f), Color.White.copy(alpha = 0.1f), Color.White.copy(alpha = 0.4f))), coverShape)
-                                    // Liquid Glass: the cover floats on a soft shadow with the glass rim.
-                                    else if (glassAll) Modifier
-                                        .shadow(20.dp, coverShape, ambientColor = Color.Black.copy(alpha = 0.25f), spotColor = Color.Black.copy(alpha = 0.35f))
-                                        .border(1.5.dp, Brush.linearGradient(listOf(Color.White.copy(alpha = 0.8f), Color.White.copy(alpha = 0.1f), Color.White.copy(alpha = 0.5f))), coverShape)
-                                    else Modifier
-                                ),
-                            shape = coverShape,
-                            seed = track.title,
-                        )
-                        if (glassAll) {
-                            // A round glass heart on the cover's corner.
-                            val liked = track.id in favorites
-                            Box(
-                                Modifier
-                                    .align(Alignment.TopEnd)
-                                    .padding(top = 12.dp, end = 40.dp)
-                                    .size(40.dp)
-                                    .glassCircle(spec)
-                                    .clickable { scope.launch { c.library.toggleFavorite(track) } },
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Icon(
-                                    if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                                    "Like",
-                                    tint = if (liked) spec.accent else glassInk(spec),
-                                    modifier = Modifier.size(22.dp),
-                                )
-                            }
-                        }
-                    }
-                }
-                Spacer(Modifier.height(28.dp))
-            }
-
-            // Title + like
-            Row(Modifier.padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(track.title, color = textColor, style = MaterialTheme.typography.headlineSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(track.artist, color = muted, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-                val liked = track.id in favorites
-                // Add to playlist, right next to Like (a tester's report, Oct 10).
-                IconButton(onClick = { addToPlaylist = true }) {
-                    Icon(Icons.Rounded.PlaylistAdd, "Add to playlist", tint = textColor, modifier = Modifier.size(28.dp))
-                }
-                IconButton(onClick = { scope.launch { c.library.toggleFavorite(track) } }) {
-                    Icon(
-                        if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                        "Like",
-                        tint = if (liked) spec.accent else textColor,
-                        modifier = Modifier.size(28.dp),
-                    )
-                }
-            }
-
-            // Seek bar
-            val duration = pos.durationMs.coerceAtLeast(1)
-            val sliderValue = if (dragging) dragValue else (pos.positionMs.toFloat() / duration).coerceIn(0f, 1f)
-            Slider(
-                value = sliderValue,
-                onValueChange = { dragging = true; dragValue = it },
-                onValueChangeFinished = {
-                    c.player.seekTo((dragValue * duration).toLong())
-                    dragging = false
-                },
-                colors = SliderDefaults.colors(
-                    thumbColor = textColor,
-                    activeTrackColor = if (glassAll) spec.accent else textColor,
-                    inactiveTrackColor = textColor.copy(alpha = 0.25f),
-                ),
-                modifier = Modifier.padding(horizontal = 16.dp),
-            )
-            Row(Modifier.padding(horizontal = 24.dp)) {
-                Text(formatDuration(if (dragging) (dragValue * duration).toLong() else pos.positionMs), color = muted, style = MaterialTheme.typography.labelSmall)
-                Spacer(Modifier.weight(1f))
-                Text(formatDuration(pos.durationMs), color = muted, style = MaterialTheme.typography.labelSmall)
-            }
-            state.error?.let {
-                Text("⚠ $it", color = Color(0xFFFF8A80), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 24.dp))
-            }
-
-            // Controls
-            Row(
+        BoxWithConstraints(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+            // Report #55: the lyrics card shows under the controls without scrolling; the cover takes the room that is
+            // left. Phones shorter than this scroll as before (the cover would get too small).
+            val fits = maxHeight >= 740.dp
+            Column(
                 Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
+                    .fillMaxSize()
+                    .let { if (lyricsFull || fits) it else it.verticalScroll(rememberScrollState()) },
             ) {
-                IconButton(onClick = c.player::toggleShuffle) {
-                    Icon(Icons.Rounded.Shuffle, "Shuffle", tint = if (state.shuffle) spec.accent else textColor)
-                }
-                // Neon / Liquid Glass: previous and next are round glass buttons too (report #53).
-                if (glassAll) {
-                    GlassIconButton(c.player::previous, size = 54.dp) {
-                        Icon(Icons.Rounded.SkipPrevious, "Previous", tint = textColor, modifier = Modifier.size(32.dp))
+                // Top bar
+                Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { if (lyricsFull) lyricsFull = false else onCollapse() }) {
+                        Icon(Icons.Rounded.KeyboardArrowDown, "Close", tint = textColor, modifier = Modifier.size(32.dp))
                     }
-                } else IconButton(onClick = c.player::previous) {
-                    Icon(Icons.Rounded.SkipPrevious, "Previous", tint = textColor, modifier = Modifier.size(40.dp))
-                }
-                Box(
-                    Modifier
-                        .size(68.dp)
-                        .playButtonStyle(spec, 68.dp)
-                        .clickable(onClick = c.player::togglePlay),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    if (state.isBuffering && !state.isPlaying) {
-                        CircularProgressIndicator(Modifier.size(28.dp), color = playIconColor(spec), strokeWidth = 3.dp)
-                    } else {
-                        Icon(
-                            if (state.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                            "Play/Pause",
-                            tint = playIconColor(spec),
-                            modifier = Modifier.size(40.dp),
-                        )
-                    }
-                }
-                if (glassAll) {
-                    GlassIconButton(c.player::next, size = 54.dp) {
-                        Icon(Icons.Rounded.SkipNext, "Next", tint = textColor, modifier = Modifier.size(32.dp))
-                    }
-                } else IconButton(onClick = c.player::next) {
-                    Icon(Icons.Rounded.SkipNext, "Next", tint = textColor, modifier = Modifier.size(40.dp))
-                }
-                IconButton(onClick = c.player::cycleRepeat) {
-                    Icon(
-                        if (state.repeatMode == Player.REPEAT_MODE_ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
-                        "Repeat",
-                        tint = if (state.repeatMode != Player.REPEAT_MODE_OFF) spec.accent else textColor,
-                    )
-                }
-            }
-
-            // Quality + tools
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                // The label shrinks (…) on small screens so Speed, Sleep and Queue always fit.
-                Box(Modifier.weight(1f)) {
-                    Text(
-                        qualityText,
-                        color = spec.accent,
-                        style = MaterialTheme.typography.labelMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier
-                            .background(if (spec.isDark) Color.Black.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.55f), RoundedCornerShape(50))
-                            .padding(horizontal = 10.dp, vertical = 4.dp),
-                    )
-                }
-                // Neon / Liquid Glass: the tools are round glass buttons, 40 dp with gaps (report #53: as IconButtons
-                // their circles grew to 48 dp and overlapped).
-                @Composable
-                fun Tool(onClick: () -> Unit, content: @Composable () -> Unit) {
-                    if (glassAll) {
-                        Spacer(Modifier.width(8.dp))
-                        GlassIconButton(onClick) { content() }
-                    } else IconButton(onClick = onClick) { content() }
-                }
-                Tool({ showSpeed = true }) {
-                    Icon(Icons.Rounded.Speed, "Speed", tint = if (settings.playbackSpeed != 1f) spec.accent else textColor, modifier = Modifier.size(22.dp))
-                }
-                Tool({ showSleep = true }) {
-                    Icon(Icons.Rounded.Bedtime, "Sleep timer", tint = if (sleep.mode != SleepTimerMode.OFF) spec.accent else textColor, modifier = Modifier.size(22.dp))
-                }
-                Tool({ showQueue = true }) { Icon(Icons.Rounded.QueueMusic, "Queue", tint = textColor, modifier = Modifier.size(22.dp)) }
-            }
-
-            // Neon Glass (the reel's "Up Next"): the next song on a glass card; tap it to play it, See all for the queue.
-            val next = state.queue.getOrNull(state.queueIndex + 1)
-            if (glassAll && !lyricsFull && next != null) {
-                Column(
-                    Modifier
-                        .padding(start = 16.dp, end = 16.dp, top = 14.dp)
-                        .fillMaxWidth()
-                        .glassPanel(spec, RoundedCornerShape(20.dp))
-                        .padding(12.dp),
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Up Next", color = textColor, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            "See all",
-                            color = muted,
+                            room?.let { "LISTENING TOGETHER · ${it.code}" } ?: "PLAYING FROM ${track.source.label.uppercase()}",
+                            color = if (room != null) spec.accent else muted, style = MaterialTheme.typography.labelSmall,
+                        )
+                        Text(
+                            track.album.ifBlank { track.artist },
+                            color = textColor,
                             style = MaterialTheme.typography.labelLarge,
-                            modifier = Modifier.clickable { showQueue = true }.padding(4.dp),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
-                    Spacer(Modifier.height(8.dp))
-                    Row(Modifier.fillMaxWidth().clickable { c.player.next() }, verticalAlignment = Alignment.CenterVertically) {
-                        Artwork(next.artworkUrl, size = 44.dp, shape = RoundedCornerShape(10.dp), seed = next.title)
-                        Spacer(Modifier.width(10.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(next.title, color = textColor, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(next.artist, color = muted, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                        Icon(Icons.Rounded.SkipNext, "Play next song", tint = textColor)
+                    if (lyrics?.isSynced == true) {
+                        IconButton(onClick = { singAlong = true }) { Icon(Icons.Rounded.Mic, "Sing along", tint = textColor) }
                     }
+                    IconButton(onClick = { carMode = true }) { Icon(Icons.Rounded.DirectionsCar, "Car mode", tint = textColor) }
+                    IconButton(onClick = { showOptions = true }) { Icon(Icons.Rounded.MoreVert, "Options", tint = textColor) }
                 }
-            }
 
-            // Lyrics card
-            if (!lyricsFull) {
-                Column(
-                    Modifier
-                        .padding(16.dp)
-                        .fillMaxWidth()
-                        .then(
-                            if (glassy) Modifier.themedCard(spec, RoundedCornerShape(14.dp), corner = 14.dp)
-                            else Modifier.background(bg.copy(alpha = 0.55f), RoundedCornerShape(14.dp))
-                        )
-                        .padding(vertical = 12.dp),
-                ) {
-                    Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.Lyrics, null, tint = textColor, modifier = Modifier.size(18.dp))
-                        Text("  Lyrics", color = textColor, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                        lyrics?.let { Text(it.source, color = muted, style = MaterialTheme.typography.labelSmall) }
-                        Box {
-                            IconButton(onClick = { showLyricsMenu = true }) { Icon(Icons.Rounded.MoreVert, "Lyrics options", tint = textColor) }
-                            DropdownMenu(expanded = showLyricsMenu, onDismissRequest = { showLyricsMenu = false }) {
-                                DropdownMenuItem(text = { Text("Import .lrc file") }, onClick = {
-                                    showLyricsMenu = false
-                                    lrcPicker.launch(arrayOf("*/*"))
-                                })
-                                DropdownMenuItem(text = { Text("Reload from online") }, onClick = {
-                                    showLyricsMenu = false
-                                    scope.launch {
-                                        lyricsLoading = true
-                                        c.lyrics.delete(track.id)
-                                        lyrics = c.lyrics.get(track, allowOnline = true)
-                                        lyricsLoading = false
+                if (lyricsFull && lyrics != null) {
+                    LyricsView(
+                        lyrics!!,
+                        pos.positionMs,
+                        onSeek = c.player::seekTo,
+                        textColor = textColor,
+                        modifier = Modifier.weight(1f),
+                        onShareLine = shareLine,
+                    )
+                } else {
+                    Spacer(Modifier.height(if (canVideo) 6.dp else if (fits) 12.dp else 24.dp))
+                    if (canVideo) {
+                        SongVideoSwitch(showVideo, textColor) { showVideo = it }
+                        Spacer(Modifier.height(if (fits) 10.dp else 14.dp))
+                    }
+                    Box(
+                        (if (fits) Modifier.weight(1f) else Modifier).fillMaxWidth().padding(horizontal = 28.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (canVideo && showVideo) {
+                            SongVideo(track) {
+                                showVideo = false
+                                Toast.makeText(context, "No video for this song", Toast.LENGTH_SHORT).show()
+                            }
+                        } else {
+                            val coverShape = RoundedCornerShape(if (glassAll) 26.dp else 10.dp)
+                            // Square: the full width, or less when the lyrics need the room.
+                            Box(Modifier.aspectRatio(1f)) {
+                                Artwork(
+                                    track.artworkUrl,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        // Neon Glass: the cover glows in the theme's colors, with a bright glass edge.
+                                        .then(
+                                            if (neon) Modifier
+                                                .shadow(28.dp, coverShape, ambientColor = spec.neonColors.fill[1], spotColor = spec.neonColors.accent)
+                                                .border(1.5.dp, Brush.linearGradient(listOf(Color.White.copy(alpha = 0.7f), Color.White.copy(alpha = 0.1f), Color.White.copy(alpha = 0.4f))), coverShape)
+                                            // Liquid Glass: the cover floats on a soft shadow with the glass rim.
+                                            else if (glassAll) Modifier
+                                                .shadow(20.dp, coverShape, ambientColor = Color.Black.copy(alpha = 0.25f), spotColor = Color.Black.copy(alpha = 0.35f))
+                                                .border(1.5.dp, Brush.linearGradient(listOf(Color.White.copy(alpha = 0.8f), Color.White.copy(alpha = 0.1f), Color.White.copy(alpha = 0.5f))), coverShape)
+                                            else Modifier
+                                        ),
+                                    shape = coverShape,
+                                    seed = track.title,
+                                )
+                                if (glassAll) {
+                                    // A round glass heart on the cover's corner.
+                                    val liked = track.id in favorites
+                                    Box(
+                                        Modifier
+                                            .align(Alignment.TopEnd)
+                                            .padding(12.dp)
+                                            .size(40.dp)
+                                            .glassCircle(spec)
+                                            .clickable { scope.launch { c.library.toggleFavorite(track) } },
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Icon(
+                                            if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                                            "Like",
+                                            tint = if (liked) spec.accent else glassInk(spec),
+                                            modifier = Modifier.size(22.dp),
+                                        )
                                     }
-                                })
+                                }
                             }
                         }
                     }
-                    when {
-                        lyricsLoading -> Text("Searching for lyrics…", color = muted, modifier = Modifier.padding(16.dp))
-                        lyrics == null -> Text(
-                            if (c.online.canGoOnline) "No lyrics found for this song. You can import an .lrc file from ⋮."
-                            else "You're offline and no lyrics are saved.",
-                            color = muted,
-                            modifier = Modifier.padding(16.dp),
+                    Spacer(Modifier.height(if (fits) 16.dp else 28.dp))
+                }
+
+                // Title + like
+                Row(Modifier.padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(track.title, color = textColor, style = MaterialTheme.typography.headlineSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(track.artist, color = muted, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    val liked = track.id in favorites
+                    // Add to playlist, right next to Like (a tester's report, Oct 10).
+                    IconButton(onClick = { addToPlaylist = true }) {
+                        Icon(Icons.Rounded.PlaylistAdd, "Add to playlist", tint = textColor, modifier = Modifier.size(28.dp))
+                    }
+                    IconButton(onClick = { scope.launch { c.library.toggleFavorite(track) } }) {
+                        Icon(
+                            if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                            "Like",
+                            tint = if (liked) spec.accent else textColor,
+                            modifier = Modifier.size(28.dp),
                         )
-                        else -> Box(
-                            Modifier
-                                .fillMaxWidth()
-                                .height(180.dp)
-                                .clickable { lyricsFull = true },
-                        ) {
-                            LyricsView(
-                                lyrics!!,
-                                pos.positionMs,
-                                onSeek = { lyricsFull = true },
-                                textColor = textColor,
-                                compact = true,
-                                modifier = Modifier.fillMaxSize(),
+                    }
+                }
+
+                // Seek bar: stylish, with the part of the song that has loaded (report #55). Errors sit between the times.
+                SeekBar(
+                    pos,
+                    onSeek = c.player::seekTo,
+                    color = spec.accent,
+                    textColor = textColor,
+                    note = state.error,
+                    modifier = Modifier.padding(horizontal = 24.dp),
+                )
+
+                // Controls
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = if (fits) 4.dp else 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconButton(onClick = c.player::toggleShuffle) {
+                        Icon(Icons.Rounded.Shuffle, "Shuffle", tint = if (state.shuffle) spec.accent else textColor)
+                    }
+                    // Neon / Liquid Glass: previous and next are round glass buttons too (report #53).
+                    if (glassAll) {
+                        GlassIconButton(c.player::previous, size = 54.dp) {
+                            Icon(Icons.Rounded.SkipPrevious, "Previous", tint = textColor, modifier = Modifier.size(32.dp))
+                        }
+                    } else IconButton(onClick = c.player::previous) {
+                        Icon(Icons.Rounded.SkipPrevious, "Previous", tint = textColor, modifier = Modifier.size(40.dp))
+                    }
+                    Box(
+                        Modifier
+                            .size(68.dp)
+                            .playButtonStyle(spec, 68.dp)
+                            .clickable(onClick = c.player::togglePlay),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (state.isBuffering && !state.isPlaying) {
+                            CircularProgressIndicator(Modifier.size(28.dp), color = playIconColor(spec), strokeWidth = 3.dp)
+                        } else {
+                            Icon(
+                                if (state.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                                "Play/Pause",
+                                tint = playIconColor(spec),
+                                modifier = Modifier.size(40.dp),
                             )
                         }
                     }
-                    if (lyrics != null) {
-                        Text(
-                            "Tap to see full lyrics · long-press a line for its meaning",
-                            color = muted,
-                            style = MaterialTheme.typography.labelSmall,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                    if (glassAll) {
+                        GlassIconButton(c.player::next, size = 54.dp) {
+                            Icon(Icons.Rounded.SkipNext, "Next", tint = textColor, modifier = Modifier.size(32.dp))
+                        }
+                    } else IconButton(onClick = c.player::next) {
+                        Icon(Icons.Rounded.SkipNext, "Next", tint = textColor, modifier = Modifier.size(40.dp))
+                    }
+                    IconButton(onClick = c.player::cycleRepeat) {
+                        Icon(
+                            if (state.repeatMode == Player.REPEAT_MODE_ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
+                            "Repeat",
+                            tint = if (state.repeatMode != Player.REPEAT_MODE_OFF) spec.accent else textColor,
                         )
                     }
                 }
-                Spacer(Modifier.height(24.dp))
+
+                // Quality + tools
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    // The label shrinks (…) on small screens so Speed, Sleep and Queue always fit.
+                    Box(Modifier.weight(1f)) {
+                        Text(
+                            qualityText,
+                            color = spec.accent,
+                            style = MaterialTheme.typography.labelMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .background(if (spec.isDark) Color.Black.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.55f), RoundedCornerShape(50))
+                                .padding(horizontal = 10.dp, vertical = 4.dp),
+                        )
+                    }
+                    // Neon / Liquid Glass: the tools are round glass buttons, 40 dp with gaps (report #53: as IconButtons
+                    // their circles grew to 48 dp and overlapped).
+                    @Composable
+                    fun Tool(onClick: () -> Unit, content: @Composable () -> Unit) {
+                        if (glassAll) {
+                            Spacer(Modifier.width(8.dp))
+                            GlassIconButton(onClick) { content() }
+                        } else IconButton(onClick = onClick) { content() }
+                    }
+                    Tool({ showSpeed = true }) {
+                        Icon(Icons.Rounded.Speed, "Speed", tint = if (settings.playbackSpeed != 1f) spec.accent else textColor, modifier = Modifier.size(22.dp))
+                    }
+                    Tool({ showSleep = true }) {
+                        Icon(Icons.Rounded.Bedtime, "Sleep timer", tint = if (sleep.mode != SleepTimerMode.OFF) spec.accent else textColor, modifier = Modifier.size(22.dp))
+                    }
+                    Tool({ showQueue = true }) { Icon(Icons.Rounded.QueueMusic, "Queue", tint = textColor, modifier = Modifier.size(22.dp)) }
+                }
+
+                // Lyrics card (report #55: no Up Next card above it; on screen without scrolling when [fits]).
+                if (!lyricsFull) {
+                    Column(
+                        Modifier
+                            .padding(start = 16.dp, end = 16.dp, top = if (fits) 8.dp else 16.dp, bottom = if (fits) 12.dp else 16.dp)
+                            .fillMaxWidth()
+                            .then(
+                                if (glassy) Modifier.themedCard(spec, RoundedCornerShape(14.dp), corner = 14.dp)
+                                else Modifier.background(bg.copy(alpha = 0.55f), RoundedCornerShape(14.dp))
+                            )
+                            .padding(vertical = if (fits) 4.dp else 12.dp),
+                    ) {
+                        Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Rounded.Lyrics, null, tint = textColor, modifier = Modifier.size(18.dp))
+                            Text("  Lyrics", color = textColor, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                            lyrics?.let { Text(it.source, color = muted, style = MaterialTheme.typography.labelSmall) }
+                            Box {
+                                IconButton(onClick = { showLyricsMenu = true }) { Icon(Icons.Rounded.MoreVert, "Lyrics options", tint = textColor) }
+                                DropdownMenu(expanded = showLyricsMenu, onDismissRequest = { showLyricsMenu = false }) {
+                                    DropdownMenuItem(text = { Text("Import .lrc file") }, onClick = {
+                                        showLyricsMenu = false
+                                        lrcPicker.launch(arrayOf("*/*"))
+                                    })
+                                    DropdownMenuItem(text = { Text("Reload from online") }, onClick = {
+                                        showLyricsMenu = false
+                                        scope.launch {
+                                            lyricsLoading = true
+                                            c.lyrics.delete(track.id)
+                                            lyrics = c.lyrics.get(track, allowOnline = true)
+                                            lyricsLoading = false
+                                        }
+                                    })
+                                }
+                            }
+                        }
+                        // A fixed height when [fits], so the cover doesn't change size when the lyrics come.
+                        val area = Modifier.fillMaxWidth().then(if (fits) Modifier.height(LYRICS_H) else Modifier)
+                        when {
+                            lyricsLoading -> Box(area) { Text("Searching for lyrics…", color = muted, modifier = Modifier.padding(16.dp)) }
+                            lyrics == null -> Box(area) {
+                                Text(
+                                    if (c.online.canGoOnline) "No lyrics found for this song. You can import an .lrc file from ⋮."
+                                    else "You're offline and no lyrics are saved.",
+                                    color = muted,
+                                    modifier = Modifier.padding(16.dp),
+                                )
+                            }
+                            else -> Box(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(if (fits) LYRICS_H else 180.dp)
+                                    .clickable { lyricsFull = true },
+                            ) {
+                                LyricsView(
+                                    lyrics!!,
+                                    pos.positionMs,
+                                    onSeek = { lyricsFull = true },
+                                    textColor = textColor,
+                                    compact = true,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            }
+                        }
+                        if (lyrics != null) {
+                            Text(
+                                "Tap to see full lyrics · long-press a line for its meaning",
+                                color = muted,
+                                style = MaterialTheme.typography.labelSmall,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth().padding(top = if (fits) 2.dp else 6.dp),
+                            )
+                        }
+                    }
+                    if (!fits) Spacer(Modifier.height(24.dp))
+                }
             }
         }
         if (carMode) CarModeScreen { carMode = false }
@@ -573,33 +526,5 @@ private suspend fun dominantColor(context: android.content.Context, url: String?
             val lum = 0.2126f * color.red + 0.7152f * color.green + 0.0722f * color.blue
             if (lum > 0.6f) Color(color.red * 0.6f, color.green * 0.6f, color.blue * 0.6f) else color
         }.getOrNull()
-    }
-}
-
-/** Neon / Liquid Glass: thin sound bars in the margins beside the cover, moving while the song plays. */
-@Composable
-private fun NeonBars(playing: Boolean, modifier: Modifier) {
-    val spec = Sangeet.spec
-    val colors = if (spec.style == ThemeStyle.NEON) listOf(spec.neonColors.accent.copy(alpha = 0.85f), spec.neonColors.fill[0].copy(alpha = 0.6f))
-    else listOf(spec.accent.copy(alpha = 0.85f), spec.accent.copy(alpha = 0.4f))
-    val phase = rememberInfiniteTransition(label = "bars").animateFloat(
-        0f, (2 * Math.PI).toFloat(), infiniteRepeatable(tween(1400, easing = LinearEasing)), label = "phase",
-    )
-    androidx.compose.foundation.Canvas(modifier) {
-        val margin = 28.dp.toPx()
-        val bar = 2.5.dp.toPx()
-        val gap = 5.dp.toPx()
-        val t = if (playing) phase.value else 0f
-        val brush = Brush.verticalGradient(colors)
-        for (side in 0..1) {
-            for (i in 0 until 3) {
-                val x = if (side == 0) margin - 8.dp.toPx() - i * gap else size.width - margin + 8.dp.toPx() + i * gap
-                // Whole-number speeds, so the bars don't jump when the phase starts over.
-                val k = side * 3 + i
-                val level = if (playing) 0.18f + 0.3f * (0.5f + 0.5f * kotlin.math.sin(t * (1 + k % 3) + k * 1.3f)) else 0.1f
-                val h = size.height * level * (1f - i * 0.2f)
-                drawLine(brush, Offset(x, size.height / 2 - h / 2), Offset(x, size.height / 2 + h / 2), bar, cap = StrokeCap.Round)
-            }
-        }
     }
 }

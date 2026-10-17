@@ -20,7 +20,6 @@ import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,6 +27,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.sangeet.player.ui.theme.glassEverywhere
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -117,20 +117,21 @@ fun MiniPlayer(onExpand: () -> Unit, modifier: Modifier = Modifier) {
                 }
             }
             val pos = container.player.position.collectAsStateWithLifecycle()
-            LinearProgressIndicator(
-                // Lambda draw ke waqt padhta hai: position badalne pe recomposition nahi hota.
-                progress = {
-                    val p = pos.value
-                    (if (p.durationMs > 0) p.positionMs.toFloat() / p.durationMs else 0f).coerceIn(0f, 1f)
-                },
-                modifier = Modifier
+            val barColor = if (spec.glassEverywhere) spec.accent else spec.onSurface
+            // Read while drawing, so a new position doesn't recompose. The loaded part shows too (report #55).
+            androidx.compose.foundation.Canvas(
+                Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 8.dp)
                     .height(2.dp),
-                color = if (spec.style == ThemeStyle.NEON) spec.accent else spec.onSurface,
-                trackColor = spec.muted.copy(alpha = 0.3f),
-                drawStopIndicator = {},
-            )
+            ) {
+                val p = pos.value
+                val d = p.durationMs.coerceAtLeast(1).toFloat()
+                val r = androidx.compose.ui.geometry.CornerRadius(size.height / 2)
+                drawRoundRect(spec.muted.copy(alpha = 0.3f), cornerRadius = r)
+                drawRoundRect(spec.muted.copy(alpha = 0.55f), size = size.copy(width = size.width * (p.bufferedMs / d).coerceIn(0f, 1f)), cornerRadius = r)
+                drawRoundRect(barColor, size = size.copy(width = size.width * (p.positionMs / d).coerceIn(0f, 1f)), cornerRadius = r)
+            }
         }
     }
 }

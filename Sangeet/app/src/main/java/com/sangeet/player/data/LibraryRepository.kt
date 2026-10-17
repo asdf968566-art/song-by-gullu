@@ -80,9 +80,30 @@ class LibraryRepository(private val db: SangeetDatabase, scope: CoroutineScope) 
         return id
     }
 
-    suspend fun addToPlaylist(playlistId: Long, tracks: List<Track>) {
-        remember(tracks)
-        db.playlistDao().addTracks(playlistId, tracks.map { it.id })
+    /**
+     * Adds the songs the playlist doesn't have yet (report #55): the same song from another source or album is
+     * already there; another version or singer isn't ([SameSong]). Returns how many were added.
+     */
+    suspend fun addToPlaylist(playlistId: Long, tracks: List<Track>): Int {
+        val have = HashMap<String, MutableList<SameSong.Key>>()
+        val ids = HashSet<String>()
+        fun keep(t: Track) {
+            ids += t.id
+            val k = SameSong.key(t)
+            have.getOrPut(k.title) { ArrayList() } += k
+        }
+        playlistTracksOnce(playlistId).forEach(::keep)
+        val add = tracks.filter { t ->
+            val k = SameSong.key(t)
+            val dup = t.id in ids || have[k.title].orEmpty().any { it.sameAs(k) }
+            if (!dup) keep(t)
+            !dup
+        }
+        android.util.Log.i("Sangeet", "playlist add: added ${add.size} of ${tracks.size} to $playlistId")
+        if (add.isEmpty()) return 0
+        remember(add)
+        db.playlistDao().addTracks(playlistId, add.map { it.id })
+        return add.size
     }
 
     suspend fun replacePlaylistTracks(playlistId: Long, tracks: List<Track>) {
