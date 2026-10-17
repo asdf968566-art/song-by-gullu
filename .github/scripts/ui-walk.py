@@ -746,7 +746,7 @@ def main():
         log = [l for l in adb("logcat", "-d").splitlines() if "singer:" in l]
         m = re.search(r"singer: (\d+) songs by", log[-1]) if log else None
         n = int(m.group(1)) if m else 0
-        return n >= 10 and playing(), (log[-1].split(": ", 1)[-1] if log else "no log line") + f"; playing={playing()}"
+        return n >= 40 and playing(), (log[-1].split(": ", 1)[-1] if log else "no log line") + f"; playing={playing()}"
     step("Home: Your singers → plays all their songs", play_singer, singer_played)
 
     # ---------------------------------------------------------------- themes: Liquid Glass on every page
