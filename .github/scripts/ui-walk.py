@@ -545,7 +545,11 @@ def main():
         return any("added 0 of 1" in l for l in log), "\n".join(log[-3:]) or "no log line"
     step("Song menu: Add to playlist twice: added once", add_twice, added_once)
     def sort_title():
-        back()
+        # The song menu and Now Playing are still open: go back until the tabs show.
+        for _ in range(3):
+            if find("Your Library"):
+                break
+            back()
         go_tab("Your Library")
         if not tap("Walk55", scroll=3, wait=3):
             seen = sorted({n["text"] for n in nodes(dump()) if n["text"]})
