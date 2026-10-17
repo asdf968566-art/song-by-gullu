@@ -74,6 +74,7 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import com.sangeet.player.ui.theme.glassCircle
+import com.sangeet.player.ui.components.GlassIconButton
 import com.sangeet.player.ui.theme.glassEverywhere
 import com.sangeet.player.ui.theme.glassInk
 import com.sangeet.player.ui.theme.glassPanel
@@ -368,7 +369,12 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                 IconButton(onClick = c.player::toggleShuffle) {
                     Icon(Icons.Rounded.Shuffle, "Shuffle", tint = if (state.shuffle) spec.accent else textColor)
                 }
-                IconButton(onClick = c.player::previous) {
+                // Neon / Liquid Glass: previous and next are round glass buttons too (report #53).
+                if (glassAll) {
+                    GlassIconButton(c.player::previous, size = 54.dp) {
+                        Icon(Icons.Rounded.SkipPrevious, "Previous", tint = textColor, modifier = Modifier.size(32.dp))
+                    }
+                } else IconButton(onClick = c.player::previous) {
                     Icon(Icons.Rounded.SkipPrevious, "Previous", tint = textColor, modifier = Modifier.size(40.dp))
                 }
                 Box(
@@ -389,7 +395,11 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                         )
                     }
                 }
-                IconButton(onClick = c.player::next) {
+                if (glassAll) {
+                    GlassIconButton(c.player::next, size = 54.dp) {
+                        Icon(Icons.Rounded.SkipNext, "Next", tint = textColor, modifier = Modifier.size(32.dp))
+                    }
+                } else IconButton(onClick = c.player::next) {
                     Icon(Icons.Rounded.SkipNext, "Next", tint = textColor, modifier = Modifier.size(40.dp))
                 }
                 IconButton(onClick = c.player::cycleRepeat) {
@@ -421,15 +431,22 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                             .padding(horizontal = 10.dp, vertical = 4.dp),
                     )
                 }
-                // Neon / Liquid Glass: the tools are round glass buttons.
-                val tool = if (glassAll) Modifier.padding(horizontal = 3.dp).size(40.dp).glassCircle(spec) else Modifier
-                IconButton(onClick = { showSpeed = true }, modifier = tool) {
-                    Icon(Icons.Rounded.Speed, "Speed", tint = if (settings.playbackSpeed != 1f) spec.accent else textColor)
+                // Neon / Liquid Glass: the tools are round glass buttons, 40 dp with gaps (report #53: as IconButtons
+                // their circles grew to 48 dp and overlapped).
+                @Composable
+                fun Tool(onClick: () -> Unit, content: @Composable () -> Unit) {
+                    if (glassAll) {
+                        Spacer(Modifier.width(8.dp))
+                        GlassIconButton(onClick) { content() }
+                    } else IconButton(onClick = onClick) { content() }
                 }
-                IconButton(onClick = { showSleep = true }, modifier = tool) {
-                    Icon(Icons.Rounded.Bedtime, "Sleep timer", tint = if (sleep.mode != SleepTimerMode.OFF) spec.accent else textColor)
+                Tool({ showSpeed = true }) {
+                    Icon(Icons.Rounded.Speed, "Speed", tint = if (settings.playbackSpeed != 1f) spec.accent else textColor, modifier = Modifier.size(22.dp))
                 }
-                IconButton(onClick = { showQueue = true }, modifier = tool) { Icon(Icons.Rounded.QueueMusic, "Queue", tint = textColor) }
+                Tool({ showSleep = true }) {
+                    Icon(Icons.Rounded.Bedtime, "Sleep timer", tint = if (sleep.mode != SleepTimerMode.OFF) spec.accent else textColor, modifier = Modifier.size(22.dp))
+                }
+                Tool({ showQueue = true }) { Icon(Icons.Rounded.QueueMusic, "Queue", tint = textColor, modifier = Modifier.size(22.dp)) }
             }
 
             // Neon Glass (the reel's "Up Next"): the next song on a glass card; tap it to play it, See all for the queue.

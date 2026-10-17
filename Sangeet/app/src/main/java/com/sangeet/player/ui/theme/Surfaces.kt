@@ -330,9 +330,13 @@ fun Modifier.playButtonStyle(spec: ThemeSpec, size: Dp): Modifier = when (spec.s
     ThemeStyle.AURORA -> this
         .clip(RoundedCornerShape(50))
         .background(Brush.linearGradient(listOf(spec.accent, Color(0xFF7C4DFF))))
+    // Liquid Glass: tinted glass in the accent color (see-through, with a soft colored glow, the sheen and the
+    // rim), not a solid disc (report #53: "play pause … solid colour hai, theme ke sath match kar").
     ThemeStyle.LIQUID_GLASS -> this
+        .shadow(size / 6, RoundedCornerShape(50), ambientColor = spec.accent.copy(alpha = 0.5f), spotColor = spec.accent)
         .clip(RoundedCornerShape(50))
-        .background(spec.accent)
+        .background((if (spec.isDark) Color(0xFF2C2C2E) else Color(0xFFF7F9FC)).copy(alpha = 0.35f))
+        .background(Brush.linearGradient(listOf(spec.accent.copy(alpha = 0.78f), spec.accent.copy(alpha = 0.5f))))
         .glassRim(spec, RoundedCornerShape(50))
     ThemeStyle.CRYSTAL -> this
         .clip(RoundedCornerShape(50))
@@ -351,6 +355,7 @@ fun playIconColor(spec: ThemeSpec): Color = when (spec.style) {
     ThemeStyle.AURORA -> Color.White
     ThemeStyle.CRYSTAL -> spec.onSurface
     ThemeStyle.NEON -> Color.White
+    ThemeStyle.LIQUID_GLASS -> if (spec.accent.luminance() > 0.6f) Color.Black else Color.White
     else -> if (spec.accent.luminance() > 0.45f) Color.Black else Color.White
 }
 

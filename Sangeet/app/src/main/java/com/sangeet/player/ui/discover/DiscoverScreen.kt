@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -371,8 +372,15 @@ fun DiscoverScreen(nav: NavController) {
                     color = Color.White,
                     modifier = Modifier.weight(1f),
                 )
-                IconButton(onClick = { nav.navigate(Routes.DJ) }, modifier = if (feed.glassEverywhere) feedTool(feed) else Modifier) { Icon(Icons.Rounded.AutoAwesome, "AI DJ", tint = Color.White) }
-                IconButton(onClick = vm::refresh, modifier = if (feed.glassEverywhere) feedTool(feed) else Modifier) { Icon(Icons.Rounded.Refresh, "New feed", tint = Color.White) }
+                if (feed.glassEverywhere) {
+                    FeedButton(feed, onClick = { nav.navigate(Routes.DJ) }) { Icon(Icons.Rounded.AutoAwesome, "AI DJ", tint = Color.White, modifier = Modifier.size(22.dp)) }
+                    Spacer(Modifier.width(10.dp))
+                    FeedButton(feed, onClick = vm::refresh) { Icon(Icons.Rounded.Refresh, "New feed", tint = Color.White, modifier = Modifier.size(22.dp)) }
+                    Spacer(Modifier.width(8.dp))
+                } else {
+                    IconButton(onClick = { nav.navigate(Routes.DJ) }) { Icon(Icons.Rounded.AutoAwesome, "AI DJ", tint = Color.White) }
+                    IconButton(onClick = vm::refresh) { Icon(Icons.Rounded.Refresh, "New feed", tint = Color.White) }
+                }
             }
             Row(
                 Modifier
@@ -525,14 +533,22 @@ private fun FeedPage(
                 }
             }
             Spacer(Modifier.height(24.dp))
-            Text(
-                t.title,
-                style = MaterialTheme.typography.headlineSmall,
-                color = Color.White,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
-            )
+            // Add to playlist right after the song's name (report #53).
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    t.title,
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = Color.White,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                Spacer(Modifier.width(8.dp))
+                FeedButton(feed, onClick = { addTo = true }, size = 36.dp) {
+                    Icon(Icons.Rounded.PlaylistAdd, "Add to playlist", tint = Color.White, modifier = Modifier.size(22.dp))
+                }
+            }
             Text(
                 "${t.artist} • ${t.source.label}",
                 modifier = Modifier.clickable(onClick = onArtist),
@@ -542,23 +558,23 @@ private fun FeedPage(
                 overflow = TextOverflow.Ellipsis,
             )
             Spacer(Modifier.height(20.dp))
-            // Six controls must fit a small phone (320 dp): 40 dp buttons, no gaps.
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onLike, modifier = feedTool(feed)) {
+            // Five controls fit a small phone (320 dp) with gaps; glass ones are real 40 dp circles (report #53: as
+            // IconButtons they grew to 48 dp and overlapped).
+            val icon = if (glass) 24.dp else 28.dp
+            val skip = if (glass) 26.dp else 34.dp
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(if (glass) 10.dp else 4.dp)) {
+                FeedButton(feed, onClick = onLike) {
                     Icon(
                         if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                         "Like",
                         tint = if (liked) spec.accent else Color.White,
-                        modifier = Modifier.size(28.dp),
+                        modifier = Modifier.size(icon),
                     )
                 }
-                IconButton(onClick = { addTo = true }, modifier = feedTool(feed)) {
-                    Icon(Icons.Rounded.PlaylistAdd, "Add to playlist", tint = Color.White, modifier = Modifier.size(28.dp))
+                FeedButton(feed, onClick = onPrev) {
+                    Icon(Icons.Rounded.SkipPrevious, "Previous", tint = Color.White, modifier = Modifier.size(skip))
                 }
-                IconButton(onClick = onPrev, modifier = feedTool(feed)) {
-                    Icon(Icons.Rounded.SkipPrevious, "Previous", tint = Color.White, modifier = Modifier.size(34.dp))
-                }
-                // The theme's own play button (Neon's glow, Liquid Glass's colored glass, Spotify's green…).
+                // The theme's own play button (Neon's glow, Liquid Glass's colored glass…).
                 val neumorphic = feed.style == com.sangeet.player.data.settings.ThemeStyle.NEUMORPHISM
                 Box(
                     Modifier
@@ -574,11 +590,11 @@ private fun FeedPage(
                         modifier = Modifier.size(36.dp),
                     )
                 }
-                IconButton(onClick = onNext, modifier = feedTool(feed)) {
-                    Icon(Icons.Rounded.SkipNext, "Next", tint = Color.White, modifier = Modifier.size(34.dp))
+                FeedButton(feed, onClick = onNext) {
+                    Icon(Icons.Rounded.SkipNext, "Next", tint = Color.White, modifier = Modifier.size(skip))
                 }
-                IconButton(onClick = onMore, modifier = feedTool(feed)) {
-                    Icon(Icons.Rounded.MoreVert, "Options", tint = Color.White, modifier = Modifier.size(28.dp))
+                FeedButton(feed, onClick = onMore) {
+                    Icon(Icons.Rounded.MoreVert, "Options", tint = Color.White, modifier = Modifier.size(icon))
                 }
             }
             if (lyrics != null) {
@@ -628,9 +644,12 @@ private fun feedSpec(): ThemeSpec {
     return remember(spec) { spec.copy(isDark = true, onSurface = Color.White, muted = Color.White.copy(alpha = 0.7f)) }
 }
 
-/** A 40 dp control of the feed; on Neon / Liquid Glass it is a round glass button (report #51). */
-private fun feedTool(feed: ThemeSpec): Modifier =
-    if (feed.glassEverywhere) Modifier.size(40.dp).padding(2.dp).glassCircle(feed) else Modifier.size(40.dp)
+/** A control of the feed; on Neon / Liquid Glass a round glass button (report #51), else a plain icon button. */
+@Composable
+private fun FeedButton(feed: ThemeSpec, onClick: () -> Unit, size: androidx.compose.ui.unit.Dp = 40.dp, content: @Composable () -> Unit) {
+    if (feed.glassEverywhere) com.sangeet.player.ui.components.GlassIconButton(onClick, size = size, spec = feed, content = content)
+    else IconButton(onClick = onClick, modifier = Modifier.size(size), content = content)
+}
 
 /** Feed ka seek bar: sirf yahi har tick pe update hota hai. Kheencho = gaana aage/peeche. */
 @Composable

@@ -17,6 +17,26 @@
         "on": "android",
         "type": "new",
         "text": "For You follows the song you play"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Liquid Glass is the default theme"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Glass play controls"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Add to playlist next to the song name"
+      },
+      {
+        "on": "android",
+        "type": "fix",
+        "text": "Overlapping glass buttons"
       }
     ]
   },

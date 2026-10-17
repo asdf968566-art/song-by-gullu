@@ -225,6 +225,21 @@ private fun GlassTrackRow(
     }
 }
 
+/**
+ * A round glass button of Neon / Liquid Glass. Not an IconButton: that one grows to its 48 dp touch size, so its glass
+ * circle came out bigger than the space it was given and neighbouring buttons overlapped (report #53).
+ */
+@Composable
+fun GlassIconButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    size: androidx.compose.ui.unit.Dp = 40.dp,
+    spec: com.sangeet.player.ui.theme.ThemeSpec = Sangeet.spec,
+    content: @Composable () -> Unit,
+) {
+    Box(modifier.size(size).glassCircle(spec).clickable(onClick = onClick), contentAlignment = Alignment.Center) { content() }
+}
+
 @Composable
 private fun DownloadBadge(icon: ImageVector) {
     Icon(icon, null, tint = Sangeet.spec.accent, modifier = Modifier.padding(end = 4.dp).size(14.dp))

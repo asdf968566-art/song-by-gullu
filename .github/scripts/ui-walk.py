@@ -387,9 +387,9 @@ def main():
     step("Now Playing: Car mode", lambda: tap("Car mode", wait=2),
          lambda: (find("Close car mode") is not None and find("Play/Pause") is not None, "big buttons shown"))
     tap("Close car mode", wait=2)
-    step("Now Playing: Pause", lambda: tap("Pause", contains=True, wait=2) or tap("Play/Pause", wait=2),
+    step("Now Playing: Pause", lambda: tap("Play/Pause", wait=2) or tap("Pause", contains=True, wait=2),
          lambda: (not playing(), "paused"))
-    step("Now Playing: Play", lambda: tap("Play", wait=4) or tap("Play/Pause", wait=4), lambda: (playing(), "playing again"))
+    step("Now Playing: Play", lambda: tap("Play/Pause", wait=4) or tap("Play", wait=4), lambda: (playing(), "playing again"))
     before = now_title()
     step("Now Playing: Next", lambda: tap("Next", wait=10), lambda: (now_title() != before, f"{before} → {now_title()}"))
     step("Now Playing: Previous", lambda: tap("Previous", wait=4) and tap("Previous", wait=8), lambda: (bool(now_title()), f"now: {now_title()}"))
@@ -685,7 +685,11 @@ def main():
     step("Neon Glass: Now Playing", lambda: open_now_playing() and shot("neon-NowPlaying"))
     if find("Close"):
         tap("Close", wait=2)
-    step("Theme: back to Classic Dark", set_theme("Classic Dark"))
+    # Classic Dark, AMOLED Black and Material You are gone (report #53): the app starts in Liquid Glass.
+    step("Theme: no Classic Dark any more", lambda: True,
+         lambda: (go_tab("Home") and tap("Settings", wait=3) and tap("Theme", scroll=8, wait=3) and find("Classic Dark", scroll=4) is None
+                  and (back(2) or True), "Classic Dark not in the theme picker"))
+    step("Theme: back to Liquid Glass", set_theme("Liquid Glass"))
 
     # ---------------------------------------------------------------- report
     print("\n================ UI walk report ================")
