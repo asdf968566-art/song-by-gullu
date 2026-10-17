@@ -70,6 +70,7 @@ import com.sangeet.player.ui.components.Artwork
 import com.sangeet.player.ui.theme.Sangeet
 import com.sangeet.player.ui.theme.themedCard
 import com.sangeet.player.ui.theme.neonColors
+import com.sangeet.player.ui.theme.glassEverywhere
 import kotlinx.coroutines.launch
 import com.sangeet.player.ui.theme.bottomBarPadding
 import androidx.compose.material.icons.rounded.People
@@ -293,7 +294,7 @@ private fun LibraryTile(
 ) {
     val spec = Sangeet.spec
     Column(Modifier.fillMaxWidth().clickable(onClick = onClick)) {
-        val round = if (spec.style == com.sangeet.player.data.settings.ThemeStyle.NEON) 18.dp else 10.dp
+        val round = if (spec.glassEverywhere) 18.dp else 10.dp
         val shape = if (circle) CircleShape else RoundedCornerShape(round)
         val corner = if (circle) 80.dp else round
         // Tiles follow the theme: its card style (glass, soft shadows…) and its accent color.
@@ -302,8 +303,14 @@ private fun LibraryTile(
             val nf = spec.neonColors.fill
             val tinted = if (neon) listOf(lerp(gradient.first(), nf[0], 0.55f).copy(alpha = 0.78f), lerp(gradient.last(), nf[1], 0.6f).copy(alpha = 0.6f))
             else listOf(lerp(gradient.first(), spec.accent, 0.6f), lerp(gradient.last(), spec.accent, 0.35f))
-                // Crystal: the tile is see-through too, only lightly tinted.
-                .map { if (spec.style == com.sangeet.player.data.settings.ThemeStyle.CRYSTAL) it.copy(alpha = 0.3f) else it }
+                // Crystal: the tile is see-through too, only lightly tinted; Liquid Glass shows its glass a little.
+                .map {
+                    when (spec.style) {
+                        com.sangeet.player.data.settings.ThemeStyle.CRYSTAL -> it.copy(alpha = 0.3f)
+                        com.sangeet.player.data.settings.ThemeStyle.LIQUID_GLASS -> it.copy(alpha = 0.82f)
+                        else -> it
+                    }
+                }
             Box(
                 Modifier
                     .fillMaxWidth()

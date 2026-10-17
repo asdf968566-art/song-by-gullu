@@ -509,6 +509,27 @@ request the owner made, in order.
     instead of skipping. Offline mode still says "Offline mode is on".
   - Buffer: `setBufferDurationsMs(600_000, 900_000, 1_000, 2_000)` with time over size, i.e. the whole song (and the
     start of the next) loads ahead. A 5-minute song at 320 kbps is ~12 MB of memory.
+- **App report #51 of Oct 17** (LAVA LXX525 tester, build 225, Liquid Glass light, Teal): "jo neon glass theme ka
+  effect hai … same liquid glass theme ke liye bhi kar de", For You "alag tareeke se dikhta hai", and "jo song play ho
+  uske jaise song chalne chahiye … 90s ka koi song chalaya toh 90s ke usi genre ke". Android only.
+  - **Liquid Glass on every page**, like Neon Glass. Surfaces.kt: `ThemeSpec.glassEverywhere` (NEON or LIQUID_GLASS),
+    `glassPanel` / `glassCircle` / `glassInk` (Neon's `neonGlass` / `neonCircle` / white, or Liquid Glass's
+    `liquidPane`: a frosted cool-white / graphite pane with a sheen and the bright rim, a hairline in light mode),
+    `liquidBackdrop` (soft accent glows under the page so the glass shows something). `themedCard` on Liquid Glass is
+    now `liquidPane`. Every Neon layout follows `glassEverywhere`: glass song rows (`GlassTrackRow`), shelf cards,
+    the Home hero (`NeonHero`, Liquid fades into its own pane and uses its play button), 5 glass rows for
+    Recommended, Search's category tiles, Library tiles (18 dp), and Now Playing's glass heart, tools, Up Next card,
+    sound bars and cover rim. The floating tab bar / mini player keep their real-blur `liquidGlass`.
+  - **For You takes the theme** (`feedSpec()`: the theme with dark glass, since the page is always dark over the
+    cover). The play button is the theme's own (`playButtonStyle`; plain accent on Neumorphism), glass themes get
+    round glass controls (`feedTool`), a glass rim on the cover, colored chips and seek bar, and Neon its page tint.
+  - **For You follows the song** (`DiscoverViewModel.follow`): a feed song that plays 25 s (or is liked) gets up to
+    6 songs like it right after it, in the feed and in the queue (`PlayerConnection.insertAfter`). They come from
+    `RecommendationRepository.likeThis`: the singer's own songs (search, a deeper JioSaavn page, the phone, the
+    catalog) taking turns with JioSaavn's `reco.getreco` and YouTube Music's similar list; same years first
+    (`Track.year`, new: from JioSaavn's `year` and the catalog row; ±4 years +2, >14 years −2.5), its language;
+    music-label channel names (`LABELS`) are not singers. Moods don't follow. Radio (`rank`) also prefers the same
+    years. Log lines "For You: N songs like '…' come next"; the UI walk checks it after "For You: Play".
 - Other platforms checked Oct 9 from CI: Gaana's old open API is gone (404); Wynk, Hungama, Spotify have no open
   streams. JioSaavn + YouTube stay the sources.
 - In-app "Report a problem" got 403 from GitHub. Cause (found Oct 9 from CI: `REPORT_TOKEN fingerprint/account`

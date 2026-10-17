@@ -211,6 +211,17 @@ def main():
     step("For You: New feed", lambda: tap("New feed", wait=8))
     step("For You: Like", lambda: tap("Like", wait=2) and tap("Like", wait=2))
     step("For You: Play", lambda: tap("Play/Pause", wait=8), lambda: (playing(), f"playing: {now_title()}"))
+    # Report #51: after 25 s of a feed song, songs like it (same singer, same years) are put next.
+    def followed():
+        for _ in range(25):
+            lines = [l for l in adb("logcat", "-d").splitlines() if "For You:" in l and re.search(r"\sSangeet\s*:", l)]
+            if any("songs like" in l for l in lines):
+                return True, [l for l in lines if "songs like" in l][-1].split("For You:", 1)[-1].strip()
+            if any("nothing like" in l for l in lines):
+                return False, lines[-1].split("For You:", 1)[-1].strip()
+            time.sleep(2)
+        return False, f"no 'songs like' line after 50 s; playing={playing()} now={now_title()}"
+    step("For You: songs like the playing one come next", lambda: True, followed)
     step("For You: Next", lambda: tap("Next", wait=10), lambda: (bool(now_title()), f"now: {now_title()}"))
     step("For You: swipe up", lambda: swipe_up() is None and time.sleep(6) is None)
 

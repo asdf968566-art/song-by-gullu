@@ -44,6 +44,8 @@ data class Track(
     val albumId: Long = 0L,
     /** "hindi", "punjabi", "english"... (pata ho to). Suggestions mein kaam aata hai. */
     val language: String = "",
+    /** Release year when the source gives it (JioSaavn, the catalog); 0 = unknown. For You follows a song's era. */
+    val year: Int = 0,
 ) {
     companion object {
         fun makeId(source: SourceType, sourceId: String) = "${source.name.lowercase()}:$sourceId"

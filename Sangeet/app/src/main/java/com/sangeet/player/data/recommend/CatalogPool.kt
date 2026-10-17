@@ -76,7 +76,7 @@ class CatalogPool(context: Context, private val scope: CoroutineScope) {
     }
 
     /**
-     * {"songs": [[id, title, artist, album, seconds, image, media, has320, year], ...], ...}
+     * {"songs": [[id, title, artist, album, seconds, image, media, has320, year, language], ...], ...}
      * Keeps the first [TOP] (most popular) songs plus a random [KEEP] - [TOP] of the rest.
      */
     private fun parse(file: File, lang: String): List<Track> {
@@ -115,6 +115,7 @@ class CatalogPool(context: Context, private val scope: CoroutineScope) {
         val image = r.nextString()
         val media = r.nextString()
         val has320 = r.nextInt() == 1
+        val year = if (r.hasNext() && r.peek() == android.util.JsonToken.NUMBER) r.nextInt() else 0
         while (r.hasNext()) r.skipValue()
         r.endArray()
         return Track(
@@ -131,6 +132,7 @@ class CatalogPool(context: Context, private val scope: CoroutineScope) {
             // Same format JioSaavnSource uses: 96 kbps link, "#320" when 320 kbps exists.
             streamUrl = (if (media.startsWith("http")) media else "${AAC}${media}_96.mp4") + if (has320) "#320" else "",
             language = lang,
+            year = year,
         )
     }
 

@@ -1,5 +1,26 @@
 [
   {
+    "date": "2026-10-17",
+    "title": "Liquid Glass everywhere, smarter For You",
+    "items": [
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Liquid Glass on every page"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "For You in your theme"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "For You follows the song you play"
+      }
+    ]
+  },
+  {
     "date": "2026-10-14",
     "title": "Smoother playback",
     "items": [

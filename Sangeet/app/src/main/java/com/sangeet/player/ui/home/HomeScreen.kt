@@ -62,6 +62,7 @@ import com.sangeet.player.ui.appViewModel
 import com.sangeet.player.ui.components.LoadingBox
 import com.sangeet.player.ui.components.QuickTile
 import com.sangeet.player.ui.components.NeonHero
+import com.sangeet.player.ui.theme.glassEverywhere
 import com.sangeet.player.ui.components.TrackRow
 import com.sangeet.player.ui.components.SectionHeader
 import com.sangeet.player.ui.components.ShelfCard
@@ -228,7 +229,8 @@ fun HomeScreen(nav: NavController) {
     // Song languages, right from Home: when they change, Home loads songs in the new languages.
     if (showLanguages) LanguageSheet { changed -> showLanguages = false; if (changed) vm.refresh(force = true) }
     val spec = Sangeet.spec
-    val neon = spec.style == com.sangeet.player.data.settings.ThemeStyle.NEON
+    // Neon Glass and Liquid Glass: glass rows and a big hero card (report #51 asked for Liquid Glass too).
+    val neon = spec.glassEverywhere
     val offline = settings.offlineMode || !network.online
     val picks = remember(localSongs) { localSongs.shuffled().take(20) }
     val mixes by c.recommendations.mixes.collectAsStateWithLifecycle()

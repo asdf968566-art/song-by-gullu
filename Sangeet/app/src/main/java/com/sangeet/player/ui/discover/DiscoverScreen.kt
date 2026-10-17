@@ -94,7 +94,20 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import com.sangeet.player.ui.theme.LocalBottomBarSpace
+import com.sangeet.player.ui.theme.ThemeSpec
+import com.sangeet.player.ui.theme.glassCircle
+import com.sangeet.player.ui.theme.glassEverywhere
+import com.sangeet.player.ui.theme.neonColors
+import com.sangeet.player.ui.theme.playButtonStyle
+import com.sangeet.player.ui.theme.playIconColor
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.luminance
 
 class DiscoverViewModel(private val c: AppContainer) : ViewModel() {
     data class Ui(
@@ -109,8 +122,54 @@ class DiscoverViewModel(private val c: AppContainer) : ViewModel() {
     val ui: StateFlow<Ui> = _ui.asStateFlow()
     private var loadingMore = false
     private var moodPage = 0
+    /** Songs put after a song by [follow]: their count, -1 while looking (0 = none found, it may look again). */
+    private val followed = HashMap<String, Int>()
 
-    init { loadMore() }
+    init {
+        loadMore()
+        // A song from the feed that plays for 25 s brings songs like it next (report #51). Runs while the feed
+        // plays, also when another tab is open.
+        viewModelScope.launch {
+            c.player.state.map { it.current?.id }.distinctUntilChanged().collectLatest { id ->
+                if (id == null) return@collectLatest
+                var listened = 0
+                while (listened < FOLLOW_AFTER_S) {
+                    delay(1_000)
+                    if (c.player.state.value.isPlaying) listened++
+                }
+                val t = c.player.state.value.current?.takeIf { it.id == id } ?: return@collectLatest
+                if (c.player.feedActive) follow(t)
+            }
+        }
+    }
+
+    /**
+     * Songs like [t] (its singer, its years, its kind: [com.sangeet.player.data.recommend.RecommendationRepository.likeThis])
+     * go right after it in the feed and in the queue, so the next swipe and the autoplay bring them. Moods stay as
+     * they are.
+     */
+    fun follow(t: Track) {
+        if (_ui.value.mood != null) return
+        val done = followed[t.id] ?: 0
+        if (done != 0) {
+            if (done > 0) android.util.Log.i("Sangeet", "For You: $done songs like '${t.title}' are already next")
+            return
+        }
+        followed[t.id] = -1
+        viewModelScope.launch {
+            val have = _ui.value.items.mapTo(HashSet()) { it.track.id } + c.player.state.value.queue.map { it.id }
+            val more = runCatching { c.recommendations.likeThis(t, have) }.getOrDefault(emptyList())
+            val now = _ui.value.items
+            val at = now.indexOfFirst { it.track.id == t.id }
+            val fresh = more.filter { m -> now.none { it.track.id == m.id } }
+            if (fresh.isEmpty()) android.util.Log.i("Sangeet", "For You: nothing like '${t.title}' found")
+            if (fresh.isEmpty() || at < 0 || _ui.value.mood != null) { followed[t.id] = 0; return@launch }
+            followed[t.id] = fresh.size
+            android.util.Log.i("Sangeet", "For You: ${fresh.size} songs like '${t.title}' come next")
+            _ui.value = _ui.value.copy(items = now.take(at + 1) + fresh.map { Suggestion(it, "Like \"${t.title}\"") } + now.drop(at + 1))
+            if (c.player.feedActive) c.player.insertAfter(t.id, fresh)
+        }
+    }
 
     fun loadMore() {
         if (loadingMore || _ui.value.exhausted) return
@@ -132,6 +191,7 @@ class DiscoverViewModel(private val c: AppContainer) : ViewModel() {
     }
 
     fun refresh() {
+        followed.clear()
         _ui.value = Ui(mood = _ui.value.mood)
         moodPage = 0
         loadingMore = false
@@ -214,6 +274,7 @@ fun DiscoverScreen(nav: NavController) {
         if (idx >= 0 && idx != pager.currentPage && !pager.isScrollInProgress) pager.animateScrollToPage(idx)
     }
 
+    val feed = feedSpec()
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         when {
             ui.items.isEmpty() && ui.loading -> Column(
@@ -273,7 +334,10 @@ fun DiscoverScreen(nav: NavController) {
                     onSeek = c.player::seekTo,
                     showHint = page == 0,
                     onPlay = { armed = true; if (isCurrent) c.player.togglePlay() else playPage(page) },
-                    onLike = { scope.launch { c.library.toggleFavorite(s.track) } },
+                    onLike = {
+                        if (s.track.id !in favorites) vm.follow(s.track)
+                        scope.launch { c.library.toggleFavorite(s.track) }
+                    },
                     onMore = { menuFor = s.track },
                     onArtist = { nav.navigate(Routes.artist(s.track.artist)) },
                     durationMs = { pos.value.durationMs },
@@ -281,6 +345,7 @@ fun DiscoverScreen(nav: NavController) {
                     onPrev = { armed = true; scope.launch { if (page > 0) pager.animateScrollToPage(page - 1) else playPage(page) } },
                     onSwipeLike = {
                         if (s.track.id !in favorites) scope.launch { c.library.toggleFavorite(s.track) }
+                        vm.follow(s.track)
                         Toast.makeText(context, "♥ Added to Liked Songs", Toast.LENGTH_SHORT).show()
                     },
                     onSwipeDislike = {
@@ -306,8 +371,8 @@ fun DiscoverScreen(nav: NavController) {
                     color = Color.White,
                     modifier = Modifier.weight(1f),
                 )
-                IconButton(onClick = { nav.navigate(Routes.DJ) }) { Icon(Icons.Rounded.AutoAwesome, "AI DJ", tint = Color.White) }
-                IconButton(onClick = vm::refresh) { Icon(Icons.Rounded.Refresh, "New feed", tint = Color.White) }
+                IconButton(onClick = { nav.navigate(Routes.DJ) }, modifier = if (feed.glassEverywhere) feedTool(feed) else Modifier) { Icon(Icons.Rounded.AutoAwesome, "AI DJ", tint = Color.White) }
+                IconButton(onClick = vm::refresh, modifier = if (feed.glassEverywhere) feedTool(feed) else Modifier) { Icon(Icons.Rounded.Refresh, "New feed", tint = Color.White) }
             }
             Row(
                 Modifier
@@ -315,11 +380,17 @@ fun DiscoverScreen(nav: NavController) {
                     .padding(horizontal = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
+                // Glass themes: the chosen chip takes the theme's color (report #51: For You looked unthemed).
+                val chosen = when {
+                    feed.style == com.sangeet.player.data.settings.ThemeStyle.NEON -> feed.neonColors.solid
+                    feed.glassEverywhere -> feed.accent
+                    else -> Color.White
+                }
                 val chipColors = FilterChipDefaults.filterChipColors(
-                    containerColor = Color.White.copy(alpha = 0.12f),
+                    containerColor = Color.White.copy(alpha = if (feed.glassEverywhere) 0.16f else 0.12f),
                     labelColor = Color.White,
-                    selectedContainerColor = Color.White,
-                    selectedLabelColor = Color.Black,
+                    selectedContainerColor = chosen,
+                    selectedLabelColor = if (chosen.luminance() > 0.5f) Color.Black else Color.White,
                 )
                 FilterChip(
                     selected = ui.mood == null,
@@ -366,6 +437,8 @@ private fun FeedPage(
 ) {
     val t = suggestion.track
     val spec = Sangeet.spec
+    val feed = feedSpec()
+    val glass = feed.glassEverywhere
     // "Add to playlist" right next to Like (a tester's report, Oct 10).
     var addTo by remember { mutableStateOf(false) }
     if (addTo) com.sangeet.player.ui.components.AddToPlaylistDialog(listOf(t)) { addTo = false }
@@ -406,6 +479,10 @@ private fun FeedPage(
                     )
                 )
         )
+        // Neon Glass: its blue-violet page over the cover, so For You looks like the rest of the app.
+        if (feed.style == com.sangeet.player.data.settings.ThemeStyle.NEON) {
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(feed.neonColors.page.map { it.copy(alpha = 0.55f) })))
+        }
 
         Column(
             Modifier
@@ -416,21 +493,29 @@ private fun FeedPage(
             verticalArrangement = Arrangement.Center,
         ) {
             Box(contentAlignment = Alignment.Center) {
+                val coverShape = RoundedCornerShape(if (glass) 24.dp else 16.dp)
                 Artwork(
                     t.artworkUrl,
                     modifier = Modifier
                         .widthIn(max = 280.dp)
                         .fillMaxWidth()
                         .aspectRatio(1f)
+                        // Glass themes: the cover floats on a shadow with a bright glass rim, as in Now Playing.
+                        .then(
+                            if (glass) Modifier
+                                .shadow(20.dp, coverShape, ambientColor = Color.Black.copy(alpha = 0.3f), spotColor = Color.Black.copy(alpha = 0.4f))
+                                .border(1.5.dp, Brush.linearGradient(listOf(Color.White.copy(alpha = 0.75f), Color.White.copy(alpha = 0.1f), Color.White.copy(alpha = 0.45f))), coverShape)
+                            else Modifier
+                        )
                         .clickable(onClick = onPlay),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = coverShape,
                     seed = t.title,
                 )
                 if (!isPlaying) {
                     Box(
                         Modifier
                             .size(72.dp)
-                            .background(Color.Black.copy(alpha = 0.45f), CircleShape)
+                            .then(if (glass) Modifier.glassCircle(feed) else Modifier.background(Color.Black.copy(alpha = 0.45f), CircleShape))
                             .clickable(onClick = onPlay),
                         contentAlignment = Alignment.Center,
                     ) {
@@ -459,7 +544,7 @@ private fun FeedPage(
             Spacer(Modifier.height(20.dp))
             // Six controls must fit a small phone (320 dp): 40 dp buttons, no gaps.
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onLike, modifier = Modifier.size(40.dp)) {
+                IconButton(onClick = onLike, modifier = feedTool(feed)) {
                     Icon(
                         if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                         "Like",
@@ -467,30 +552,32 @@ private fun FeedPage(
                         modifier = Modifier.size(28.dp),
                     )
                 }
-                IconButton(onClick = { addTo = true }, modifier = Modifier.size(40.dp)) {
+                IconButton(onClick = { addTo = true }, modifier = feedTool(feed)) {
                     Icon(Icons.Rounded.PlaylistAdd, "Add to playlist", tint = Color.White, modifier = Modifier.size(28.dp))
                 }
-                IconButton(onClick = onPrev, modifier = Modifier.size(40.dp)) {
+                IconButton(onClick = onPrev, modifier = feedTool(feed)) {
                     Icon(Icons.Rounded.SkipPrevious, "Previous", tint = Color.White, modifier = Modifier.size(34.dp))
                 }
+                // The theme's own play button (Neon's glow, Liquid Glass's colored glass, Spotify's green…).
+                val neumorphic = feed.style == com.sangeet.player.data.settings.ThemeStyle.NEUMORPHISM
                 Box(
                     Modifier
                         .size(64.dp)
-                        .background(Color.White, CircleShape)
+                        .then(if (neumorphic) Modifier.background(feed.accent, CircleShape) else Modifier.playButtonStyle(feed, 64.dp))
                         .clickable(onClick = onPlay),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                         "Play/Pause",
-                        tint = Color.Black,
+                        tint = if (neumorphic) (if (feed.accent.luminance() > 0.5f) Color.Black else Color.White) else playIconColor(feed),
                         modifier = Modifier.size(36.dp),
                     )
                 }
-                IconButton(onClick = onNext, modifier = Modifier.size(40.dp)) {
+                IconButton(onClick = onNext, modifier = feedTool(feed)) {
                     Icon(Icons.Rounded.SkipNext, "Next", tint = Color.White, modifier = Modifier.size(34.dp))
                 }
-                IconButton(onClick = onMore, modifier = Modifier.size(40.dp)) {
+                IconButton(onClick = onMore, modifier = feedTool(feed)) {
                     Icon(Icons.Rounded.MoreVert, "Options", tint = Color.White, modifier = Modifier.size(28.dp))
                 }
             }
@@ -499,7 +586,7 @@ private fun FeedPage(
                 FeedLyrics(lyrics, positionMs, onSeek)
             }
             Spacer(Modifier.height(16.dp))
-            if (isCurrent) FeedSeekBar(positionMs, durationMs, onSeek)
+            if (isCurrent) FeedSeekBar(positionMs, durationMs, onSeek, active = if (glass) feed.accent else Color.White)
             if (dragX > SWIPE_PX / 2 || dragX < -SWIPE_PX / 2) {
                 Spacer(Modifier.height(12.dp))
                 Icon(
@@ -528,9 +615,26 @@ private fun FeedLyrics(lyrics: Lyrics, positionMs: () -> Long, onSeek: (Long) ->
 
 private const val SWIPE_PX = 180f
 
+/** Seconds a feed song plays before songs like it are put next. */
+private const val FOLLOW_AFTER_S = 25
+
+/**
+ * For You is always a dark page over the song's cover, so its glass and buttons use the theme's dark look whatever
+ * the light/dark setting (light glass with dark icons would vanish there).
+ */
+@Composable
+private fun feedSpec(): ThemeSpec {
+    val spec = Sangeet.spec
+    return remember(spec) { spec.copy(isDark = true, onSurface = Color.White, muted = Color.White.copy(alpha = 0.7f)) }
+}
+
+/** A 40 dp control of the feed; on Neon / Liquid Glass it is a round glass button (report #51). */
+private fun feedTool(feed: ThemeSpec): Modifier =
+    if (feed.glassEverywhere) Modifier.size(40.dp).padding(2.dp).glassCircle(feed) else Modifier.size(40.dp)
+
 /** Feed ka seek bar: sirf yahi har tick pe update hota hai. Kheencho = gaana aage/peeche. */
 @Composable
-private fun FeedSeekBar(positionMs: () -> Long, durationMs: () -> Long, onSeek: (Long) -> Unit) {
+private fun FeedSeekBar(positionMs: () -> Long, durationMs: () -> Long, onSeek: (Long) -> Unit, active: Color = Color.White) {
     var dragging by remember { mutableStateOf(false) }
     var dragValue by remember { floatState(0f) }
     val dur = durationMs().coerceAtLeast(1)
@@ -540,7 +644,7 @@ private fun FeedSeekBar(positionMs: () -> Long, durationMs: () -> Long, onSeek: 
             value = if (dragging) dragValue else (pos.toFloat() / dur).coerceIn(0f, 1f),
             onValueChange = { dragging = true; dragValue = it },
             onValueChangeFinished = { onSeek((dragValue * dur).toLong()); dragging = false },
-            colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = Color.White, inactiveTrackColor = Color.White.copy(alpha = 0.25f)),
+            colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = active, inactiveTrackColor = Color.White.copy(alpha = 0.25f)),
         )
         Row(Modifier.fillMaxWidth()) {
             Text(formatDuration(if (dragging) (dragValue * dur).toLong() else pos), color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall)

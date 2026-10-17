@@ -36,7 +36,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import com.sangeet.player.ui.theme.neonGlass
+import com.sangeet.player.ui.theme.glassEverywhere
+import com.sangeet.player.ui.theme.glassInk
+import com.sangeet.player.ui.theme.glassPanel
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
@@ -421,15 +423,15 @@ fun SearchScreen(nav: NavController) {
                             if (name == MOVIES_TILE) nav.navigate(Routes.movies())
                             else nav.navigate(Routes.list(ListKind.GENRE, name.substringAfter(' ').takeIf { Categories.find(it) != null } ?: name))
                         }
-                        if (spec.style == ThemeStyle.NEON) {
-                            // Neon Glass (the reel's Explore tiles): glass with the category's color glowing in a
-                            // corner, its emoji on top and its name below.
+                        if (spec.glassEverywhere) {
+                            // Neon / Liquid Glass (the reel's Explore tiles): glass with the category's color glowing
+                            // in a corner, its emoji on top and its name below.
                             val emoji = name.substringBefore(' ').takeIf { name.contains(' ') && it.none(Char::isLetterOrDigit) }
                             Column(
                                 Modifier
                                     .weight(1f)
                                     .height(96.dp)
-                                    .neonGlass(RoundedCornerShape(20.dp))
+                                    .glassPanel(spec, RoundedCornerShape(20.dp))
                                     .background(Brush.radialGradient(listOf(Color(color).copy(alpha = 0.55f), Color.Transparent), center = Offset.Zero, radius = 360f))
                                     .clickable { open() }
                                     .padding(12.dp),
@@ -438,7 +440,7 @@ fun SearchScreen(nav: NavController) {
                                 Text(emoji ?: "", style = MaterialTheme.typography.headlineSmall)
                                 Text(
                                     if (emoji != null) name.substringAfter(' ') else name,
-                                    color = Color.White,
+                                    color = glassInk(spec),
                                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                                     maxLines = 2,
                                     overflow = TextOverflow.Ellipsis,
