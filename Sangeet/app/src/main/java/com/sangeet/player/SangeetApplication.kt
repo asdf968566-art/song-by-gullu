@@ -73,6 +73,8 @@ class AppContainer(private val app: Application) {
     /** The nightly catalog's popular songs per language (also Pahadi). */
     val catalog = com.sangeet.player.data.recommend.CatalogPool(app, scope)
     val recommendations = RecommendationRepository(app, library, local, online, settings, catalog)
+    /** The listener's singers: picked in Settings, then the most played (Home's "Your singers"). */
+    val singers = com.sangeet.player.data.Singers(app, settings, online, database)
 
     /** The catalog's songs that fit a category (Pahadi, Garhwali, Haryanvi Badmashi...), for its list and Home row. */
     fun catalogFor(cat: com.sangeet.player.data.Category): List<com.sangeet.player.data.model.Track> =

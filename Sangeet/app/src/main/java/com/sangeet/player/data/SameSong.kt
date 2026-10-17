@@ -44,13 +44,17 @@ object SameSong {
 
     fun same(a: Track, b: Track) = a.id == b.id || key(a).sameAs(key(b))
 
-    private fun cleanTitle(t: String) = norm(
+    /** The song's name without "(From …)", " - Official Video", " | Film"…, lower case. */
+    fun cleanTitle(t: String) = norm(
         t.lowercase()
             .replace(Regex("""\(.*?\)|\[.*?]"""), " ")
             .substringBefore(" - ")
             .substringBefore(" | ")
             .replace(Regex("\\b(official|video|audio|lyrical|lyrics|full song|song|hd|4k)\\b"), " ")
     )
+
+    /** The first real singer of [artist] (not a music label's channel), lower case, or null. */
+    fun mainSinger(artist: String): String? = singers(artist).firstOrNull()
 
     private fun singers(artist: String): List<String> =
         artist.replace(Regex("(?i)\\s*-\\s*topic$|vevo$|\\s+official$"), "")

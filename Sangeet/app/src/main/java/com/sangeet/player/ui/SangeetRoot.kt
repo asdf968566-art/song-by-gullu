@@ -129,6 +129,7 @@ object Routes {
     const val REPORT = "report"
     const val OWNER = "settings/owner"
     const val ALARM = "settings/alarm"
+    const val SINGERS = "settings/singers"
     const val RADIO = "radio"
     const val TOGETHER = "together?code={code}"
     fun together(code: String? = null) = "together" + (code?.let { "?code=" + android.net.Uri.encode(it) } ?: "")
@@ -332,6 +333,7 @@ fun SangeetRoot() {
                 composable(Routes.REPORT) { com.sangeet.player.ui.settings.ReportScreen(nav) }
                 composable(Routes.OWNER) { com.sangeet.player.ui.settings.OwnerDashboard(nav) }
                 composable(Routes.ALARM) { com.sangeet.player.ui.settings.AlarmScreen(nav) }
+                composable(Routes.SINGERS) { com.sangeet.player.ui.settings.SingersScreen(nav) }
                 composable(Routes.RADIO) { com.sangeet.player.ui.library.RadioScreen(nav) }
                 composable(
                     Routes.TOGETHER,

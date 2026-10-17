@@ -78,6 +78,58 @@ class JioSaavnSource : OnlineSource {
             .take(limit)
     }
 
+    /** The song's lyrics on JioSaavn (plain text, many Hindi / Punjabi songs have them), or null. */
+    suspend fun lyrics(songId: String): String? {
+        val o = call("lyrics.getLyrics", "lyrics_id" to songId) as? JsonObject ?: return null
+        val text = o.str("lyrics") ?: return null
+        return unescape(text.replace(Regex("(?i)<br\\s*/?>"), "\n").replace(Regex("<[^>]+>"), ""))
+            .lines().joinToString("\n") { it.trim() }.trim().takeIf { it.length > 20 }
+    }
+
+    /**
+     * Every song of a singer, from their JioSaavn page (most popular first), up to [max]: the artist search finds
+     * them, then their page and its next pages.
+     */
+    suspend fun artistSongs(artist: String, max: Int = 200): List<Track> {
+        val id = artistId(artist) ?: return emptyList()
+        val out = ArrayList<Track>()
+        var page = 0
+        while (out.size < max && page < 6) {
+            val root = (if (page == 0) call(
+                "artist.getArtistPageDetails",
+                "artistId" to id, "n_song" to "50", "n_album" to "0", "page" to "0", "category" to "", "sort_order" to "",
+            ) else call(
+                "artist.getArtistMoreSong",
+                "artistId" to id, "n_song" to "50", "page" to page.toString(), "category" to "", "sort_order" to "",
+            )) as? JsonObject ?: break
+            val songs = (root["topSongs"] as? JsonArray) ?: ((root["topSongs"] as? JsonObject)?.get("songs") as? JsonArray)
+                ?: (root["songs"] as? JsonArray) ?: break
+            val got = songs.mapNotNull { (it as? JsonObject)?.let(::toTrack) }
+            if (got.isEmpty()) break
+            out += got
+            page++
+        }
+        return out.distinctBy { it.id }.take(max)
+    }
+
+    /** Singers for a search (name and photo), for picking favourite singers. */
+    suspend fun searchArtists(query: String, n: Int = 20): List<Pair<String, String?>> {
+        val found = (call("search.getArtistResults", "q" to query, "n" to n.toString(), "p" to "1") as? JsonObject)
+            ?.get("results") as? JsonArray ?: return emptyList()
+        return found.mapNotNull { it as? JsonObject }.mapNotNull { o ->
+            val name = unescape(o.str("name") ?: o.str("title") ?: return@mapNotNull null)
+            name to o.str("image")?.replace("150x150", "500x500")?.replace("50x50", "500x500")
+        }.distinctBy { it.first.lowercase() }
+    }
+
+    private suspend fun artistId(artist: String): String? {
+        val found = (call("search.getArtistResults", "q" to artist, "n" to "5", "p" to "1") as? JsonObject)
+            ?.get("results") as? JsonArray ?: return null
+        val people = found.mapNotNull { it as? JsonObject }
+        return (people.firstOrNull { unescape(it.str("name") ?: it.str("title") ?: "").equals(artist, ignoreCase = true) } ?: people.firstOrNull())
+            ?.str("id")
+    }
+
     /** Albums and movies for a search ("aashiqui 2" -> the film's album, all its songs). */
     suspend fun searchAlbums(query: String): List<OnlinePlaylist> {
         val root = call("search.getAlbumResults", "q" to query, "n" to "10", "p" to "1")
