@@ -1,7 +1,12 @@
 package com.sangeet.player.ui.nowplaying
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.rounded.DragHandle
@@ -95,14 +100,25 @@ fun QueueSheet(onDismiss: () -> Unit) {
                 .navigationBarsPadding()
                 .heightIn(max = 600.dp)
                 .pointerInput(Unit) {
-                    detectDragGesturesAfterLongPress(
-                        onDragStart = { o ->
-                            if (drag.start(o.y)) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                        },
-                        onDrag = { change, amount -> change.consume(); drag.by(amount.y) },
-                        onDragEnd = { drag.end() },
-                        onDragCancel = { drag.end() },
-                    )
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        val long = awaitLongPressOrCancellation(down.id) ?: return@awaitEachGesture
+                        if (!drag.start(long.position.y)) return@awaitEachGesture
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        // After the long press the finger's moves are taken first (Initial pass), so the list
+                        // doesn't scroll instead, even when the first move is a big one.
+                        while (true) {
+                            val change = awaitPointerEvent(PointerEventPass.Initial).changes.firstOrNull { it.id == long.id } ?: break
+                            if (change.changedToUpIgnoreConsumed()) {
+                                change.consume()
+                                break
+                            }
+                            val dy = change.positionChange().y
+                            change.consume()
+                            if (dy != 0f) drag.by(dy)
+                        }
+                        drag.end()
+                    }
                 },
         ) {
             itemsIndexed(rows, key = { _, r -> r.key }) { i, r ->

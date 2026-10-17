@@ -548,10 +548,15 @@ def main():
         back()
         go_tab("Your Library")
         if not tap("Walk55", scroll=3, wait=3):
+            seen = sorted({n["text"] for n in nodes(dump()) if n["text"]})
+            print("sort: playlist Walk55 not found; on screen: " + ", ".join(seen[:40]))
             return False
-        if not (tap("Options", wait=2) and tap("Sort by", contains=True, wait=2) and tap("Title", wait=2)):
-            back()
-            return False
+        for label, contains in (("Options", False), ("Sort by", True), ("Title", False)):
+            if not tap(label, contains=contains, wait=2):
+                seen = sorted({n["text"] or n["desc"] for n in nodes(dump()) if n["text"] or n["desc"]})
+                print(f"sort: '{label}' not found; on screen: " + ", ".join(seen[:40]))
+                back()
+                return False
         return True
     def sorted_title():
         tap("Options", wait=2)
