@@ -29,6 +29,16 @@ enum class ThemeStyle(val label: String, val tagline: String) {
     LIQUID_GLASS("Liquid Glass", "iOS 26 style: floating glass bars over the content"),
     CRYSTAL("Crystal", "See-through tabs, buttons and cards over your song's colors"),
     NEON("Neon Glass", "Glowing glass on blue and violet"),
+    ;
+
+    companion object {
+        /**
+         * Taken out of the theme picker (report #53: "classic dark, amoled black and material you theme ko remove kar
+         * de"). Kept here so old settings still read; anyone still on one gets Liquid Glass.
+         */
+        val removed = setOf(SPOTIFY, AMOLED, MATERIAL_YOU)
+        val choices: List<ThemeStyle> get() = entries.filter { it !in removed }
+    }
 }
 
 enum class DarkMode(val label: String) { SYSTEM("System"), LIGHT("Light"), DARK("Dark") }
@@ -44,7 +54,7 @@ enum class AccentColor(val label: String, val argb: Long) {
 }
 
 data class AppSettings(
-    val theme: ThemeStyle = ThemeStyle.SPOTIFY,
+    val theme: ThemeStyle = ThemeStyle.LIQUID_GLASS,
     val darkMode: DarkMode = DarkMode.DARK,
     val accent: AccentColor = AccentColor.GREEN,
     val wifiQuality: AudioQuality = AudioQuality.HIGH,
@@ -149,7 +159,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     val settings: StateFlow<AppSettings> = context.dataStore.data.map { p ->
         val d = AppSettings()
         AppSettings(
-            theme = p.enumOf(Keys.theme, d.theme),
+            theme = p.enumOf(Keys.theme, d.theme).let { if (it in ThemeStyle.removed) ThemeStyle.LIQUID_GLASS else it },
             darkMode = p.enumOf(Keys.darkMode, d.darkMode),
             accent = p.enumOf(Keys.accent, d.accent),
             wifiQuality = p.enumOf(Keys.wifiQuality, d.wifiQuality),

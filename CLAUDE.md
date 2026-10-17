@@ -530,6 +530,22 @@ request the owner made, in order.
     (`Track.year`, new: from JioSaavn's `year` and the catalog row; ±4 years +2, >14 years −2.5), its language;
     music-label channel names (`LABELS`) are not singers. Moods don't follow. Radio (`rank`) also prefers the same
     years. Log lines "For You: N songs like '…' come next"; the UI walk checks it after "For You: Play".
+- **App report #53 of Oct 17** (same tester, build 231, Liquid Glass dark): "classic dark, amoled black and material
+  you theme ko remove kar de", glass buttons overlapping (Liquid and Neon), For You's add-to-playlist "song name ke
+  aage", and the player's play / pause / next / previous "solid colour … theme ke sath match kar". Android only.
+  - **Themes:** `ThemeStyle.removed` (SPOTIFY = Classic Dark, AMOLED, MATERIAL_YOU) stay in the enum so old settings
+    read, but the picker shows `ThemeStyle.choices`, and a stored removed theme reads as LIQUID_GLASS. The default is
+    now LIQUID_GLASS (dark mode is DARK by default), so the CI walk runs in Liquid Glass; its Now Playing Play / Pause
+    steps tap "Play/Pause" first (the glass song rows under Now Playing have "Play" buttons), and the last theme step
+    checks that Classic Dark is gone, then goes back to Liquid Glass.
+  - **Overlap:** an `IconButton` grows to its 48 dp touch size, so a glass circle put on its modifier came out bigger
+    than its 40 dp slot. Glass buttons are now `GlassIconButton` (TrackViews.kt: a Box with `glassCircle`). Used on
+    For You (`FeedButton`, gaps between them), the For You top bar, and Now Playing's tools.
+  - For You: Add to playlist is a 36 dp button right after the song's name. The control row is Like, Previous, Play,
+    Next, More.
+  - Liquid Glass's play button (`playButtonStyle`) is see-through accent glass with a colored glow, the sheen and
+    the rim (white icon unless the accent is very light). On glass themes, Now Playing's Previous / Next are 54 dp
+    glass buttons.
 - Other platforms checked Oct 9 from CI: Gaana's old open API is gone (404); Wynk, Hungama, Spotify have no open
   streams. JioSaavn + YouTube stay the sources.
 - In-app "Report a problem" got 403 from GitHub. Cause (found Oct 9 from CI: `REPORT_TOKEN fingerprint/account`

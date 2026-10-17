@@ -60,7 +60,7 @@ fun ThemePickerScreen(nav: NavController) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = LocalBottomBarSpace.current)) {
         SettingsTopBar(nav, "Choose theme")
 
-        ThemeStyle.entries.chunked(2).forEach { row ->
+        ThemeStyle.choices.chunked(2).forEach { row ->
             Row(
                 Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -78,7 +78,7 @@ fun ThemePickerScreen(nav: NavController) {
         }
 
         SettingsGroup("Light / Dark") {
-            ChoiceRow("Mode", "AMOLED and Neon Glass are always dark", DarkMode.entries, s.darkMode, { it.label }) {
+            ChoiceRow("Mode", "Neon Glass is always dark", DarkMode.entries, s.darkMode, { it.label }) {
                 scope.launch { c.settings.setDarkMode(it) }
             }
         }
@@ -103,14 +103,6 @@ fun ThemePickerScreen(nav: NavController) {
                         if (s.accent == a) Icon(Icons.Rounded.Check, a.label, tint = Color.White)
                     }
                 }
-            }
-            if (s.theme == ThemeStyle.MATERIAL_YOU) {
-                Text(
-                    "Material You takes its colors from your wallpaper (Android 12+).",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = spec.muted,
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
-                )
             }
         }
         Spacer(Modifier.height(32.dp))
