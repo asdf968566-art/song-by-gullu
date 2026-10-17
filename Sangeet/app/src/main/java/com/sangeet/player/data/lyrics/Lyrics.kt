@@ -171,19 +171,17 @@ class LyricsRepository(
     /** JioSaavn's lyrics: the song's own, or those of the same song found there (same name, a shared singer). */
     private suspend fun saavnLyrics(track: Track): String? {
         if (!online.jiosaavnOn) return null
-        val id = if (track.source == com.sangeet.player.data.model.SourceType.JIOSAAVN) track.sourceId else {
-            val title = SameSong.cleanTitle(track.title).ifBlank { return null }
-            val singer = SameSong.mainSinger(track.artist)
-            val words = track.title.lowercase()
-            online.saavn.searchPage(listOfNotNull(title, singer).joinToString(" "), 1).firstOrNull { r ->
-                SameSong.cleanTitle(r.title) == title && when {
-                    singer != null -> r.artist.lowercase().contains(singer) ||
-                        r.artist.split(',').any { a -> a.trim().length > 2 && words.contains(a.trim().lowercase()) }
-                    else -> track.durationMs <= 0 || kotlin.math.abs(r.durationMs - track.durationMs) <= 20_000
-                }
-            }?.sourceId ?: return null
+        if (track.source == com.sangeet.player.data.model.SourceType.JIOSAAVN) online.saavn.lyrics(track.sourceId)?.let { return it }
+        val title = SameSong.cleanTitle(track.title).ifBlank { return null }
+        val singer = SameSong.mainSinger(track.artist)
+        val words = track.title.lowercase()
+        return online.saavn.lyricsFor(listOfNotNull(title, singer).joinToString(" ")) { t, artists, durationMs ->
+            SameSong.cleanTitle(t) == title && when {
+                singer != null -> artists.lowercase().contains(singer) ||
+                    artists.split(',').any { a -> a.trim().length > 2 && words.contains(a.trim().lowercase()) }
+                else -> track.durationMs <= 0 || kotlin.math.abs(durationMs - track.durationMs) <= 20_000
+            }
         }
-        return online.saavn.lyrics(id)
     }
 
     /** lyrics.ovh (free, no key; mostly English songs): by singer and song name. */

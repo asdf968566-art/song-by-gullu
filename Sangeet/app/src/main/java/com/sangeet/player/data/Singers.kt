@@ -50,13 +50,13 @@ class Singers(
     }
 
     /**
-     * All the singer's songs (their JioSaavn page, then a search) in the listener's languages. Pahadi songs are
-     * listed as Hindi on JioSaavn, so they count for Pahadi too.
+     * All the singer's songs JioSaavn gives (their page, its "more songs" pages and a search; another search when that
+     * is short) in the listener's languages. Pahadi songs are listed as Hindi on JioSaavn, so they count for Pahadi too.
      */
     suspend fun songs(name: String): List<Track> = withContext(Dispatchers.IO) {
         val langs = settings.current.languages.toSet()
         val me = name.lowercase()
-        val page = if (online.jiosaavnOn) runCatching { online.saavn.artistSongs(name, 300) }.getOrDefault(emptyList()) else emptyList()
+        val page = if (online.jiosaavnOn) runCatching { online.saavn.artistSongs(name) }.getOrDefault(emptyList()) else emptyList()
         val more = if (page.size < 20) runCatching { online.searchAll(name) }.getOrDefault(emptyList()) else emptyList()
         (page + more.filter { me in it.artist.lowercase() })
             .distinctBy { it.id }

@@ -8,6 +8,9 @@ import com.sangeet.player.data.model.Track
 import com.sangeet.player.data.settings.AppSettings
 import javax.crypto.Cipher
 import javax.crypto.spec.SecretKeySpec
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -87,29 +90,55 @@ class JioSaavnSource : OnlineSource {
     }
 
     /**
-     * Every song of a singer, from their JioSaavn page (most popular first), up to [max]: the artist search finds
-     * them, then their page and its next pages.
+     * Lyrics of the same song somewhere on JioSaavn: a search's results that have lyrics (`has_lyrics`; often only
+     * one copy of a song has them), the first one [same] accepts.
      */
-    suspend fun artistSongs(artist: String, max: Int = 200): List<Track> {
-        val id = artistId(artist) ?: return emptyList()
-        val out = ArrayList<Track>()
-        var page = 0
-        while (out.size < max && page < 6) {
-            val root = (if (page == 0) call(
-                "artist.getArtistPageDetails",
-                "artistId" to id, "n_song" to "50", "n_album" to "0", "page" to "0", "category" to "", "sort_order" to "",
-            ) else call(
-                "artist.getArtistMoreSong",
-                "artistId" to id, "n_song" to "50", "page" to page.toString(), "category" to "", "sort_order" to "",
-            )) as? JsonObject ?: break
-            val songs = (root["topSongs"] as? JsonArray) ?: ((root["topSongs"] as? JsonObject)?.get("songs") as? JsonArray)
-                ?: (root["songs"] as? JsonArray) ?: break
-            val got = songs.mapNotNull { (it as? JsonObject)?.let(::toTrack) }
-            if (got.isEmpty()) break
-            out += got
-            page++
+    suspend fun lyricsFor(query: String, same: (title: String, artists: String, durationMs: Long) -> Boolean): String? {
+        val root = call("search.getResults", "q" to query, "n" to "20", "p" to "1") as? JsonObject ?: return null
+        val items = (root["results"] as? JsonArray)?.mapNotNull { it as? JsonObject } ?: return null
+        for (o in items) {
+            if ((o["more_info"] as? JsonObject)?.str("has_lyrics") != "true") continue
+            val t = toTrack(o) ?: continue
+            if (!same(t.title, t.artist, t.durationMs)) continue
+            lyrics(t.sourceId)?.let { return it }
         }
-        return out.distinctBy { it.id }.take(max)
+        return null
+    }
+
+    /**
+     * As many of a singer's songs as JioSaavn gives (CI probe, Oct 17: their page has ~32 popular and ~49 latest,
+     * each "more songs" page only ~9 of e.g. Arijit Singh's 4683; a search adds 40 a page). All asked at once,
+     * popular first; a search result counts only when the singer is named in its artists.
+     */
+    suspend fun artistSongs(artist: String, max: Int = 400): List<Track> = coroutineScope {
+        val id = artistId(artist) ?: return@coroutineScope emptyList()
+        fun songsOf(root: JsonElement?): List<Track> {
+            val o = root as? JsonObject ?: return emptyList()
+            val songs = (o["topSongs"] as? JsonArray) ?: ((o["topSongs"] as? JsonObject)?.get("songs") as? JsonArray)
+                ?: (o["songs"] as? JsonArray) ?: return emptyList()
+            return songs.mapNotNull { (it as? JsonObject)?.let(::toTrack) }
+        }
+        fun page(category: String, order: String) = async {
+            runCatching {
+                songsOf(call(
+                    "artist.getArtistPageDetails",
+                    "artistId" to id, "n_song" to "50", "n_album" to "0", "page" to "0", "category" to category, "sort_order" to order,
+                ))
+            }.getOrDefault(emptyList())
+        }
+        val parts = buildList {
+            add(page("", ""))
+            add(page("latest", "desc"))
+            for (p in 1..12) add(async {
+                runCatching {
+                    songsOf(call("artist.getArtistMoreSong", "artistId" to id, "n_song" to "50", "page" to p.toString(), "category" to "", "sort_order" to ""))
+                }.getOrDefault(emptyList())
+            })
+            for (p in 1..4) add(async {
+                runCatching { searchPage(artist, p).filter { it.artist.contains(artist, ignoreCase = true) } }.getOrDefault(emptyList())
+            })
+        }
+        parts.awaitAll().flatten().distinctBy { it.id }.take(max)
     }
 
     /** Singers for a search (name and photo), for picking favourite singers. */
