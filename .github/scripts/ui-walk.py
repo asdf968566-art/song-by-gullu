@@ -242,6 +242,13 @@ def main():
             time.sleep(4)
         if not head:
             return False
+        # Low on the screen, "See all" sits under the floating tab bar and a tap hits the tab instead (main run
+        # 39048835153 opened Search): scroll it up first.
+        w, h = screen()
+        if head["y"] > h * 0.6:
+            sh(f"input swipe {w // 2} {int(h * 0.65)} {w // 2} {int(h * 0.35)} 500")
+            time.sleep(2)
+            head = find("Sangeet Top 50", contains=True) or head
         more = [n for n in nodes(dump()) if n["text"] == "See all" and abs(n["y"] - head["y"]) < 80]
         if not more:
             return False
