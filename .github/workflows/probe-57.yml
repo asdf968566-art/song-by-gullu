@@ -1,0 +1,50 @@
+name: Probe 57
+
+# One-off probe (report #57): JioSaavn's artist pages, lyrics, lyrics.ovh. Removed after use.
+on:
+  push:
+    branches: ["claude/**"]
+    paths: [".github/workflows/probe-57.yml"]
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe
+        run: |
+          api='https://www.jiosaavn.com/api.php?_format=json&_marker=0&api_version=4&ctx=web6dot0'
+          ua='Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/124 Mobile Safari/537.36'
+          id=$(curl -s -A "$ua" "$api&__call=search.getArtistResults&q=Arijit%20Singh&n=3&p=1" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["results"][0]["id"])')
+          echo "artist id $id"
+          for page in 0 1 2; do
+            curl -s -A "$ua" "$api&__call=artist.getArtistPageDetails&artistId=$id&n_song=50&n_album=0&page=$page&category=&sort_order=" > p$page.json
+            python3 - p$page.json <<'PY'
+          import json,sys
+          d=json.load(open(sys.argv[1]))
+          ts=d.get("topSongs")
+          songs = ts if isinstance(ts,list) else (ts or {}).get("songs") if isinstance(ts,dict) else None
+          print(sys.argv[1], "keys", list(d.keys())[:20], "topSongs type", type(ts).__name__, "songs", len(songs or []), "total", (ts or {}).get("total") if isinstance(ts,dict) else None)
+          if songs: print("  first", songs[0].get("title"), "| last", songs[-1].get("title"))
+          PY
+          done
+          for page in 1 2 3; do
+            curl -s -A "$ua" "$api&__call=artist.getArtistMoreSong&artistId=$id&n_song=50&page=$page&category=&sort_order=" > m$page.json
+            python3 - m$page.json <<'PY'
+          import json,sys
+          raw=open(sys.argv[1]).read()
+          try:
+              d=json.loads(raw)
+          except Exception as e:
+              print(sys.argv[1], "not json:", raw[:200]); sys.exit()
+          ts=d.get("topSongs") if isinstance(d,dict) else None
+          songs = ts if isinstance(ts,list) else (ts or {}).get("songs") if isinstance(ts,dict) else None
+          print(sys.argv[1], "type", type(d).__name__, "keys", list(d.keys())[:20] if isinstance(d,dict) else len(d), "songs", len(songs or []), "total", (ts or {}).get("total") if isinstance(ts,dict) else None)
+          if songs: print("  first", songs[0].get("title"), "| last", songs[-1].get("title"))
+          PY
+          done
+          sid=$(curl -s -A "$ua" "$api&__call=search.getResults&q=kesariya&n=5&p=1" | python3 -c 'import json,sys; d=json.load(sys.stdin); r=d["results"]; print(" ".join(x["id"]+":"+x.get("more_info",{}).get("has_lyrics","?") for x in r))')
+          echo "kesariya ids:has_lyrics $sid"
+          first=$(echo "$sid" | tr ' ' '\n' | head -1 | cut -d: -f1)
+          curl -s -A "$ua" "$api&__call=lyrics.getLyrics&lyrics_id=$first" | head -c 400; echo
+          echo "lyrics.ovh:"; curl -s -m 20 "https://api.lyrics.ovh/v1/Coldplay/Yellow" | head -c 200; echo
+          echo "lrclib q:"; curl -s -m 20 "https://lrclib.net/api/search?q=tum%20hi%20ho%20arijit%20singh" | head -c 300; echo
