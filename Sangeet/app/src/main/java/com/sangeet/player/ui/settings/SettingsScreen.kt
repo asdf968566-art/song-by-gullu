@@ -18,6 +18,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.AllInclusive
@@ -81,6 +82,16 @@ fun SettingsScreen(nav: NavController) {
         }
 
         SettingsGroup("Song languages") { LanguageChooser() }
+
+        // Report #57: pick singers right by the languages; Home shows them first.
+        SettingsGroup("Singers") {
+            SettingsItem(
+                Icons.Rounded.Person,
+                "Favourite singers",
+                s.favoriteSingers.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "Pick the singers you like",
+                onClick = { nav.navigate(Routes.SINGERS) },
+            )
+        }
 
         SettingsGroup("Audio quality") {
             ChoiceRow("Wi-Fi streaming", "Quality on Wi-Fi", qualities, s.wifiQuality, { it.label }) {

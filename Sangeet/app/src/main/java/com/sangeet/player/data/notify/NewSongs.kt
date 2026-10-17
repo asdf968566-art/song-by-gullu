@@ -52,8 +52,9 @@ object NewSongs {
             val firstRun = !prefs.getBoolean("started", false)
             val now = Calendar.getInstance()
             val since = now.get(Calendar.YEAR) - if (now.get(Calendar.MONTH) < 2) 1 else 0
-            val singers = runCatching { c.database.listenDao().topArtists(0L, 8) }.getOrDefault(emptyList())
-                .map { it.artist.substringBefore(",").trim() }.filter { it.isNotBlank() && !it.equals("Unknown", true) }.distinct().take(5)
+            // Favourite singers (Settings) first, then the most played.
+            val singers = (s.favoriteSingers + runCatching { c.database.listenDao().topArtists(0L, 8) }.getOrDefault(emptyList())
+                .map { it.artist.substringBefore(",").trim() }).filter { it.isNotBlank() && !it.equals("Unknown", true) }.distinct().take(5)
             var shown = 0
             for (singer in singers) {
                 val songs = runCatching { c.online.saavn.newSongsBy(singer, since, 6) }.getOrDefault(emptyList())

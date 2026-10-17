@@ -8,6 +8,9 @@ import com.sangeet.player.data.model.Track
 import com.sangeet.player.data.settings.AppSettings
 import javax.crypto.Cipher
 import javax.crypto.spec.SecretKeySpec
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -76,6 +79,84 @@ class JioSaavnSource : OnlineSource {
             .filter { (it.str("year")?.toIntOrNull() ?: 0) >= sinceYear }
             .mapNotNull(::toTrack)
             .take(limit)
+    }
+
+    /** The song's lyrics on JioSaavn (plain text, many Hindi / Punjabi songs have them), or null. */
+    suspend fun lyrics(songId: String): String? {
+        val o = call("lyrics.getLyrics", "lyrics_id" to songId) as? JsonObject ?: return null
+        val text = o.str("lyrics") ?: return null
+        return unescape(text.replace(Regex("(?i)<br\\s*/?>"), "\n").replace(Regex("<[^>]+>"), ""))
+            .lines().joinToString("\n") { it.trim() }.trim().takeIf { it.length > 20 }
+    }
+
+    /**
+     * Lyrics of the same song somewhere on JioSaavn: a search's results that have lyrics (`has_lyrics`; often only
+     * one copy of a song has them), the first one [same] accepts.
+     */
+    suspend fun lyricsFor(query: String, same: (title: String, artists: String, durationMs: Long) -> Boolean): String? {
+        val root = call("search.getResults", "q" to query, "n" to "20", "p" to "1") as? JsonObject ?: return null
+        val items = (root["results"] as? JsonArray)?.mapNotNull { it as? JsonObject } ?: return null
+        for (o in items) {
+            if ((o["more_info"] as? JsonObject)?.str("has_lyrics") != "true") continue
+            val t = toTrack(o) ?: continue
+            if (!same(t.title, t.artist, t.durationMs)) continue
+            lyrics(t.sourceId)?.let { return it }
+        }
+        return null
+    }
+
+    /**
+     * As many of a singer's songs as JioSaavn gives (CI probe, Oct 17: their page has ~32 popular and ~49 latest,
+     * each "more songs" page only ~9 of e.g. Arijit Singh's 4683; a search adds 40 a page). All asked at once,
+     * popular first; a search result counts only when the singer is named in its artists.
+     */
+    suspend fun artistSongs(artist: String, max: Int = 400): List<Track> = coroutineScope {
+        val id = artistId(artist) ?: return@coroutineScope emptyList()
+        fun songsOf(root: JsonElement?): List<Track> {
+            val o = root as? JsonObject ?: return emptyList()
+            val songs = (o["topSongs"] as? JsonArray) ?: ((o["topSongs"] as? JsonObject)?.get("songs") as? JsonArray)
+                ?: (o["songs"] as? JsonArray) ?: return emptyList()
+            return songs.mapNotNull { (it as? JsonObject)?.let(::toTrack) }
+        }
+        fun page(category: String, order: String) = async {
+            runCatching {
+                songsOf(call(
+                    "artist.getArtistPageDetails",
+                    "artistId" to id, "n_song" to "50", "n_album" to "0", "page" to "0", "category" to category, "sort_order" to order,
+                ))
+            }.getOrDefault(emptyList())
+        }
+        val parts = buildList {
+            add(page("", ""))
+            add(page("latest", "desc"))
+            for (p in 1..12) add(async {
+                runCatching {
+                    songsOf(call("artist.getArtistMoreSong", "artistId" to id, "n_song" to "50", "page" to p.toString(), "category" to "", "sort_order" to ""))
+                }.getOrDefault(emptyList())
+            })
+            for (p in 1..4) add(async {
+                runCatching { searchPage(artist, p).filter { it.artist.contains(artist, ignoreCase = true) } }.getOrDefault(emptyList())
+            })
+        }
+        parts.awaitAll().flatten().distinctBy { it.id }.take(max)
+    }
+
+    /** Singers for a search (name and photo), for picking favourite singers. */
+    suspend fun searchArtists(query: String, n: Int = 20): List<Pair<String, String?>> {
+        val found = (call("search.getArtistResults", "q" to query, "n" to n.toString(), "p" to "1") as? JsonObject)
+            ?.get("results") as? JsonArray ?: return emptyList()
+        return found.mapNotNull { it as? JsonObject }.mapNotNull { o ->
+            val name = unescape(o.str("name") ?: o.str("title") ?: return@mapNotNull null)
+            name to o.str("image")?.replace("150x150", "500x500")?.replace("50x50", "500x500")
+        }.distinctBy { it.first.lowercase() }
+    }
+
+    private suspend fun artistId(artist: String): String? {
+        val found = (call("search.getArtistResults", "q" to artist, "n" to "5", "p" to "1") as? JsonObject)
+            ?.get("results") as? JsonArray ?: return null
+        val people = found.mapNotNull { it as? JsonObject }
+        return (people.firstOrNull { unescape(it.str("name") ?: it.str("title") ?: "").equals(artist, ignoreCase = true) } ?: people.firstOrNull())
+            ?.str("id")
     }
 
     /** Albums and movies for a search ("aashiqui 2" -> the film's album, all its songs). */

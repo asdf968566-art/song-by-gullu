@@ -573,6 +573,29 @@ request the owner made, in order.
     replaced by a drag handle ("Hold and drag to move").
   - UI walk: "Now Playing: hold and drag a song in the queue" (`input motionevent`, then reopens the queue to check the
     player's order), "Song menu: Add to playlist twice: added once" (playlist "Walk55"), "Playlist: Sort by Title".
+- **App report #57 of Oct 17** (same tester, build 241: "last update me tune bahut achcha kaam kiya"): more lyrics
+  ("Airlyrics" or a better open source), a singers section under Home's "Made for you" whose tile plays all of a
+  singer's songs in the chosen languages, and a Settings option to pick singers next to the languages. Android only.
+  - "Airlyrics" has no open API that could be found, so: **lyrics** (`data/lyrics/Lyrics.kt`) try LRCLIB with the
+    song's own names, then its clean name + main singer (`SameSong.cleanTitle` / `mainSinger`, for YouTube titles
+    and label channels), then LRCLIB searches (same clean name, length within 8 s, synced first); then
+    **JioSaavn's own lyrics** (`JioSaavnSource.lyrics`, `lyrics.getLyrics` with the song id; often only one copy of a
+    song has them, `more_info.has_lyrics`, so `lyricsFor` searches for a copy that has them: same clean name and a
+    shared singer), then **lyrics.ovh** (keyless, mostly English). Source label "JioSaavn" / "lyrics.ovh"; both are
+    plain (no times). CI probe Oct 17: "Tum Hi Ho" aRZbUYD7 has lyrics, its "(From Aashiqui 2)" copies don't.
+  - **Singers** (`data/Singers.kt`, `container.singers`): `yours()` = `AppSettings.favoriteSingers` (key
+    `favorite_singers`, "|"-joined) then the most played singers (label channels skipped); `popular()` per language;
+    photos from JioSaavn's artist search, kept in SharedPreferences `singer_photos`. `songs(name)` =
+    `JioSaavnSource.artistSongs`, all asked at once: `artist.getArtistPageDetails` (popular ~32, and
+    `category=latest` ~49), `artist.getArtistMoreSong` pages 1–12 (only ~9 songs a page, whatever `n_song` says;
+    Arijit Singh has 4683) and `search.getResults` pages 1–4 (40 each, kept when the singer is named); then only the
+    chosen languages (Pahadi via `LanguageGuess.isPahadi`), one copy of each song (`SameSong`).
+  - Home: "Your singers" (`SingerTile`, round photo + name; popular singers for a new listener), header action Edit →
+    `Routes.SINGERS`. A tap plays all the songs shuffled ("Playing N songs by X"; log "singer: N songs by X").
+  - Settings → Singers → "Favourite singers" right after Song languages (`ui/settings/SingersScreen.kt`): search,
+    "Your singers", "From your listening", "Popular in your languages"; tap to pick or unpick. New song alerts use the
+    picked singers first.
+  - UI walk: "Settings: pick a favourite singer" (Arijit Singh) and "Home: Your singers → plays all their songs".
 - Other platforms checked Oct 9 from CI: Gaana's old open API is gone (404); Wynk, Hungama, Spotify have no open
   streams. JioSaavn + YouTube stay the sources.
 - In-app "Report a problem" got 403 from GitHub. Cause (found Oct 9 from CI: `REPORT_TOKEN fingerprint/account`

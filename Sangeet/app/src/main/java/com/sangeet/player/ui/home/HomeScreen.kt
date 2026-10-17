@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -234,6 +235,29 @@ fun HomeScreen(nav: NavController) {
     val offline = settings.offlineMode || !network.online
     val picks = remember(localSongs) { localSongs.shuffled().take(20) }
     val mixes by c.recommendations.mixes.collectAsStateWithLifecycle()
+    // Report #57: the listener's singers under "Made for you" (picked ones, then the most played; popular ones
+    // for a new listener). A tap plays all the singer's songs in the chosen languages.
+    val singers by androidx.compose.runtime.produceState(emptyList<String>(), settings.favoriteSingers, settings.languages) {
+        value = c.singers.yours().ifEmpty { c.singers.popular().take(12) }
+    }
+    var loadingSinger by remember { mutableStateOf<String?>(null) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val playSinger: (String) -> Unit = { name ->
+        if (loadingSinger == null) {
+            loadingSinger = name
+            c.scope.launch {
+                val songs = c.singers.songs(name)
+                loadingSinger = null
+                android.util.Log.i("Sangeet", "singer: ${songs.size} songs by $name")
+                if (songs.isEmpty()) {
+                    android.widget.Toast.makeText(context, "No songs by $name in your languages", android.widget.Toast.LENGTH_SHORT).show()
+                } else {
+                    c.player.play(songs.shuffled(), 0)
+                    android.widget.Toast.makeText(context, "Playing ${songs.size} songs by $name", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
 
     menuFor?.let { TrackOptionsSheet(it, onDismiss = { menuFor = null }) }
 
@@ -337,6 +361,14 @@ fun HomeScreen(nav: NavController) {
                     items(mixes.distinctBy { it.id }, key = { it.id }) { m ->
                         ShelfCard(m.title, m.subtitle, m.artworkUrl, onClick = { nav.navigate(Routes.mix(m.id)) })
                     }
+                }
+            }
+        }
+        if (!offline && singers.isNotEmpty()) {
+            item(key = "singers_h") { SectionHeader("Your singers", action = "Edit") { nav.navigate(Routes.SINGERS) } }
+            item(key = "singers_row") {
+                LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    items(singers, key = { "sg_$it" }) { name -> SingerTile(name, loading = loadingSinger == name) { playSinger(name) } }
                 }
             }
         }
@@ -448,4 +480,36 @@ private fun greeting(): String = when (Calendar.getInstance().get(Calendar.HOUR_
     in 5..11 -> "Good morning"
     in 12..16 -> "Good afternoon"
     else -> "Good evening"
+}
+
+/** A singer on Home: round photo and name; a tap plays all their songs (report #57). */
+@Composable
+private fun SingerTile(name: String, loading: Boolean, onClick: () -> Unit) {
+    val c = com.sangeet.player.ui.LocalAppContainer.current
+    val spec = Sangeet.spec
+    val photo by androidx.compose.runtime.produceState<String?>(null, name) { value = c.singers.photo(name) }
+    Column(
+        Modifier.width(100.dp).clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
+            com.sangeet.player.ui.components.Artwork(
+                photo,
+                modifier = Modifier.themedCard(spec, androidx.compose.foundation.shape.CircleShape, corner = 50.dp),
+                size = 96.dp,
+                shape = androidx.compose.foundation.shape.CircleShape,
+                seed = name,
+            )
+            if (loading) CircularProgressIndicator(Modifier.size(36.dp), color = androidx.compose.ui.graphics.Color.White, strokeWidth = 3.dp)
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            name,
+            style = MaterialTheme.typography.labelLarge,
+            color = spec.onSurface,
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        )
+    }
 }

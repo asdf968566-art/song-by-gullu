@@ -703,6 +703,52 @@ def main():
     back(2)
     back(2)
 
+    # ---------------------------------------------------------------- report #57: favourite singers
+    # Pick a singer in Settings → Favourite singers; Home's "Your singers" plays all their songs (chosen languages).
+    fresh()
+    go_tab("Home")
+    def pick_singer():
+        if not tap("Settings", wait=3):
+            return False
+        if not tap("Favourite singers", scroll=4, wait=3):
+            back()
+            return False
+        if not tap("Arijit Singh", scroll=3, wait=2):
+            back(2)
+            return False
+        back()
+        time.sleep(1)
+        return True
+    step("Settings: pick a favourite singer", pick_singer,
+         lambda: (find("Arijit Singh", contains=True, scroll=3) is not None, "Settings lists Arijit Singh"))
+    def play_singer():
+        back()
+        go_tab("Home")
+        head = find("Your singers", scroll=4)
+        if not head:
+            return False
+        w, h = screen()
+        if head["y"] > h * 0.5:  # keep the row above the floating tab bar
+            sh(f"input swipe {w // 2} {int(h * 0.6)} {w // 2} {int(h * 0.3)} 500")
+            time.sleep(2)
+            head = find("Your singers") or head
+        tiles = [n for n in nodes(dump()) if n["text"] == "Arijit Singh" and head["y"] < n["y"] < head["y"] + 700]
+        if not tiles:
+            return False
+        sh(f"input tap {tiles[0]['x']} {tiles[0]['y']}")
+        for _ in range(30):
+            if "singer:" in adb("logcat", "-d"):
+                break
+            time.sleep(2)
+        time.sleep(6)
+        return True
+    def singer_played():
+        log = [l for l in adb("logcat", "-d").splitlines() if "singer:" in l]
+        m = re.search(r"singer: (\d+) songs by", log[-1]) if log else None
+        n = int(m.group(1)) if m else 0
+        return n >= 40 and playing(), (log[-1].split(": ", 1)[-1] if log else "no log line") + f"; playing={playing()}"
+    step("Home: Your singers → plays all their songs", play_singer, singer_played)
+
     # ---------------------------------------------------------------- themes: Liquid Glass on every page
     def shot(name):
         path = f"out/theme-{name}.png"

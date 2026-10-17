@@ -62,6 +62,21 @@
         "on": "android",
         "type": "fix",
         "text": "Same song added twice to a playlist"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "More songs with lyrics"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Your singers on Home"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Pick your favourite singers"
       }
     ]
   },

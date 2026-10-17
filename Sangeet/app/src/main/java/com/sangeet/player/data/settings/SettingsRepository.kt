@@ -92,6 +92,8 @@ data class AppSettings(
     val youtubeApiKey: String = BuildConfig.YOUTUBE_API_KEY,
     /** Pasandida bhashayein, jaise hindi, punjabi. Trending aur suggestions inhi se. */
     val languages: List<String> = listOf("hindi", "punjabi"),
+    /** Singers the listener picked (Settings → Favourite singers), shown first on Home (report #57). */
+    val favoriteSingers: List<String> = emptyList(),
     /** App update ke liye read-only GitHub token (private repo). */
     val githubToken: String = "",
     /** Optional Anthropic API key for the AI DJ (Claude). Empty = built-in DJ. */
@@ -142,6 +144,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val youtubeEnabled = booleanPreferencesKey("youtube_enabled")
         val youtubeApiKey = stringPreferencesKey("youtube_api_key")
         val languages = stringPreferencesKey("languages")
+        val favoriteSingers = stringPreferencesKey("favorite_singers")
         val githubToken = stringPreferencesKey("github_token")
         val anthropicApiKey = stringPreferencesKey("anthropic_api_key")
         val freeAi = booleanPreferencesKey("free_ai")
@@ -187,6 +190,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             youtubeApiKey = p[Keys.youtubeApiKey] ?: d.youtubeApiKey,
             languages = p[Keys.languages]?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }
                 ?.takeIf { it.isNotEmpty() } ?: d.languages,
+            favoriteSingers = p[Keys.favoriteSingers]?.split('|')?.map { it.trim() }?.filter { it.isNotEmpty() } ?: d.favoriteSingers,
             githubToken = p[Keys.githubToken] ?: d.githubToken,
             anthropicApiKey = p[Keys.anthropicApiKey] ?: d.anthropicApiKey,
             freeAi = p[Keys.freeAi] ?: d.freeAi,
@@ -229,6 +233,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     suspend fun setYouTubeEnabled(v: Boolean) = context.dataStore.edit { it[Keys.youtubeEnabled] = v }
     suspend fun setYouTubeApiKey(v: String) = context.dataStore.edit { it[Keys.youtubeApiKey] = v.trim() }
     suspend fun setLanguages(v: List<String>) = context.dataStore.edit { it[Keys.languages] = v.joinToString(",") }
+    suspend fun setFavoriteSingers(v: List<String>) = context.dataStore.edit { it[Keys.favoriteSingers] = v.distinct().joinToString("|") }
     suspend fun setAnthropicApiKey(v: String) = context.dataStore.edit { it[Keys.anthropicApiKey] = v.trim() }
     suspend fun setFreeAi(v: Boolean) = context.dataStore.edit { it[Keys.freeAi] = v }
     suspend fun setGeminiApiKey(v: String) = context.dataStore.edit { it[Keys.geminiApiKey] = v.trim() }

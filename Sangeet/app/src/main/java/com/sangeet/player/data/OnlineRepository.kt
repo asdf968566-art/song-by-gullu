@@ -41,6 +41,7 @@ class OnlineRepository(
     val youtubeKey: String get() = settings.current.youtubeApiKey.trim()
 
     val offlineMode: Boolean get() = settings.current.offlineMode
+    val jiosaavnOn: Boolean get() = settings.current.jiosaavnEnabled
 
     val canGoOnline: Boolean
         get() = !settings.current.offlineMode && network.status.value.online
