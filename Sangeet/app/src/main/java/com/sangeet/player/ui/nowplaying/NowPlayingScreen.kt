@@ -73,8 +73,10 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import com.sangeet.player.ui.theme.neonGlass
-import com.sangeet.player.ui.theme.neonCircle
+import com.sangeet.player.ui.theme.glassCircle
+import com.sangeet.player.ui.theme.glassEverywhere
+import com.sangeet.player.ui.theme.glassInk
+import com.sangeet.player.ui.theme.glassPanel
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
@@ -187,8 +189,10 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
 
     val textColor = if (spec.isDark) Color.White else spec.onSurface
     val muted = textColor.copy(alpha = 0.7f)
-    val glassy = spec.style in setOf(ThemeStyle.GLASS, ThemeStyle.AURORA, ThemeStyle.NEUMORPHISM, ThemeStyle.CRYSTAL, ThemeStyle.NEON)
+    val glassy = spec.style in setOf(ThemeStyle.GLASS, ThemeStyle.AURORA, ThemeStyle.NEUMORPHISM, ThemeStyle.CRYSTAL, ThemeStyle.NEON, ThemeStyle.LIQUID_GLASS)
     val neon = spec.style == ThemeStyle.NEON
+    // Neon Glass's glass heart, tools, Up Next card and sound bars; Liquid Glass has them too (report #51).
+    val glassAll = spec.glassEverywhere
     val quality = c.online.streamingQuality()
     val qualityText = when {
         downloads[track.id]?.filePath != null -> "Downloaded • ${downloads[track.id]?.quality?.label}"
@@ -257,10 +261,10 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                         Toast.makeText(context, "No video for this song", Toast.LENGTH_SHORT).show()
                     }
                 } else {
-                    val coverShape = RoundedCornerShape(if (neon) 26.dp else 10.dp)
+                    val coverShape = RoundedCornerShape(if (glassAll) 26.dp else 10.dp)
                     Box(Modifier.fillMaxWidth()) {
                         // Neon Glass (the reel's Now Playing): sound bars beside the cover, moving while it plays.
-                        if (neon) NeonBars(state.isPlaying, Modifier.matchParentSize())
+                        if (glassAll) NeonBars(state.isPlaying, Modifier.matchParentSize())
                         Artwork(
                             track.artworkUrl,
                             modifier = Modifier
@@ -272,12 +276,16 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                                     if (neon) Modifier
                                         .shadow(28.dp, coverShape, ambientColor = spec.neonColors.fill[1], spotColor = spec.neonColors.accent)
                                         .border(1.5.dp, Brush.linearGradient(listOf(Color.White.copy(alpha = 0.7f), Color.White.copy(alpha = 0.1f), Color.White.copy(alpha = 0.4f))), coverShape)
+                                    // Liquid Glass: the cover floats on a soft shadow with the glass rim.
+                                    else if (glassAll) Modifier
+                                        .shadow(20.dp, coverShape, ambientColor = Color.Black.copy(alpha = 0.25f), spotColor = Color.Black.copy(alpha = 0.35f))
+                                        .border(1.5.dp, Brush.linearGradient(listOf(Color.White.copy(alpha = 0.8f), Color.White.copy(alpha = 0.1f), Color.White.copy(alpha = 0.5f))), coverShape)
                                     else Modifier
                                 ),
                             shape = coverShape,
                             seed = track.title,
                         )
-                        if (neon) {
+                        if (glassAll) {
                             // A round glass heart on the cover's corner.
                             val liked = track.id in favorites
                             Box(
@@ -285,14 +293,14 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                                     .align(Alignment.TopEnd)
                                     .padding(top = 12.dp, end = 40.dp)
                                     .size(40.dp)
-                                    .neonCircle()
+                                    .glassCircle(spec)
                                     .clickable { scope.launch { c.library.toggleFavorite(track) } },
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Icon(
                                     if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                                     "Like",
-                                    tint = if (liked) spec.accent else Color.White,
+                                    tint = if (liked) spec.accent else glassInk(spec),
                                     modifier = Modifier.size(22.dp),
                                 )
                             }
@@ -335,7 +343,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                 },
                 colors = SliderDefaults.colors(
                     thumbColor = textColor,
-                    activeTrackColor = if (neon) spec.accent else textColor,
+                    activeTrackColor = if (glassAll) spec.accent else textColor,
                     inactiveTrackColor = textColor.copy(alpha = 0.25f),
                 ),
                 modifier = Modifier.padding(horizontal = 16.dp),
@@ -413,8 +421,8 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                             .padding(horizontal = 10.dp, vertical = 4.dp),
                     )
                 }
-                // Neon Glass: the tools are round glass buttons.
-                val tool = if (neon) Modifier.padding(horizontal = 3.dp).size(40.dp).neonCircle() else Modifier
+                // Neon / Liquid Glass: the tools are round glass buttons.
+                val tool = if (glassAll) Modifier.padding(horizontal = 3.dp).size(40.dp).glassCircle(spec) else Modifier
                 IconButton(onClick = { showSpeed = true }, modifier = tool) {
                     Icon(Icons.Rounded.Speed, "Speed", tint = if (settings.playbackSpeed != 1f) spec.accent else textColor)
                 }
@@ -426,12 +434,12 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
 
             // Neon Glass (the reel's "Up Next"): the next song on a glass card; tap it to play it, See all for the queue.
             val next = state.queue.getOrNull(state.queueIndex + 1)
-            if (neon && !lyricsFull && next != null) {
+            if (glassAll && !lyricsFull && next != null) {
                 Column(
                     Modifier
                         .padding(start = 16.dp, end = 16.dp, top = 14.dp)
                         .fillMaxWidth()
-                        .neonGlass(RoundedCornerShape(20.dp))
+                        .glassPanel(spec, RoundedCornerShape(20.dp))
                         .padding(12.dp),
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -551,11 +559,12 @@ private suspend fun dominantColor(context: android.content.Context, url: String?
     }
 }
 
-/** Neon Glass: thin sound bars in the margins beside the cover, moving while the song plays. */
+/** Neon / Liquid Glass: thin sound bars in the margins beside the cover, moving while the song plays. */
 @Composable
 private fun NeonBars(playing: Boolean, modifier: Modifier) {
     val spec = Sangeet.spec
-    val colors = listOf(spec.neonColors.accent.copy(alpha = 0.85f), spec.neonColors.fill[0].copy(alpha = 0.6f))
+    val colors = if (spec.style == ThemeStyle.NEON) listOf(spec.neonColors.accent.copy(alpha = 0.85f), spec.neonColors.fill[0].copy(alpha = 0.6f))
+    else listOf(spec.accent.copy(alpha = 0.85f), spec.accent.copy(alpha = 0.4f))
     val phase = rememberInfiniteTransition(label = "bars").animateFloat(
         0f, (2 * Math.PI).toFloat(), infiniteRepeatable(tween(1400, easing = LinearEasing)), label = "phase",
     )

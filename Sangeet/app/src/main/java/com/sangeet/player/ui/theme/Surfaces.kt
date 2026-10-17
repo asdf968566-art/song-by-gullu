@@ -50,6 +50,7 @@ fun ThemedBackground(modifier: Modifier = Modifier, content: @Composable BoxScop
                     ThemeStyle.GLASS -> Modifier.glassBackdrop(spec)
                     ThemeStyle.CRYSTAL -> Modifier.glassBackdrop(spec)
                     ThemeStyle.NEON -> Modifier.neonBackdrop(spec.neonColors)
+                    ThemeStyle.LIQUID_GLASS -> Modifier.liquidBackdrop(spec)
                     ThemeStyle.SPOTIFY -> Modifier.background(
                         Brush.verticalGradient(
                             0f to spec.accent.copy(alpha = if (spec.isDark) 0.22f else 0.12f),
@@ -160,6 +161,71 @@ private fun Modifier.neonBackdrop(p: NeonPalette): Modifier = this
 val ThemeSpec.neonColors: NeonPalette get() = neon ?: NeonPalette.from(accent)
 
 /**
+ * Liquid Glass: soft glows of the accent and two neighbouring colors under the page, so the glass rows and cards
+ * have something to show through them (like the wallpaper behind iOS glass).
+ */
+private fun Modifier.liquidBackdrop(spec: ThemeSpec): Modifier {
+    val parts = FloatArray(3)
+    android.graphics.Color.colorToHSV(spec.accent.toArgb(), parts)
+    fun hue(shift: Float, alpha: Float) = Color(
+        android.graphics.Color.HSVToColor(floatArrayOf((((parts[0] + shift) % 360f) + 360f) % 360f, 0.55f, 1f))
+    ).copy(alpha = alpha)
+    val a = if (spec.isDark) 0.30f else 0.22f
+    val glows = listOf(spec.accent.copy(alpha = a), hue(45f, a * 0.8f), hue(-50f, a * 0.7f))
+    return drawBehind {
+        val w = size.width
+        val h = size.height
+        val spots = listOf(Offset(w * 0.95f, h * 0.08f) to w * 0.75f, Offset(w * 0.0f, h * 0.48f) to w * 0.7f, Offset(w * 0.9f, h * 0.9f) to w * 0.8f)
+        spots.zip(glows).forEach { (spot, col) ->
+            val (c, r) = spot
+            drawCircle(Brush.radialGradient(listOf(col, Color.Transparent), c, r), r, c)
+        }
+    }
+}
+
+/**
+ * Neon Glass and Liquid Glass put every song row, card, tile and tool on glass (report #51: "jo neon glass theme
+ * ka effect hai … same liquid glass theme ke liye bhi kar de").
+ */
+val ThemeSpec.glassEverywhere: Boolean get() = style == ThemeStyle.NEON || style == ThemeStyle.LIQUID_GLASS
+
+/**
+ * Liquid Glass on the page itself (rows, cards): a frosted pane, cool white in light mode and graphite in dark,
+ * with a sheen over its top half and the bright rim of the floating glass. [strong] = less see-through (buttons).
+ */
+fun Modifier.liquidPane(spec: ThemeSpec, shape: Shape, strong: Boolean = false): Modifier = this
+    .then(
+        if (spec.isDark) Modifier
+        else Modifier.shadow(3.dp, shape, ambientColor = Color.Black.copy(alpha = 0.08f), spotColor = Color.Black.copy(alpha = 0.14f))
+    )
+    .clip(shape)
+    .background((if (spec.isDark) Color(0xFF2C2C2E) else Color(0xFFF7F9FC)).copy(alpha = if (strong) 0.78f else if (spec.isDark) 0.52f else 0.6f))
+    .background(Brush.verticalGradient(0f to Color.White.copy(alpha = if (spec.isDark) 0.08f else 0.5f), 0.5f to Color.Transparent))
+    .then(if (spec.isDark) Modifier else Modifier.border(1.dp, Color.Black.copy(alpha = 0.08f), shape))
+    .border(
+        1.dp,
+        Brush.linearGradient(
+            listOf(
+                Color.White.copy(alpha = if (spec.isDark) 0.5f else 1f),
+                Color.White.copy(alpha = if (spec.isDark) 0.04f else 0.15f),
+                Color.White.copy(alpha = if (spec.isDark) 0.25f else 0.85f),
+            )
+        ),
+        shape,
+    )
+
+/** This theme's glass panel: Neon's tinted glass or Liquid Glass's frosted pane. */
+fun Modifier.glassPanel(spec: ThemeSpec, shape: Shape): Modifier =
+    if (spec.style == ThemeStyle.NEON) neonGlass(shape) else liquidPane(spec, shape)
+
+/** This theme's round glass button (play in rows, the heart on the cover, Now Playing's tools…). */
+fun Modifier.glassCircle(spec: ThemeSpec): Modifier =
+    if (spec.style == ThemeStyle.NEON) neonCircle() else liquidPane(spec, CircleShape, strong = true)
+
+/** Icons and names on this theme's glass: white on Neon's dark glass, the page's text color on Liquid Glass. */
+fun glassInk(spec: ThemeSpec): Color = if (spec.style == ThemeStyle.NEON) Color.White else spec.onSurface
+
+/**
  * A Neon Glass panel: see-through and lighter at the top left, a soft shine over its upper half, and a bright
  * edge where the light catches it (top left) fading round the sides.
  */
@@ -223,10 +289,8 @@ fun Modifier.themedCard(
         .background(spec.surface)
         .border(1.dp, if (spec.isDark) Color.White.copy(alpha = 0.3f) else Color.Black.copy(alpha = 0.12f), shape)
     ThemeStyle.NEON -> this.neonGlass(shape)
-    // Liquid Glass keeps content plain (glass is only for the controls floating above it).
-    ThemeStyle.LIQUID_GLASS -> this
-        .clip(shape)
-        .background(spec.surface)
+    // Liquid Glass: cards are glass too, like Neon Glass (report #51).
+    ThemeStyle.LIQUID_GLASS -> this.liquidPane(spec, shape)
     else -> this
         .clip(shape)
         .background(spec.surface)

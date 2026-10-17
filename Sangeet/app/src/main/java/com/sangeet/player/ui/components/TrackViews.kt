@@ -53,9 +53,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalConfiguration
 import com.sangeet.player.data.settings.ThemeStyle
-import com.sangeet.player.ui.theme.neonCircle
+import com.sangeet.player.ui.theme.glassCircle
+import com.sangeet.player.ui.theme.glassEverywhere
+import com.sangeet.player.ui.theme.glassInk
+import com.sangeet.player.ui.theme.glassPanel
 import com.sangeet.player.ui.theme.neonColors
-import com.sangeet.player.ui.theme.neonGlass
+import com.sangeet.player.ui.theme.playButtonStyle
+import com.sangeet.player.ui.theme.playIconColor
 import kotlinx.coroutines.launch
 
 fun formatDuration(ms: Long): String {
@@ -82,8 +86,8 @@ fun TrackRow(
     val isCurrent = playing.current?.id == track.id
     val spec = Sangeet.spec
     val dl = downloads[track.id]
-    if (spec.style == ThemeStyle.NEON) {
-        NeonTrackRow(track, onClick, modifier, index, onMore, isCurrent, isCurrent && playing.isPlaying, dl?.state)
+    if (spec.glassEverywhere) {
+        GlassTrackRow(track, onClick, modifier, index, onMore, isCurrent, isCurrent && playing.isPlaying, dl?.state)
         return
     }
 
@@ -141,11 +145,11 @@ fun TrackRow(
 }
 
 /**
- * Neon Glass song row (the reel's "Recommended for you" / "Trending Now"): a glass card with the cover, the
- * names, a heart and a round glass play button.
+ * Neon Glass / Liquid Glass song row (the reel's "Recommended for you" / "Trending Now"): a glass card with the
+ * cover, the names, a heart and a round glass play button.
  */
 @Composable
-private fun NeonTrackRow(
+private fun GlassTrackRow(
     track: Track,
     onClick: () -> Unit,
     modifier: Modifier,
@@ -164,7 +168,7 @@ private fun NeonTrackRow(
         modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 4.dp)
-            .neonGlass(RoundedCornerShape(18.dp))
+            .glassPanel(spec, RoundedCornerShape(18.dp))
             .clickable(onClick = onClick)
             .padding(start = 8.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -207,11 +211,11 @@ private fun NeonTrackRow(
             Modifier
                 .padding(horizontal = 2.dp)
                 .size(34.dp)
-                .neonCircle()
+                .glassCircle(spec)
                 .clickable { if (isCurrent) c.player.togglePlay() else onClick() },
             contentAlignment = Alignment.Center,
         ) {
-            Icon(if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, if (isPlaying) "Pause" else "Play", tint = Color.White, modifier = Modifier.size(20.dp))
+            Icon(if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, if (isPlaying) "Pause" else "Play", tint = glassInk(spec), modifier = Modifier.size(20.dp))
         }
         if (onMore != null) {
             IconButton(onClick = onMore, modifier = Modifier.size(38.dp)) {
@@ -283,12 +287,12 @@ fun ShelfCard(
     circle: Boolean = false,
 ) {
     val spec = Sangeet.spec
-    if (spec.style == ThemeStyle.NEON) {
-        // Neon Glass (the reel's "Recently Played"): a glass card, the cover with a round glass play button on it.
+    if (spec.glassEverywhere) {
+        // Neon / Liquid Glass (the reel's "Recently Played"): a glass card, the cover with a round glass play button on it.
         Column(
             Modifier
                 .width(150.dp)
-                .neonGlass(RoundedCornerShape(20.dp))
+                .glassPanel(spec, RoundedCornerShape(20.dp))
                 .combinedClickableCompat(onClick, onLongClick)
                 .padding(8.dp)
         ) {
@@ -301,9 +305,9 @@ fun ShelfCard(
                 )
                 if (!circle) {
                     Box(
-                        Modifier.align(Alignment.BottomEnd).padding(6.dp).size(32.dp).neonCircle(),
+                        Modifier.align(Alignment.BottomEnd).padding(6.dp).size(32.dp).glassCircle(spec),
                         contentAlignment = Alignment.Center,
-                    ) { Icon(Icons.Rounded.PlayArrow, null, tint = Color.White, modifier = Modifier.size(20.dp)) }
+                    ) { Icon(Icons.Rounded.PlayArrow, null, tint = glassInk(spec), modifier = Modifier.size(20.dp)) }
                 }
             }
             Spacer(Modifier.height(8.dp))
@@ -350,7 +354,7 @@ fun ShelfCard(
 @Composable
 fun QuickTile(title: String, artwork: String?, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val spec = Sangeet.spec
-    val r = if (spec.style == ThemeStyle.NEON) 16.dp else 6.dp
+    val r = if (spec.glassEverywhere) 16.dp else 6.dp
     Row(
         modifier
             .height(56.dp)
@@ -371,19 +375,23 @@ fun QuickTile(title: String, artwork: String?, onClick: () -> Unit, modifier: Mo
 }
 
 /**
- * Neon Glass's big card at the top of Home (the reel's "Good Vibes Only"): the names and a Play now button on
- * glass, with the cover on the right fading into it.
+ * Neon / Liquid Glass's big card at the top of Home (the reel's "Good Vibes Only"): the names and a Play now
+ * button on glass, with the cover on the right fading into it.
  */
 @Composable
 fun NeonHero(title: String, subtitle: String, artwork: String?, onPlay: () -> Unit, onOpen: () -> Unit) {
     val spec = Sangeet.spec
-    val page = spec.neonColors.page
+    val neon = spec.style == ThemeStyle.NEON
+    // Neon fades the cover into its deep blue-violet; Liquid Glass into its own frosted white / graphite.
+    val fade = if (neon) spec.neonColors.page[1] else if (spec.isDark) Color(0xFF1C1C1E) else Color(0xFFF7F9FC)
+    val ink = if (neon) Color.White else spec.onSurface
+    val buttonInk = if (neon) spec.neonColors.page[2] else playIconColor(spec)
     Box(
         Modifier
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .fillMaxWidth()
             .height(164.dp)
-            .neonGlass(RoundedCornerShape(26.dp))
+            .glassPanel(spec, RoundedCornerShape(26.dp))
             .clickable(onClick = onOpen)
     ) {
         Artwork(
@@ -394,25 +402,27 @@ fun NeonHero(title: String, subtitle: String, artwork: String?, onPlay: () -> Un
         )
         Box(
             Modifier.matchParentSize().background(
-                Brush.horizontalGradient(0f to page[1].copy(alpha = 0.92f), 0.45f to page[1].copy(alpha = 0.7f), 0.8f to Color.Transparent)
+                Brush.horizontalGradient(0f to fade.copy(alpha = 0.92f), 0.45f to fade.copy(alpha = 0.7f), 0.8f to Color.Transparent)
             )
         )
         Column(Modifier.align(Alignment.CenterStart).fillMaxWidth(0.66f).padding(18.dp)) {
-            Text(title, style = MaterialTheme.typography.headlineSmall, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(title, style = MaterialTheme.typography.headlineSmall, color = ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(4.dp))
             Text(subtitle, style = MaterialTheme.typography.bodySmall, color = spec.muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(12.dp))
             Row(
                 Modifier
-                    .clip(RoundedCornerShape(50))
-                    .background(Color.White.copy(alpha = 0.9f))
+                    .then(
+                        if (neon) Modifier.clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.9f))
+                        else Modifier.playButtonStyle(spec, 34.dp)
+                    )
                     .clickable(onClick = onPlay)
                     .padding(start = 10.dp, end = 14.dp, top = 7.dp, bottom = 7.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Rounded.PlayArrow, null, tint = page[2], modifier = Modifier.size(20.dp))
+                Icon(Icons.Rounded.PlayArrow, null, tint = buttonInk, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(4.dp))
-                Text("Play now", style = MaterialTheme.typography.labelLarge, color = page[2])
+                Text("Play now", style = MaterialTheme.typography.labelLarge, color = buttonInk)
             }
         }
     }

@@ -299,6 +299,16 @@ class PlayerConnection(
         }
     }
 
+    /** Puts [tracks] right after the song [id] in the queue, in this order (For You's "more like this"). */
+    fun insertAfter(id: String, tracks: List<Track>) = scope.launch {
+        if (tracks.isEmpty()) return@launch
+        library.remember(tracks)
+        withController { c ->
+            val at = (0 until c.mediaItemCount).firstOrNull { c.getMediaItemAt(it).mediaId == id } ?: return@withController
+            c.addMediaItems(at + 1, tracks.map(MediaItems::fromTrack))
+        }
+    }
+
     /** Puts [tracks] into the songs still to come, taking turns with them: the AI DJ's late picks. */
     fun mixIntoQueue(tracks: List<Track>) = scope.launch {
         if (tracks.isEmpty()) return@launch

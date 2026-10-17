@@ -210,6 +210,7 @@ class JioSaavnSource : OnlineSource {
             artworkUrl = o.str("image")?.replace("150x150", "500x500")?.replace("50x50", "500x500"),
             streamUrl = media + if (has320) HAS_320 else "",
             language = (o.str("language") ?: info.str("language") ?: "").lowercase(),
+            year = (o.str("year") ?: info.str("year"))?.toIntOrNull() ?: 0,
         )
     }
 

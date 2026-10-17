@@ -141,6 +141,99 @@ class RecommendationRepository(
         fresh.ifEmpty { rank(p, pool, seed, exclude + p.recentIds, preferNew = false) }.take(limit).map { it.track }
     }
 
+    /**
+     * "More like this" for the For You feed (report #51: "jo song play ho uske jaise song chalne chahiye … 90s ka koi
+     * song chalaya toh 90s ke usi genre ke"): the same singer's songs, and songs like it from JioSaavn's and YouTube
+     * Music's own lists of what its listeners play next, from the same years and in its language. Every other song
+     * is the singer's own, so the singer keeps coming back.
+     */
+    suspend fun likeThis(seed: Track, exclude: Set<String>, limit: Int = 6): List<Track> = withContext(Dispatchers.Default) {
+        val singer = mainSinger(seed.artist)
+        val canOnline = online.canGoOnline
+        val saavnOn = canOnline && settings.current.jiosaavnEnabled
+        val ytOn = canOnline && settings.current.youtubeEnabled
+        val bg = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        // A YouTube song's JioSaavn twin gives its year and JioSaavn's "similar" list.
+        val twin = if (seed.source != SourceType.JIOSAAVN && saavnOn) bg.async {
+            runCatching { online.saavn.search("${seed.title} ${singer.orEmpty()}".trim(), settings.current) }.getOrDefault(emptyList())
+                .firstOrNull { norm(it.title) == norm(seed.title) && (singer == null || artistMatch(it.artist, singer)) }
+        } else null
+        val bySinger = if (singer != null && canOnline) bg.async {
+            runCatching { online.search(singer) }.getOrDefault(emptyList()).flatMap { it.tracks }.filter { artistMatch(it.artist, singer) }
+        } else null
+        val bySingerDeep = if (singer != null && saavnOn) bg.async {
+            runCatching { online.saavn.searchPage(singer, Random.nextInt(2, 4)) }.getOrDefault(emptyList()).filter { artistMatch(it.artist, singer) }
+        } else null
+        val ytSimilar = if (ytOn) bg.async {
+            runCatching {
+                val vid = if (seed.source == SourceType.YOUTUBE) seed.sourceId else online.youtube.find(seed.title, seed.artist)?.sourceId
+                if (vid == null) emptyList() else online.youtube.similar(vid)
+            }.getOrDefault(emptyList())
+        } else null
+
+        val deadline = System.currentTimeMillis() + 9_000
+        suspend fun <T> Deferred<T>.orSkip(): T? =
+            withTimeoutOrNull((deadline - System.currentTimeMillis()).coerceAtLeast(1)) { await() } ?: run { cancel(); null }
+
+        val saavnSeed = if (seed.source == SourceType.JIOSAAVN) seed else twin?.orSkip()
+        val saavnSimilar = if (saavnOn && saavnSeed != null) bg.async {
+            runCatching { online.saavn.similar(saavnSeed.sourceId) }.getOrDefault(emptyList())
+        } else null
+        val year = seed.year.takeIf { it > 0 } ?: saavnSeed?.year ?: 0
+        val seedLang = seed.language.ifBlank { saavnSeed?.language.orEmpty() }
+            .ifBlank { com.sangeet.player.data.remote.LanguageGuess.guess(seed.title, seed.artist) }
+        val langs = (settings.current.languages + listOfNotNull(seedLang.takeIf { it.isNotBlank() })).distinct()
+
+        val found = buildList {
+            addAll(saavnSimilar?.orSkip().orEmpty())
+            addAll(ytSimilar?.orSkip().orEmpty())
+            addAll(bySinger?.orSkip().orEmpty())
+            addAll(bySingerDeep?.orSkip().orEmpty())
+            if (singer != null) {
+                addAll(local.songs.value.filter { artistMatch(it.artist, singer) })
+                if (seedLang.isNotBlank()) addAll(catalog.songs(seedLang).filter { artistMatch(it.artist, singer) })
+            }
+        }
+        val skip = exclude + seenIds() + dislikedIds() + seed.id
+        val rnd = Random(System.nanoTime())
+        // Same years count most: a 90s song brings 90s songs, a new one new songs.
+        fun era(t: Track): Double {
+            if (year == 0 || t.year == 0) return 0.0
+            val d = kotlin.math.abs(t.year - year)
+            return when { d <= 4 -> 2.0; d <= 8 -> 1.0; d <= 14 -> 0.0; else -> -2.5 }
+        }
+        val ranked = found
+            .filter { it.id !in skip && it.inLanguages(langs) && norm(it.title) != norm(seed.title) }
+            .distinctBy { norm(it.title) }
+            .map { t ->
+                var score = era(t) + rnd.nextDouble() * 1.2
+                if (seedLang.isNotBlank() && t.language == seedLang) score += 0.8
+                score -= minOf(artistDislikes(t.artist), 4) * 0.8
+                t to score
+            }
+            .sortedByDescending { it.second }
+            .map { it.first }
+        val mine = if (singer == null) emptyList() else ranked.filter { artistMatch(it.artist, singer) }
+        val like = ranked.filter { singer == null || !artistMatch(it.artist, singer) }
+        buildList {
+            val a = mine.iterator()
+            val b = like.iterator()
+            while (size < limit && (a.hasNext() || b.hasNext())) {
+                if (a.hasNext()) add(a.next())
+                if (size < limit && b.hasNext()) add(b.next())
+            }
+        }
+    }
+
+    /** The singer to follow: the first name of the song's singers, not a music label's channel. */
+    private fun mainSinger(artist: String): String? {
+        val first = artist.replace(Regex("(?i)\\s*-\\s*topic$|vevo$|\\s+official$"), "")
+            .split(',', '&', '/', '|').map { it.trim() }.firstOrNull { it.isNotBlank() } ?: return null
+        val n = norm(first)
+        if (n.isBlank() || n == "unknown" || n == "unknown artist" || LABELS.any { n.contains(it) }) return null
+        return first
+    }
+
     suspend fun refreshMixes(force: Boolean = false): List<Mix> = mixLock.withLock {
         val fresh = System.currentTimeMillis() - mixesAt < 30 * 60_000L
         if (!force && fresh && _mixes.value.isNotEmpty()) return@withLock _mixes.value
@@ -348,6 +441,11 @@ class RecommendationRepository(
                 val lang = s.track.language
                 if (lang.isNotBlank()) score += if (lang in topLangs) 1.2 else -0.6
                 if (seed != null && lang.isNotBlank() && lang == seed.language) score += 0.8
+                // Radio keeps the song's time too (report #51), when both years are known.
+                if (seed != null && seed.year > 0 && s.track.year > 0) {
+                    val d = kotlin.math.abs(s.track.year - seed.year)
+                    score += if (d <= 5) 0.8 else if (d > 15) -0.8 else 0.0
+                }
                 score += rnd.nextDouble() * 2.5
                 s to score
             }
@@ -463,5 +561,12 @@ class RecommendationRepository(
     companion object {
         private const val KEY_LAST_SYNC = "last_sync"
         private const val MAX_SEEN = 20_000
+        /** YouTube channels of music labels: their name is not a singer. */
+        private val LABELS = listOf(
+            "t series", "zee music", "sony music", "saregama", "tips", "speed records", "desi music factory",
+            "white hill", "yrf", "eros", "venus", "shemaroo", "times music", "geet mp3", "vyrl", "jjust music",
+            "panj aab", "lokdhun", "aditya music", "lahari", "think music", "ultra", "worldwide records", "records",
+            "music company", "music india",
+        )
     }
 }
