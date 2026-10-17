@@ -14,37 +14,34 @@ jobs:
         run: |
           api='https://www.jiosaavn.com/api.php?_format=json&_marker=0&api_version=4&ctx=web6dot0'
           ua='Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/124 Mobile Safari/537.36'
-          id=$(curl -s -A "$ua" "$api&__call=search.getArtistResults&q=Arijit%20Singh&n=3&p=1" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["results"][0]["id"])')
-          echo "artist id $id"
-          for page in 0 1 2; do
-            curl -s -A "$ua" "$api&__call=artist.getArtistPageDetails&artistId=$id&n_song=50&n_album=0&page=$page&category=&sort_order=" > p$page.json
-            python3 - p$page.json <<'PY'
-          import json,sys
-          d=json.load(open(sys.argv[1]))
-          ts=d.get("topSongs")
-          songs = ts if isinstance(ts,list) else (ts or {}).get("songs") if isinstance(ts,dict) else None
-          print(sys.argv[1], "keys", list(d.keys())[:20], "topSongs type", type(ts).__name__, "songs", len(songs or []), "total", (ts or {}).get("total") if isinstance(ts,dict) else None)
-          if songs: print("  first", songs[0].get("title"), "| last", songs[-1].get("title"))
-          PY
-          done
-          for page in 1 2 3; do
-            curl -s -A "$ua" "$api&__call=artist.getArtistMoreSong&artistId=$id&n_song=50&page=$page&category=&sort_order=" > m$page.json
-            python3 - m$page.json <<'PY'
+          id=459320
+          cat > show.py <<'PY'
           import json,sys
           raw=open(sys.argv[1]).read()
-          try:
-              d=json.loads(raw)
-          except Exception as e:
-              print(sys.argv[1], "not json:", raw[:200]); sys.exit()
+          try: d=json.loads(raw)
+          except Exception: print(sys.argv[1], "not json:", raw[:150]); sys.exit()
           ts=d.get("topSongs") if isinstance(d,dict) else None
-          songs = ts if isinstance(ts,list) else (ts or {}).get("songs") if isinstance(ts,dict) else None
-          print(sys.argv[1], "type", type(d).__name__, "keys", list(d.keys())[:20] if isinstance(d,dict) else len(d), "songs", len(songs or []), "total", (ts or {}).get("total") if isinstance(ts,dict) else None)
-          if songs: print("  first", songs[0].get("title"), "| last", songs[-1].get("title"))
+          songs = ts if isinstance(ts,list) else (ts or {}).get("songs") if isinstance(ts,dict) else (d.get("results") if isinstance(d,dict) else None)
+          songs = songs or []
+          enc = sum(1 for s in songs if (s.get("more_info") or {}).get("encrypted_media_url"))
+          print(sys.argv[1], "songs", len(songs), "with media", enc, "total", (ts or {}).get("total") if isinstance(ts,dict) else d.get("total") if isinstance(d,dict) else None)
+          if songs:
+              s=songs[0]; print("  keys", sorted(s.keys())[:30]); print("  more_info keys", sorted((s.get("more_info") or {}).keys())[:40])
+              print("  titles", [x.get("title") for x in songs[:4]], "langs", sorted({x.get("language") for x in songs}))
           PY
+          n=0
+          for q in "n_song=50&page=1&category=&sort_order=" "n=50&page=1&category=&sort_order=" "n_song=50&page=0&category=latest&sort_order=desc" "n_song=50&page=1&category=popularity&sort_order=desc" "n_song=50&page=2&category=alphabetical&sort_order=asc" "n_song=100&page=1&category=&sort_order="; do
+            n=$((n+1)); curl -s -A "$ua" "$api&__call=artist.getArtistMoreSong&artistId=$id&$q" > m$n.json; echo "== MoreSong $q"; python3 show.py m$n.json
           done
-          sid=$(curl -s -A "$ua" "$api&__call=search.getResults&q=kesariya&n=5&p=1" | python3 -c 'import json,sys; d=json.load(sys.stdin); r=d["results"]; print(" ".join(x["id"]+":"+x.get("more_info",{}).get("has_lyrics","?") for x in r))')
-          echo "kesariya ids:has_lyrics $sid"
-          first=$(echo "$sid" | tr ' ' '\n' | head -1 | cut -d: -f1)
-          curl -s -A "$ua" "$api&__call=lyrics.getLyrics&lyrics_id=$first" | head -c 400; echo
-          echo "lyrics.ovh:"; curl -s -m 20 "https://api.lyrics.ovh/v1/Coldplay/Yellow" | head -c 200; echo
-          echo "lrclib q:"; curl -s -m 20 "https://lrclib.net/api/search?q=tum%20hi%20ho%20arijit%20singh" | head -c 300; echo
+          for q in "n_song=50&n_album=0&page=0&category=latest&sort_order=desc" "n_song=100&n_album=0&page=0&category=alphabetical&sort_order=asc"; do
+            n=$((n+1)); curl -s -A "$ua" "$api&__call=artist.getArtistPageDetails&artistId=$id&$q" > m$n.json; echo "== PageDetails $q"; python3 show.py m$n.json
+          done
+          for p in 1 2 3 4; do n=$((n+1)); curl -s -A "$ua" "$api&__call=search.getResults&q=Arijit%20Singh&n=50&p=$p" > m$n.json; echo "== search p$p"; python3 show.py m$n.json; done
+          echo "== has_lyrics"
+          for q in "tum%20hi%20ho" "channa%20mereya" "lover%20diljit" "raataan%20lambiyan" "kun%20faya%20kun" "brown%20munde"; do
+            curl -s -A "$ua" "$api&__call=search.getResults&q=$q&n=10&p=1" | python3 -c 'import json,sys; d=json.load(sys.stdin); print([(x["id"], x["title"][:20], (x.get("more_info") or {}).get("has_lyrics"), (x.get("more_info") or {}).get("lyrics_snippet","")[:30]) for x in d.get("results",[])][:5])'
+          done
+          for sid in $(curl -s -A "$ua" "$api&__call=search.getResults&q=tum%20hi%20ho&n=10&p=1" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(" ".join(x["id"] for x in d.get("results",[])[:3]))'); do
+            echo "lyrics $sid:"; curl -s -A "$ua" "$api&__call=lyrics.getLyrics&lyrics_id=$sid" | head -c 200; echo
+            curl -s -A "$ua" "https://www.jiosaavn.com/api.php?__call=lyrics.getLyrics&ctx=web6dot0&api_version=4&_format=json&_marker=0%3F_marker%3D0&lyrics_id=$sid" | head -c 200; echo
+          done
