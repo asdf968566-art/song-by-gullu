@@ -154,20 +154,20 @@ class RecommendationRepository(
         val ytOn = canOnline && settings.current.youtubeEnabled
         val bg = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         // A YouTube song's JioSaavn twin gives its year and JioSaavn's "similar" list.
-        val twin = if (seed.source != SourceType.JIOSAAVN && saavnOn) bg.async {
+        val twin: Deferred<Track?>? = if (seed.source != SourceType.JIOSAAVN && saavnOn) bg.async {
             runCatching { online.saavn.search("${seed.title} ${singer.orEmpty()}".trim(), settings.current) }.getOrDefault(emptyList())
                 .firstOrNull { norm(it.title) == norm(seed.title) && (singer == null || artistMatch(it.artist, singer)) }
         } else null
-        val bySinger = if (singer != null && canOnline) bg.async {
+        val bySinger: Deferred<List<Track>>? = if (singer != null && canOnline) bg.async {
             runCatching { online.search(singer) }.getOrDefault(emptyList()).flatMap { it.tracks }.filter { artistMatch(it.artist, singer) }
         } else null
-        val bySingerDeep = if (singer != null && saavnOn) bg.async {
+        val bySingerDeep: Deferred<List<Track>>? = if (singer != null && saavnOn) bg.async {
             runCatching { online.saavn.searchPage(singer, Random.nextInt(2, 4)) }.getOrDefault(emptyList()).filter { artistMatch(it.artist, singer) }
         } else null
-        val ytSimilar = if (ytOn) bg.async {
+        val ytSimilar: Deferred<List<Track>>? = if (ytOn) bg.async {
             runCatching {
                 val vid = if (seed.source == SourceType.YOUTUBE) seed.sourceId else online.youtube.find(seed.title, seed.artist)?.sourceId
-                if (vid == null) emptyList() else online.youtube.similar(vid)
+                if (vid == null) emptyList<Track>() else online.youtube.similar(vid)
             }.getOrDefault(emptyList())
         } else null
 
@@ -176,7 +176,7 @@ class RecommendationRepository(
             withTimeoutOrNull((deadline - System.currentTimeMillis()).coerceAtLeast(1)) { await() } ?: run { cancel(); null }
 
         val saavnSeed = if (seed.source == SourceType.JIOSAAVN) seed else twin?.orSkip()
-        val saavnSimilar = if (saavnOn && saavnSeed != null) bg.async {
+        val saavnSimilar: Deferred<List<Track>>? = if (saavnOn && saavnSeed != null) bg.async {
             runCatching { online.saavn.similar(saavnSeed.sourceId) }.getOrDefault(emptyList())
         } else null
         val year = seed.year.takeIf { it > 0 } ?: saavnSeed?.year ?: 0
