@@ -65,7 +65,7 @@ fun UpdateDialog() {
 
         is AppUpdater.State.ReadyToInstall -> AlertDialog(
             onDismissRequest = { updater.dismiss() },
-            title = { Text("Install") },
+            title = { Text("Update ready") },
             text = {
                 Text(
                     "Download complete. Tap \"Install\".\n" +

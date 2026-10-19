@@ -1,5 +1,16 @@
 [
   {
+    "date": "2026-10-19",
+    "title": "Safer updates",
+    "items": [
+      {
+        "on": "android",
+        "type": "fix",
+        "text": "Safer app updates"
+      }
+    ]
+  },
+  {
     "date": "2026-10-17",
     "title": "Liquid Glass everywhere, smarter For You",
     "items": [

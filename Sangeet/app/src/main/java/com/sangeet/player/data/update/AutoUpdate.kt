@@ -1,16 +1,14 @@
 package com.sangeet.player.data.update
 
-import android.app.ActivityManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageInstaller
-import android.media.AudioManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import androidx.core.content.FileProvider
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -29,18 +27,18 @@ import kotlinx.coroutines.flow.first
 
 /**
  * Updates on its own (owner, Oct 9: "internet mile, update check ho aur apne aap update ho jaye"): whenever there's
- * internet (every 6 h, and soon after the app opens) it checks the `latest` release, downloads a newer APK and
- * installs it with PackageInstaller once the app isn't on screen and nothing is playing.
+ * internet (every 6 h, and soon after the app opens) it checks the `latest` release and downloads a newer APK.
+ * Then a notification "Sangeet update ready, tap to install" opens Android's installer, and the app shows the same
+ * once ([AppUpdater.readyApk]). Settings → App update → "Update automatically" turns it off.
  *
- * Android 12+ lets an app update itself without a tap (USER_ACTION_NOT_REQUIRED + UPDATE_PACKAGES_WITHOUT_USER_ACTION),
- * once "Install unknown apps" is allowed for Sangeet. Older Android, or when Android still wants a tap, gets a
- * notification "Update ready: tap to install". Settings → App update → "Update automatically" turns it off.
+ * It used to install silently (USER_ACTION_NOT_REQUIRED + UPDATE_PACKAGES_WITHOUT_USER_ACTION). An app that installs
+ * APKs from the internet without asking looks like a harmful one to Play Protect, which warned the owner (Oct 19), so
+ * the install is always the listener's tap now.
  */
 object AutoUpdate {
     private const val WORK = "auto_update"
     private const val CHANNEL = "updates"
     private const val NOTIFY_ID = 7301
-    const val ACTION_STATUS = "com.sangeet.player.UPDATE_STATUS"
 
     fun schedule(context: Context, enabled: Boolean) {
         val wm = WorkManager.getInstance(context)
@@ -77,14 +75,12 @@ object AutoUpdate {
                 if (update.build <= c.updater.currentBuild) return Result.success()
                 if (s.downloadOnWifiOnly && !unmetered(applicationContext)) return Result.success()
                 val file = c.updater.apkFor(update)
-                if (busy(applicationContext)) {
-                    // Don't close the app under the listener: try again in a while.
-                    android.util.Log.i("Sangeet", "auto-update: build ${update.build} ready, waiting until the app isn't in use")
-                    soon(applicationContext, 20)
-                    return Result.success()
+                if (!isNewerSangeet(applicationContext, file)) {
+                    file.delete()
+                    throw IllegalStateException("downloaded file is not a newer Sangeet")
                 }
-                android.util.Log.i("Sangeet", "auto-update: installing build ${update.build}")
-                install(applicationContext, file, update.build)
+                android.util.Log.i("Sangeet", "auto-update: build ${update.build} downloaded, asking to install")
+                notifyReady(applicationContext, file, update.build)
                 Result.success()
             } catch (e: Exception) {
                 android.util.Log.w("Sangeet", "auto-update: ${e.message}")
@@ -98,40 +94,23 @@ object AutoUpdate {
         return cm?.isActiveNetworkMetered == false
     }
 
-    /** On screen, or music playing: installing now would close the app. */
-    private fun busy(context: Context): Boolean {
-        val me = ActivityManager.RunningAppProcessInfo()
-        ActivityManager.getMyMemoryState(me)
-        val onScreen = me.importance <= ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE
-        val playing = context.getSystemService(AudioManager::class.java)?.isMusicActive == true
-        return onScreen || playing
+    /** Only our own app, and only a newer one. */
+    fun isNewerSangeet(context: Context, file: File): Boolean {
+        val info = context.packageManager.getPackageArchiveInfo(file.path, 0) ?: return false
+        return info.packageName == context.packageName && versionOf(info) > BuildConfig.VERSION_CODE
     }
 
-    /** Hands the APK to Android's PackageInstaller; the result comes to [StatusReceiver]. */
-    fun install(context: Context, file: File, build: Int) {
-        val pm = context.packageManager
-        // Only our own app, and only a newer one.
-        val info = pm.getPackageArchiveInfo(file.path, 0)
-        if (info == null || info.packageName != context.packageName || versionOf(info) <= BuildConfig.VERSION_CODE) {
-            file.delete()
-            throw IllegalStateException("downloaded file is not a newer Sangeet")
-        }
-        val installer = pm.packageInstaller
-        val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
-            setAppPackageName(context.packageName)
-            setSize(file.length())
-            if (Build.VERSION.SDK_INT >= 31) setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
-        }
-        val id = installer.createSession(params)
-        installer.openSession(id).use { session ->
-            session.openWrite("sangeet.apk", 0, file.length()).use { out ->
-                file.inputStream().use { it.copyTo(out) }
-                session.fsync(out)
-            }
-            val status = Intent(context, StatusReceiver::class.java).setAction(ACTION_STATUS).putExtra("build", build)
-            val flags = PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= 31) PendingIntent.FLAG_MUTABLE else 0)
-            session.commit(PendingIntent.getBroadcast(context, id, status, flags).intentSender)
-        }
+    /** "Sangeet update ready": a tap opens Android's installer (once per build, so it doesn't nag every 6 h). */
+    private fun notifyReady(context: Context, file: File, build: Int) {
+        val prefs = context.getSharedPreferences("updater", Context.MODE_PRIVATE)
+        if (prefs.getInt("ready_notified", -1) == build) return
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file)
+        val view = Intent(Intent.ACTION_VIEW)
+            .setDataAndType(uri, "application/vnd.android.package-archive")
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+        val tap = PendingIntent.getActivity(context, build, view, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        post(context, "Sangeet update ready", "Build $build is downloaded. Tap to install.", tap)
+        prefs.edit().putInt("ready_notified", build).apply()
     }
 
     @Suppress("DEPRECATION")
@@ -157,26 +136,6 @@ object AutoUpdate {
         Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
-
-    /** What Android did with the update. */
-    class StatusReceiver : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            val build = intent.getIntExtra("build", 0)
-            when (val status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)) {
-                PackageInstaller.STATUS_PENDING_USER_ACTION -> {
-                    // Android wants one tap (older Android, or "Install unknown apps" not allowed yet).
-                    @Suppress("DEPRECATION")
-                    val confirm = (if (Build.VERSION.SDK_INT >= 33) intent.getParcelableExtra(Intent.EXTRA_INTENT, Intent::class.java)
-                        else intent.getParcelableExtra(Intent.EXTRA_INTENT)) ?: return
-                    confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    val tap = PendingIntent.getActivity(context, build, confirm, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-                    post(context, "Sangeet update ready", "Build $build is downloaded. Tap to install.", tap)
-                }
-                PackageInstaller.STATUS_SUCCESS -> android.util.Log.i("Sangeet", "auto-update: installed build $build")
-                else -> android.util.Log.w("Sangeet", "auto-update: install failed ($status) ${intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)}")
-            }
-        }
-    }
 
     /** After the app was updated (by itself or by hand): say so, and keep checking. */
     class UpdatedReceiver : BroadcastReceiver() {

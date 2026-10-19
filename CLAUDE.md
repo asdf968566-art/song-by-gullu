@@ -169,14 +169,18 @@ request the owner made, in order.
   `data/update/AutoUpdate.kt`.
   - WorkManager runs every 6 h when online, and 1 min after the app opens.
   - It reads the `latest` release, downloads a newer APK quietly (`AppUpdater.apkFor`, a `.part` file renamed when
-    complete) and checks the package name and versionCode.
-  - It waits while the app is on screen or music plays (re-checks in 20 min).
-  - Then it installs with a PackageInstaller session: `USER_ACTION_NOT_REQUIRED` on Android 12+, plus the
-    `UPDATE_PACKAGES_WITHOUT_USER_ACTION` permission, so it is silent once "Install unknown apps" is allowed. Older
-    Android, or when Android still wants a tap, gets a notification "Sangeet update ready, tap to install".
+    complete) and checks the package name and versionCode (`AutoUpdate.isNewerSangeet`).
+  - **Then it asks; it never installs by itself** (Oct 19: Play Protect showed the owner "Harmful app blocked" on an
+    update. Silent self-install from the internet, waiting until the app isn't on screen, is what droppers do.)
+    `UPDATE_PACKAGES_WITHOUT_USER_ACTION`, the PackageInstaller session (`USER_ACTION_NOT_REQUIRED`) and its
+    StatusReceiver are gone. A notification "Sangeet update ready, tap to install" (once per build,
+    `ready_notified`) opens Android's installer (ACTION_VIEW + FileProvider), and on the next open the app shows the
+    "Update ready" dialog once (`AppUpdater.readyApk`, `ready_shown`). REQUEST_INSTALL_PACKAGES stays for that tap.
   - `MY_PACKAGE_REPLACED` posts "Sangeet updated".
-  - Settings → App update → "Update automatically" (default on). When it's on, the old "New version available"
-    dialog isn't shown on open.
+  - Settings → App update → "Update automatically" (default on): "New versions download by themselves; one tap
+    installs them". When it's on, the old "New version available" dialog isn't shown on open.
+  - If Play Protect still blocks it: "Install anyway" works; the developer can ask Google to look again with the
+    Play Protect appeal form (the owner has to send it, signed in to Google).
   The web app already updates itself (service worker skipWaiting).
 - **AI DJ** (Oct 9, owner: "LLM type", no paid key): built-in DJ = `data/ai/DjBrain.kt` (`DjIntent`: languages,
   mood, era, singers, "X jaise"/"songs like X", film name, "bina/no X", count; follow-ups merge into the last intent;
