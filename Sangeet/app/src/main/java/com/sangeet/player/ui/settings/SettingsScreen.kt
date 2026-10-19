@@ -274,7 +274,7 @@ fun SettingsScreen(nav: NavController) {
                 SettingsSwitch(
                     Icons.Rounded.Autorenew,
                     "Update automatically",
-                    "When there's internet, new versions download and install by themselves while you're not using the app",
+                    "New versions download by themselves; one tap installs them",
                     s.autoUpdate,
                 ) { scope.launch { c.settings.setAutoUpdate(it) } }
             }

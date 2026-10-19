@@ -46,16 +46,32 @@ class AppUpdater(private val context: Context, private val settings: SettingsRep
     val currentBuild: Int get() = BuildConfig.VERSION_CODE
     private val prefs = context.getSharedPreferences("updater", Context.MODE_PRIVATE)
 
-    /** App khulne par din mein ek-do baar chupchaap check. With "Update automatically" on, the background updater does it. */
+    /**
+     * App khulne par din mein ek-do baar chupchaap check. With "Update automatically" on, the background updater
+     * downloads it; an update it already downloaded shows here once as "Install" (one tap, never silent).
+     */
     suspend fun checkIfDue() {
         if (BuildConfig.PLAY_STORE) return // Google Play updates the Play version
         if (settings.current.autoUpdate) {
+            readyApk()?.let { (build, file) ->
+                if (prefs.getInt("ready_shown", -1) != build) {
+                    prefs.edit().putInt("ready_shown", build).apply()
+                    _state.value = State.ReadyToInstall(file)
+                }
+            }
             AutoUpdate.soon(context, 1)
             return
         }
         if (System.currentTimeMillis() - prefs.getLong("last_check", 0L) < 6 * 3_600_000L) return
         check(silent = true)
     }
+
+    /** The newest update the background updater has downloaded (build, file), if it is newer than this app. */
+    fun readyApk(): Pair<Int, File>? =
+        File(context.cacheDir, "updates").listFiles().orEmpty()
+            .mapNotNull { f -> Regex("""Sangeet-(\d+)\.apk""").matchEntire(f.name)?.groupValues?.get(1)?.toIntOrNull()?.let { it to f } }
+            .filter { (build, f) -> build > currentBuild && AutoUpdate.isNewerSangeet(context, f) }
+            .maxByOrNull { it.first }
 
     /** The newest release (for the background updater), or null. */
     suspend fun latest(): AppUpdate? = fetchLatest().also { prefs.edit().putLong("last_check", System.currentTimeMillis()).apply() }
