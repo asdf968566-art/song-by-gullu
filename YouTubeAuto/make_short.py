@@ -388,6 +388,49 @@ def video(p, imgs, vox, path):
     return total
 
 
+# ---------- 6. Upload (after the owner linked the channel with youtube_login.py) ----------
+def access_token():
+    tok = os.path.join(STATE, "token.enc")
+    cid, secret = os.environ.get("YT_CLIENT_ID", ""), os.environ.get("YT_CLIENT_SECRET", "")
+    if not (os.path.exists(tok) and cid and secret):
+        return None
+    refresh = subprocess.run(["openssl", "enc", "-d", "-aes-256-cbc", "-pbkdf2", "-a", "-A", "-in", tok,
+                              "-pass", "env:YT_CLIENT_SECRET"], capture_output=True, text=True).stdout.strip()
+    if not refresh:
+        log("upload: the saved login can't be read; run the YouTube login again")
+        return None
+    d = json.loads(http("https://oauth2.googleapis.com/token", urllib.parse.urlencode(
+        {"client_id": cid, "client_secret": secret, "refresh_token": refresh,
+         "grant_type": "refresh_token"}).encode(), headers={"Content-Type": "application/x-www-form-urlencoded"}))
+    return d["access_token"]
+
+
+def upload(p, path):
+    token = access_token()
+    if not token:
+        log("upload: channel not linked yet (secrets YT_CLIENT_ID / YT_CLIENT_SECRET, then the YouTube login)")
+        return None
+    desc = p.get("description", "") + "\n\nThis story, its pictures and its voice are made with AI."
+    meta = {"snippet": {"title": p["title"][:100], "description": desc[:4900], "tags": p.get("tags", [])[:15],
+                        "categoryId": "1", "defaultLanguage": "hi", "defaultAudioLanguage": "hi"},
+            # containsSyntheticMedia: YouTube's "altered or synthetic content" label, required for AI-made videos.
+            "status": {"privacyStatus": "public", "selfDeclaredMadeForKids": False, "containsSyntheticMedia": True}}
+    size = os.path.getsize(path)
+    req = urllib.request.Request(
+        "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status",
+        data=json.dumps(meta).encode(), method="POST",
+        headers={"Authorization": "Bearer " + token, "Content-Type": "application/json; charset=UTF-8",
+                 "X-Upload-Content-Type": "video/mp4", "X-Upload-Content-Length": str(size)})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        loc = r.headers["Location"]
+    req = urllib.request.Request(loc, data=open(path, "rb").read(), method="PUT",
+                                 headers={"Authorization": "Bearer " + token, "Content-Type": "video/mp4"})
+    with urllib.request.urlopen(req, timeout=600) as r:
+        v = json.loads(r.read())
+    log("UPLOADED https://youtube.com/shorts/" + v["id"], "privacy:", v.get("status", {}).get("privacyStatus"))
+    return v["id"]
+
+
 def main():
     history = load_history()
     titles = trends()
@@ -402,8 +445,16 @@ def main():
     secs = video(p, imgs, vox, path)
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", imgs[0], "-vf", "scale=540:-2",
                     os.path.join(OUT, f"short-{stamp}.jpg")])
+    vid = None
+    if "--upload" in sys.argv:
+        try:
+            vid = upload(p, path)
+        except urllib.error.HTTPError as e:
+            log("upload failed:", e.code, e.read().decode(errors="replace")[:1500])
+        except Exception as e:
+            log("upload failed:", e)
     entry = {"date": stamp, "format": p["format"], "title": p["title"], "seconds": round(secs, 1),
-             "pictures": kinds, "voice": vkind, "file": os.path.basename(path)}
+             "pictures": kinds, "voice": vkind, "youtube": vid, "file": os.path.basename(path)}
     history.append(entry)
     json.dump(history[-500:], open(os.path.join(STATE, "history.json"), "w", encoding="utf-8"), ensure_ascii=False,
               indent=1)
