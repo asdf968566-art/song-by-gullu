@@ -310,6 +310,10 @@ def picture_pollinations(prompt, seed, path):
     if len(data) < 20000 or data[:3] not in (b"\xff\xd8\xff", b"\x89PN"):
         raise RuntimeError(f"not a picture ({len(data)} bytes)")
     open(path, "wb").write(data)
+    # The free tier stamps "pollinations.ai" in the bottom right corner; cut that strip off.
+    from PIL import Image
+    img = Image.open(path).convert("RGB")
+    img.crop((0, 0, img.width, int(img.height * 0.93))).save(path, quality=95)
 
 
 def picture_gemini(prompt, path):
@@ -462,6 +466,12 @@ def voices(p):
 
 
 # ---------- 5. Video ----------
+def plain(text):
+    """Text for the captions / thumbnail font: no emoji (they show as boxes) and no ASS braces."""
+    text = re.sub(r"[\U00010000-\U0010FFFF\u2600-\u27BF\uFE0F\u200D]", "", text)
+    return re.sub(r"\s+", " ", text.replace("{", "(").replace("}", ")")).strip()
+
+
 def ass_time(t):
     return f"{int(t // 3600)}:{int(t % 3600 // 60):02d}:{t % 60:05.2f}"
 
@@ -489,17 +499,17 @@ def captions(p, durs, path, gap):
         per = 3
     lines = ass_head(styles)
     if LONG:
-        title = re.sub(r"\s*#\w+", "", p["title"]).replace("{", "(").replace("}", ")")
+        title = plain(re.sub(r"\s*#\w+", "", p["title"]))
         lines.append(f"Dialogue: 1,{ass_time(0.3)},{ass_time(5.3)},Title,,0,0,0,,{{\\fad(300,400)}}{title}")
     t = 0.0
     for s, d in zip(p["scenes"], durs):
-        words = s["narration"].split()
+        words = plain(s["narration"]).split()
         chunks = [" ".join(words[k:k + per]) for k in range(0, len(words), per)] or [""]
         total = sum(len(c) for c in chunks) or 1
         c0 = t
         for c in chunks:
             c1 = c0 + (d - gap) * len(c) / total
-            text = c.replace("{", "(").replace("}", ")")
+            text = c
             lines.append(f"Dialogue: 0,{ass_time(c0)},{ass_time(c1)},Cap,,0,0,0,,{{\\fad(60,60)}}{text}")
             c0 = c1
         t += d
@@ -556,7 +566,7 @@ def video(p, imgs, vox, path):
 def thumbnail(p, imgs, kinds, path):
     """1280x720: the first real picture with the thumbnail words big in yellow."""
     best = next((im for im, k in zip(imgs, kinds) if k in ("pollinations", "gemini")), imgs[0])
-    text = (p.get("thumbnail_text") or p["title"].split("|")[-1]).replace("{", "(").replace("}", ")")[:40]
+    text = plain(p.get("thumbnail_text") or p["title"].split("|")[-1])[:40]
     ass = os.path.join(WORK, "thumb.ass")
     lines = ["[Script Info]", "ScriptType: v4.00+", "PlayResX: 1280", "PlayResY: 720", "", "[V4+ Styles]",
              "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, "
@@ -633,7 +643,7 @@ def upload(p, path, thumb):
                  open(thumb, "rb").read(), headers={"Authorization": "Bearer " + token, "Content-Type": "image/jpeg"})
             log("thumbnail: set")
         except urllib.error.HTTPError as e:
-            # Custom thumbnails need a phone-verified channel (youtube.com/verify).
+            # Custom thumbnails need a phone-verified channel (youtube.com/verify), else 403.
             log("thumbnail: not set", e.code, e.read().decode(errors="replace")[:300])
     return v["id"]
 

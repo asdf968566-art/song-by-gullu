@@ -608,7 +608,10 @@ request the owner made, in order.
   (`series`, `episode`, `recap` in history; an episode that failed to upload isn't counted). Speakers get their own
   voice (`VOICES`: pitch/rate on edge-tts' two Hindi voices). Long videos get a thumbnail (needs a phone-verified
   channel). Frames of each video go to branch `youtube-preview` (look at them before telling the owner it's good).
-  The channel linked on Oct 20 is "shorts@zawwdx".
+  The channel linked on Oct 20 is "shorts@zawwdx". First uploads (Oct 20): Short FWX2mz5Nbps (came back public, so
+  the "unaudited = private" lock didn't apply), long cartoon degBJTEk_P0 (11 min, 28 real pictures of 59 in the
+  150-min picture budget). Thumbnails gave 403 until the owner phone-verifies the channel (youtube.com/verify).
+  Pollinations' free pictures carry a "pollinations.ai" mark at the bottom right; the bottom 7% is cut off.
   - Trends: YouTube Data API `mostPopular` IN (the app's key; its search quota is often used up, 429). Plan: Gemini
     (JSON: format from `FORMATS`, title, description, tags, voice, 7–9 scenes of Devanagari narration + English
     image prompts), new formats/topics vs `history.json`. LLM7's models now mostly 401.
