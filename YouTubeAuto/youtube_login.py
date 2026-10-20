@@ -33,6 +33,9 @@ print("=" * 50)
 print(f"YOUTUBE LOGIN CODE: {d['user_code']}")
 print(f"Open {d.get('verification_url', 'https://www.google.com/device')} and type the code")
 print("=" * 50, flush=True)
+# A running job's log can't be read through the API, so the code also goes to the file the workflow pushes.
+open(os.path.join(os.path.dirname(STATE.rstrip("/")) or ".", "login-code.txt"), "w").write(
+    f"{d['user_code']}\n{d.get('verification_url', 'https://www.google.com/device')}\n{time.time():.0f}\n")
 deadline = time.time() + min(int(d.get("expires_in", 1800)), 1700)
 wait = int(d.get("interval", 5))
 while time.time() < deadline:
