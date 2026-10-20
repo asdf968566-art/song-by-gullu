@@ -602,7 +602,13 @@ request the owner made, in order.
   - UI walk: "Settings: pick a favourite singer" (Arijit Singh) and "Home: Your singers → plays all their songs".
 - **YouTube Shorts channel** (Oct 20, owner sent reels about "faceless" AI YouTube channels: "saare viral video dekh
   … cartoon, motion video, ai made movie … bna aur upload kar … monotize krwa"; "upload bhi tu kr, permission de
-  dunga"). Not part of the apps: `YouTubeAuto/make_short.py` + `.github/workflows/youtube.yml` (daily 12:41 UTC).
+  dunga"; then "sirf shorts nhi, full movie, cartoon, ramayan, mahabharat"). Not part of the apps:
+  `YouTubeAuto/make_video.py` + `.github/workflows/youtube.yml`: a Short daily 12:41 UTC, a long 16:9 video (8 chapters
+  ≈ 8–12 min, outline then one Gemini call per chapter) every 2nd day 03:41 UTC. Ramayan / Mahabharat are series
+  (`series`, `episode`, `recap` in history; an episode that failed to upload isn't counted). Speakers get their own
+  voice (`VOICES`: pitch/rate on edge-tts' two Hindi voices). Long videos get a thumbnail (needs a phone-verified
+  channel). Frames of each video go to branch `youtube-preview` (look at them before telling the owner it's good).
+  The channel linked on Oct 20 is "shorts@zawwdx".
   - Trends: YouTube Data API `mostPopular` IN (the app's key; its search quota is often used up, 429). Plan: Gemini
     (JSON: format from `FORMATS`, title, description, tags, voice, 7–9 scenes of Devanagari narration + English
     image prompts), new formats/topics vs `history.json`. LLM7's models now mostly 401.

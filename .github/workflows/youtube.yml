@@ -1,13 +1,21 @@
 name: YouTube Shorts
 
-# Makes one original AI Hindi Short a day (YouTubeAuto/make_short.py), uploads it to the owner's channel once it is
-# linked (run this workflow by hand with "login" ticked: the log shows a code for google.com/device), and keeps a
-# copy with its title, description and tags in the release youtube-videos.
+# Makes original AI Hindi videos (YouTubeAuto/make_video.py): a Short every day and a long video (8-12 min:
+# Ramayan / Mahabharat episodes, cartoon and other movies) every 2nd day. Uploads them to the owner's channel once it
+# is linked (run this workflow by hand with "login" ticked: the code goes to the branch youtube-login), and keeps a
+# copy with its title, description and tags in the release youtube-videos. A few frames of each video go to the
+# branch youtube-preview, so a session can look at them.
 on:
   schedule:
-    - cron: "41 12 * * *"   # 6:11 PM India time, when Shorts get the most views
+    - cron: "41 12 * * *"   # Short: 6:11 PM India time, when Shorts get the most views
+    - cron: "41 3 */2 * *"  # long video: 9:11 AM India time, so it is up by the evening
   workflow_dispatch:
     inputs:
+      kind:
+        description: "short or long"
+        type: choice
+        options: [short, long]
+        default: short
       login:
         description: "Link the YouTube channel (the log shows a code)"
         type: boolean
@@ -30,7 +38,7 @@ concurrency:
 jobs:
   short:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 300
     env:
       GH_TOKEN: ${{ github.token }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -60,23 +68,40 @@ jobs:
             cd ..
           fi
           wait $pid
-      - name: Make a Short
+      - name: Make the video
         if: ${{ !inputs.login }}
         run: |
           # The public Data API key the app already uses, for the trending lists.
           export YT_API_KEY=$(sed -n 's/^sangeet.youtubeApiKey=//p' Sangeet/gradle.properties)
-          UP=""
-          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ inputs.upload }}" = "true" ]; then UP="--upload"; fi
-          python3 YouTubeAuto/make_short.py state out $UP
+          ARGS=""
+          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ inputs.upload }}" = "true" ]; then ARGS="--upload"; fi
+          if [ "${{ github.event.schedule }}" = "41 3 */2 * *" ] || [ "${{ inputs.kind }}" = "long" ]; then ARGS="$ARGS --long"; fi
+          python3 YouTubeAuto/make_video.py state out $ARGS
+      - name: Preview frames (branch youtube-preview)
+        if: ${{ !inputs.login }}
+        run: |
+          mkdir -p preview
+          for f in out/*.mp4; do
+            b=$(basename "$f" .mp4); d=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$f")
+            for k in 1 2 3 4 5 6; do
+              ffmpeg -v error -y -ss $(python3 -c "print($d*$k/7)") -i "$f" -frames:v 1 -vf "scale=640:-2" "preview/$b-$k.jpg"
+            done
+            cp out/$b.jpg out/$b.json preview/ 2>/dev/null || true
+          done
+          cd preview && git init -q -b youtube-preview && git add -A
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Preview"
+          git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" HEAD:youtube-preview
       - name: Keep a copy in the release youtube-videos
         if: ${{ !inputs.login }}
         run: |
           gh release view youtube-videos >/dev/null 2>&1 || gh release create youtube-videos --prerelease \
             --title "YouTube Shorts" --notes "Videos made by the YouTube Shorts workflow (newest 20 kept)."
-          gh release upload youtube-videos out/short-*.mp4 out/short-*.jpg out/short-*.json --clobber
-          gh release view youtube-videos --json assets -q '.assets[].name' | grep '^short-.*\.mp4$' | sort -r | tail -n +21 \
-            | while read f; do b=${f%.mp4}; for x in mp4 jpg json; do gh release delete-asset youtube-videos "$b.$x" -y || true; done; done
-          for f in out/short-*.mp4; do echo "VIDEO https://github.com/${{ github.repository }}/releases/download/youtube-videos/$(basename $f)"; done
+          gh release upload youtube-videos out/*.mp4 out/*.jpg out/*.json --clobber
+          for k in short long; do
+            gh release view youtube-videos --json assets -q '.assets[].name' | grep "^$k-.*\.mp4$" | sort -r | tail -n +11 \
+              | while read f; do b=${f%.mp4}; for x in mp4 jpg json; do gh release delete-asset youtube-videos "$b.$x" -y || true; done; done
+          done
+          for f in out/*.mp4; do echo "VIDEO https://github.com/${{ github.repository }}/releases/download/youtube-videos/$(basename $f)"; done
       - name: Save the channel state
         if: github.event_name != 'push' && success()
         run: |
