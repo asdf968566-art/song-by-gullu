@@ -306,7 +306,7 @@ def picture_pollinations(prompt, seed, path):
     gw, gh = (1344, 768) if LONG else (768, 1344)
     url = (f"https://image.pollinations.ai/prompt/{q}?width={gw}&height={gh}&seed={seed}&nologo=true"
            f"&model=flux&enhance=false")
-    data = http(url, timeout=180)
+    data = http(url, timeout=100)
     if len(data) < 20000 or data[:3] not in (b"\xff\xd8\xff", b"\x89PN"):
         raise RuntimeError(f"not a picture ({len(data)} bytes)")
     open(path, "wb").write(data)
@@ -368,23 +368,27 @@ def reuse(src, dst, i):
 
 
 def pictures(p):
-    """Pollinations' free tier allows about one picture at a time (402 when asked too fast), so wait between them.
-    A scene with no picture of its own reuses the last real one, cut differently, instead of a plain card."""
+    """Pollinations' free tier allows about one picture at a time (402 when asked too fast) and is often slow, so
+    wait between asks and stop asking when the time budget is used up. A scene with no picture of its own reuses
+    the last real one, cut differently, instead of a plain card."""
     seed = random.randint(1, 10 ** 6)
     paths, kinds = [], []
     gemini_ok = bool(GEMINI_KEY)
+    budget = time.time() + (150 if LONG else 30) * 60
     for i, s in enumerate(p["scenes"]):
         path = os.path.join(WORK, f"img{i:03d}.jpg")
         prompt = f"{p.get('style', '')}. {s['image_prompt']}. cinematic lighting, highly detailed"
         kind = "card"
-        for attempt in range(5):
+        for attempt in range(3):
+            if time.time() > budget:
+                break
             try:
                 picture_pollinations(prompt, seed + i, path)
                 kind = "pollinations"
                 break
             except Exception as e:
                 log(f"picture {i}: pollinations try {attempt + 1} failed:", str(e)[:150])
-                time.sleep(20 + attempt * 15)
+                time.sleep(20 + attempt * 10)
         if kind == "card" and gemini_ok:
             try:
                 picture_gemini(prompt, path)
@@ -402,7 +406,8 @@ def pictures(p):
         fit_picture(path)
         paths.append(path)
         kinds.append(kind)
-        time.sleep(12)
+        if kind == "pollinations":
+            time.sleep(12)
     first = next((k for k, x in enumerate(kinds) if x in ("pollinations", "gemini")), None)
     if first is not None:
         for k in range(first):
