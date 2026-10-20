@@ -123,8 +123,8 @@ def ask_gemini(prompt):
     body = {"contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {"responseMimeType": "application/json", "temperature": 1.0}}
     d = json.loads(http(f"https://generativelanguage.googleapis.com/v1beta/{model}:generateContent?key={GEMINI_KEY}",
-                        body, timeout=120))
-    return "".join(p.get("text", "") for p in d["candidates"][0]["content"]["parts"])
+                        body, timeout=300))
+    return "".join(p.get("text", "") for p in d["candidates"][0]["content"]["parts"] if not p.get("thought"))
 
 
 def ask_llm7(prompt):
@@ -134,7 +134,10 @@ def ask_llm7(prompt):
             d = json.loads(http("https://api.llm7.io/v1/chat/completions",
                                 {"model": model, "messages": [{"role": "user", "content": prompt}]},
                                 headers={"Authorization": "Bearer unused"}, timeout=120))
-            return d["choices"][0]["message"]["content"]
+            text = d["choices"][0]["message"].get("content") or ""
+            if "{" in text:
+                return text
+            log("plan: LLM7", model, "gave no JSON:", text[:300])
         except Exception as e:
             log("plan: LLM7", model, "failed", e)
     raise RuntimeError("no LLM answered")
@@ -177,19 +180,19 @@ Rules:
 Answer with only this JSON:
 {{"format": "...", "title": "...", "description": "...", "tags": ["..."], "voice": "male|female",
  "style": "...", "scenes": [{{"narration": "...", "image_prompt": "..."}}]}}"""
-    for ask in ([ask_gemini] if GEMINI_KEY else []) + [ask_llm7]:
-        for attempt in range(2):
-            try:
-                p = parse_json(ask(prompt))
-                scenes = [s for s in p.get("scenes", []) if s.get("narration") and s.get("image_prompt")]
-                if len(scenes) >= 4 and p.get("title"):
-                    p["scenes"] = scenes[:10]
-                    p["format"] = fmt
-                    return p
-                log("plan: answer too short, again")
-            except Exception as e:
-                log("plan failed:", type(e).__name__, str(e)[:300])
-                time.sleep(5)
+    asks = ([ask_gemini] * 4 if GEMINI_KEY else []) + [ask_llm7]
+    for n, ask in enumerate(asks):
+        try:
+            p = parse_json(ask(prompt))
+            scenes = [s for s in p.get("scenes", []) if s.get("narration") and s.get("image_prompt")]
+            if len(scenes) >= 4 and p.get("title"):
+                p["scenes"] = scenes[:10]
+                p["format"] = fmt
+                return p
+            log("plan: answer too short, again")
+        except Exception as e:
+            log("plan failed:", type(e).__name__, str(e)[:300])
+            time.sleep(15 + 20 * n)  # Gemini's free tier is often busy (503) for a minute
     raise RuntimeError("no plan")
 
 
