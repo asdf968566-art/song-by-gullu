@@ -600,6 +600,23 @@ request the owner made, in order.
     "Your singers", "From your listening", "Popular in your languages"; tap to pick or unpick. New song alerts use the
     picked singers first.
   - UI walk: "Settings: pick a favourite singer" (Arijit Singh) and "Home: Your singers → plays all their songs".
+- **YouTube Shorts channel** (Oct 20, owner sent reels about "faceless" AI YouTube channels: "saare viral video dekh
+  … cartoon, motion video, ai made movie … bna aur upload kar … monotize krwa"; "upload bhi tu kr, permission de
+  dunga"). Not part of the apps: `YouTubeAuto/make_short.py` + `.github/workflows/youtube.yml` (daily 12:41 UTC).
+  - Trends: YouTube Data API `mostPopular` IN (the app's key; its search quota is often used up, 429). Plan: Gemini
+    (JSON: format from `FORMATS`, title, description, tags, voice, 7–9 scenes of Devanagari narration + English
+    image prompts), new formats/topics vs `history.json`. LLM7's models now mostly 401.
+  - Pictures: Pollinations (free tier gives 402 when asked too fast, so 15–20 s between asks), Gemini image (free key
+    has no quota, 429), else the last real picture re-cut (`reuse`). Voice: edge-tts hi-IN Madhur/Swara, gTTS
+    fallback. Video: ffmpeg zoompan per scene, ASS captions 3 words at a time (Noto Sans Devanagari), a soft drone.
+  - Copies go to the release `youtube-videos` (newest 20). History + the encrypted login live on branch
+    `youtube-channel`.
+  - Upload: the owner made a Google Cloud OAuth client ("TVs and Limited Input devices"; Branding links point to
+    `SangeetWeb/privacy.html`) → secrets `YT_CLIENT_ID` / `YT_CLIENT_SECRET`. Run the workflow by hand with "login"
+    → the log shows a code for google.com/device → `token.enc` (refresh token, openssl-encrypted with the client
+    secret). Uploads set `containsSyntheticMedia`. Unaudited API projects' uploads stay private until Google's audit.
+  - Told the owner: no fake views; monetization (1000 subs + 4000 h or 10M Shorts views in 90 days) can't be promised;
+    mass-produced repetitive AI videos are demonetized, so every video is a different format/story.
 - Other platforms checked Oct 9 from CI: Gaana's old open API is gone (404); Wynk, Hungama, Spotify have no open
   streams. JioSaavn + YouTube stay the sources.
 - In-app "Report a problem" got 403 from GitHub. Cause (found Oct 9 from CI: `REPORT_TOKEN fingerprint/account`

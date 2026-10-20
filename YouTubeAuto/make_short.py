@@ -252,34 +252,63 @@ def fit_picture(path):
 
 
 def pictures(p):
+    """Pollinations' free tier allows about one picture at a time (402 when asked too fast), so wait between them.
+    A scene with no picture of its own reuses the one before it, cut differently, instead of a plain card."""
     seed = random.randint(1, 10 ** 6)
     paths, kinds = [], []
+    gemini_ok = bool(GEMINI_KEY)
     for i, s in enumerate(p["scenes"]):
         path = os.path.join(WORK, f"img{i:02d}.jpg")
         prompt = f"{s['image_prompt']}. {p.get('style', '')}. cinematic lighting, highly detailed, vertical"
         kind = "card"
-        for attempt in range(3):
+        for attempt in range(6):
             try:
                 picture_pollinations(prompt, seed + i, path)
                 kind = "pollinations"
                 break
             except Exception as e:
                 log(f"picture {i}: pollinations try {attempt + 1} failed:", str(e)[:200])
-                time.sleep(8 + attempt * 10)
-        if kind == "card" and GEMINI_KEY:
+                time.sleep(20 + attempt * 15)
+        if kind == "card" and gemini_ok:
             try:
                 picture_gemini(prompt, path)
                 kind = "gemini"
             except Exception as e:
                 log(f"picture {i}:", e)
+                gemini_ok = False  # the free key usually has no picture quota; don't ask again
         if kind == "card":
-            picture_card(i, path)
+            done = [k for k in range(i) if kinds[k] != "card" and kinds[k] != "reused"]
+            if done:
+                reuse(paths[done[-1]], path, i)
+                kind = "reused"
+            else:
+                picture_card(i, path)
         fit_picture(path)
         paths.append(path)
         kinds.append(kind)
-        time.sleep(3)
+        time.sleep(15)
+    # Scenes before the first real picture get it too.
+    first = next((k for k, x in enumerate(kinds) if x in ("pollinations", "gemini")), None)
+    if first is not None:
+        for k in range(first):
+            reuse(paths[first], paths[k], k)
+            kinds[k] = "reused"
     log("pictures:", kinds)
     return paths, kinds
+
+
+def reuse(src, dst, i):
+    """Another part of a picture, zoomed in and mirrored, so the same picture doesn't look the same twice."""
+    from PIL import Image, ImageOps
+    img = Image.open(src).convert("RGB")
+    z = 0.72
+    w, h = int(img.width * z), int(img.height * z)
+    x = [0, img.width - w, (img.width - w) // 2][i % 3]
+    y = [(img.height - h) // 2, 0, img.height - h][i % 3]
+    img = img.crop((x, y, x + w, y + h)).resize((W, H), Image.LANCZOS)
+    if i % 2:
+        img = ImageOps.mirror(img)
+    img.save(dst, quality=93)
 
 
 # ---------- 4. Voice ----------
