@@ -611,6 +611,17 @@ def upload(p, path, thumb):
             v = json.loads(r.read())
     url = ("https://youtube.com/shorts/" if not LONG else "https://youtu.be/") + v["id"]
     log("UPLOADED", url, "privacy:", v.get("status", {}).get("privacyStatus"))
+    if v.get("status", {}).get("privacyStatus") != "public":
+        # Google keeps uploads from an API project it hasn't audited private; ask once more in case it allows it.
+        try:
+            r = json.loads(http("https://www.googleapis.com/youtube/v3/videos?part=status",
+                                {"id": v["id"], "status": {"privacyStatus": "public",
+                                                           "selfDeclaredMadeForKids": bool(p.get("kids")),
+                                                           "containsSyntheticMedia": True}},
+                                headers={"Authorization": "Bearer " + token}, method="PUT"))
+            log("privacy now:", r.get("status", {}).get("privacyStatus"))
+        except urllib.error.HTTPError as e:
+            log("privacy: can't make it public", e.code, e.read().decode(errors="replace")[:300])
     if thumb and os.path.exists(thumb):
         try:
             http(f"https://www.googleapis.com/upload/youtube/v3/thumbnails/set?videoId={v['id']}",
