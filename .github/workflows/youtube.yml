@@ -1,0 +1,56 @@
+name: YouTube Shorts
+
+# Makes one original AI Hindi Short a day (YouTubeAuto/make_short.py) and puts it, with its title, description and
+# tags, in the release youtube-videos for the owner to upload.
+on:
+  schedule:
+    - cron: "41 9 * * *"   # 3:11 PM India time, so it is ready to upload in the evening
+  workflow_dispatch:
+  push:
+    branches: ["claude/**"]
+    paths: ["YouTubeAuto/**", ".github/workflows/youtube.yml"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: youtube
+  cancel-in-progress: false
+
+jobs:
+  short:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tools
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-noto-core >/dev/null
+          pip install -q --break-system-packages edge-tts gTTS pillow
+      - name: What was made before (branch youtube-channel)
+        run: |
+          git clone -q --depth 1 -b youtube-channel "https://github.com/${{ github.repository }}.git" state \
+            || { mkdir -p state && cd state && git init -q -b youtube-channel; }
+      - name: Make a Short
+        run: |
+          # The public Data API key the app already uses, for the trending lists.
+          export YT_API_KEY=$(sed -n 's/^sangeet.youtubeApiKey=//p' Sangeet/gradle.properties)
+          python3 YouTubeAuto/make_short.py state out
+      - name: Put it in the release youtube-videos
+        run: |
+          gh release view youtube-videos >/dev/null 2>&1 || gh release create youtube-videos --prerelease \
+            --title "YouTube Shorts" --notes "Videos made by the YouTube Shorts workflow (newest 20 kept)."
+          gh release upload youtube-videos out/short-*.mp4 out/short-*.jpg out/short-*.json --clobber
+          gh release view youtube-videos --json assets -q '.assets[].name' | grep '^short-.*\.mp4$' | sort -r | tail -n +21 \
+            | while read f; do b=${f%.mp4}; for x in mp4 jpg json; do gh release delete-asset youtube-videos "$b.$x" -y || true; done; done
+          for f in out/short-*.mp4; do echo "VIDEO https://github.com/${{ github.repository }}/releases/download/youtube-videos/$(basename $f)"; done
+      - name: Remember it, so topics don't repeat
+        if: github.event_name != 'push'
+        run: |
+          cd state
+          git config user.name "github-actions"; git config user.email "github-actions@users.noreply.github.com"
+          git add -A && git commit -q -m "YouTube Shorts history" || exit 0
+          git push -q "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" HEAD:youtube-channel
