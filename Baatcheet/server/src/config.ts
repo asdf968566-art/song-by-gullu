@@ -16,7 +16,15 @@ const schema = z
     SESSION_SECRET: z.string().min(32, 'SESSION_SECRET must be at least 32 characters'),
     SESSION_DAYS: z.coerce.number().int().min(1).max(365).default(30),
     COOKIE_DOMAIN: z.string().optional(),
-    TRUST_PROXY: bool.default('false'),
+    /** Header that carries the visitor's IP, set by a tunnel the API is only reachable through
+     *  (e.g. cf-connecting-ip behind Cloudflare Tunnel). Overrides TRUST_PROXY for req.ip. */
+    CLIENT_IP_HEADER: z.string().toLowerCase().optional(),
+    /** Reverse proxies in front of the API: true = 1, or a number (2 behind Cloudflare Tunnel + Caddy). */
+    TRUST_PROXY: z
+      .string()
+      .regex(/^(true|false|\d)$/, 'TRUST_PROXY must be true, false or a number of proxies')
+      .default('false')
+      .transform((v) => (v === 'true' ? 1 : v === 'false' ? 0 : Number(v))),
 
     STORAGE_DRIVER: z.enum(['s3', 'local']).default('local'),
     LOCAL_UPLOAD_DIR: z.string().default('./uploads'),
@@ -32,6 +40,9 @@ const schema = z
     TURN_URLS: z.string().default(''),
     /** coturn `static-auth-secret` (use-auth-secret). Credentials are minted per user and expire. */
     TURN_SECRET: z.string().optional(),
+    /** Fixed TURN login from a hosted TURN service (e.g. Metered), used when there is no TURN_SECRET. */
+    TURN_USERNAME: z.string().optional(),
+    TURN_CREDENTIAL: z.string().optional(),
     TURN_TTL_SECONDS: z.coerce.number().int().default(3600),
     /** How long a call rings before it counts as missed. */
     CALL_RING_SECONDS: z.coerce.number().int().min(5).max(120).default(45),
@@ -56,6 +67,8 @@ const schema = z
     LOG_LEVEL: z.string().default('info'),
     /** Disables rate limits in automated tests only. */
     DISABLE_RATE_LIMIT: bool.default('false'),
+    /** Trial runs only: new accounts count as verified and no e-mail is needed. Password reset then can't work. */
+    AUTO_VERIFY_EMAIL: bool.default('false'),
   })
   .superRefine((c, ctx) => {
     if (c.STORAGE_DRIVER === 's3') {
@@ -63,11 +76,11 @@ const schema = z
         if (!c[k]) ctx.addIssue({ code: 'custom', path: [k], message: `${k} is required when STORAGE_DRIVER=s3` });
       }
     }
-    if (c.TURN_URLS && !c.TURN_SECRET) {
-      ctx.addIssue({ code: 'custom', path: ['TURN_SECRET'], message: 'TURN_SECRET is required when TURN_URLS is set' });
+    if (c.TURN_URLS && !c.TURN_SECRET && !(c.TURN_USERNAME && c.TURN_CREDENTIAL)) {
+      ctx.addIssue({ code: 'custom', path: ['TURN_SECRET'], message: 'TURN_URLS needs TURN_SECRET (own coturn) or TURN_USERNAME + TURN_CREDENTIAL (hosted TURN)' });
     }
     if (c.NODE_ENV === 'production') {
-      if (!c.SMTP_URL) ctx.addIssue({ code: 'custom', path: ['SMTP_URL'], message: 'SMTP_URL is required in production (verification and reset e-mails)' });
+      if (!c.SMTP_URL && !c.AUTO_VERIFY_EMAIL) ctx.addIssue({ code: 'custom', path: ['SMTP_URL'], message: 'SMTP_URL is required in production (verification and reset e-mails)' });
       if (c.DISABLE_RATE_LIMIT) ctx.addIssue({ code: 'custom', path: ['DISABLE_RATE_LIMIT'], message: 'Rate limits cannot be disabled in production' });
       if (!c.APP_URL.startsWith('https://')) ctx.addIssue({ code: 'custom', path: ['APP_URL'], message: 'APP_URL must be https in production' });
     }

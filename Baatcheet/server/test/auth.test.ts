@@ -145,3 +145,60 @@ describe('rate limits', () => {
     }
   });
 });
+
+describe('mail server down', () => {
+  it('sign-up still works; resend says so; reset answers the same', async () => {
+    const { testMail } = await import('../src/lib/mail.js');
+    testMail.fail = true;
+    try {
+      const res = await api(srv.http).post('/api/auth/register').send({ email: 'down@test.local', password: 'Password123', username: 'mail_down', displayName: 'Down' });
+      expect(res.status).toBe(201);
+      expect(res.body.verificationEmailSent).toBe(false);
+      const agent = api(srv.http, cookieFrom(res));
+      await agent.get('/api/auth/me').expect(200);
+      const again = await agent.post('/api/auth/resend-verification');
+      expect(again.status).toBe(502);
+      await api(srv.http).post('/api/auth/forgot-password').send({ email: 'down@test.local' }).expect(200);
+    } finally {
+      testMail.fail = false;
+    }
+  });
+});
+
+describe('client IP behind a tunnel', () => {
+  it('rate limits per visitor using the tunnel header', async () => {
+    const { config } = await import('../src/config.js');
+    // The header is read when the app is built, so start a separate server for this test.
+    Object.assign(config, { CLIENT_IP_HEADER: 'cf-connecting-ip', DISABLE_RATE_LIMIT: false });
+    const tunnel = await startServer();
+    try {
+      const hit = (ip: string) => api(tunnel.http).post('/api/auth/login').set('CF-Connecting-IP', ip).send({ email: 'x@test.local', password: 'Password123' });
+      const first: number[] = [];
+      for (let i = 0; i < 11; i++) first.push((await hit('203.0.113.1')).status);
+      expect(first).toContain(429);
+      // Another visitor isn't blocked by the first one.
+      expect((await hit('203.0.113.2')).status).toBe(401);
+    } finally {
+      Object.assign(config, { CLIENT_IP_HEADER: undefined, DISABLE_RATE_LIMIT: true });
+      await tunnel.close();
+    }
+  });
+});
+
+describe('trial mode', () => {
+  it('AUTO_VERIFY_EMAIL makes new accounts verified without any e-mail', async () => {
+    const { config, loadConfig } = await import('../src/config.js');
+    const { sentMail } = await import('../src/lib/mail.js');
+    config.AUTO_VERIFY_EMAIL = true;
+    try {
+      const res = await api(srv.http).post('/api/auth/register').send({ email: 'trial@test.local', password: 'Password123', username: 'trial_user', displayName: 'Trial' }).expect(201);
+      expect(res.body.emailVerified).toBe(true);
+      expect(sentMail.filter((m) => m.to === 'trial@test.local')).toHaveLength(0);
+    } finally {
+      config.AUTO_VERIFY_EMAIL = false;
+    }
+    const prod = { NODE_ENV: 'production', DATABASE_URL: 'postgresql://x@localhost/x', SESSION_SECRET: 'x'.repeat(40), APP_URL: 'https://chat.example.com' };
+    expect(() => loadConfig(prod)).toThrow(/SMTP_URL/);
+    expect(() => loadConfig({ ...prod, AUTO_VERIFY_EMAIL: 'true' })).not.toThrow();
+  });
+});

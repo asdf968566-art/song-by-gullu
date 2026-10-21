@@ -4,7 +4,40 @@ The repo ships everything for one server (a VPS with 2 vCPU / 4 GB RAM handles a
 concurrent users): PostgreSQL, the API, the web app, Caddy (HTTPS), coturn (TURN), LiveKit (group
 calls) and file storage (a Docker volume, or S3 / the optional MinIO). For larger setups use managed Postgres and S3 and see "Scaling".
 
-## Quickest way: one-command installer
+## Try it first: a temporary trial from GitHub Actions
+
+Actions → **Baatcheet trial** → Run workflow (1–5 hours). The run's summary shows a
+`https://….trycloudflare.com` address. It is for testing only: e-mail verification is skipped
+(`AUTO_VERIFY_EMAIL=true`, so password reset doesn't work), there is no TURN, and everything is deleted when
+the run ends.
+
+## On your own Linux PC (free, no public IP needed)
+
+A PC that stays on (4 GB+ RAM) can host Baatcheet. A Cloudflare Tunnel puts it online without opening
+ports on the router, so it also works behind Jio / Airtel CGNAT:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/asdf968566-art/song-by-gullu/main/Baatcheet/deploy/install-home.sh | sudo bash
+```
+
+- Option **a**: your domain on a free Cloudflare account → a tunnel token (Zero Trust → Networks → Tunnels),
+  public hostname `your domain → HTTP caddy:80`. The address never changes.
+- Option **b**: no domain → a free random `https://….trycloudflare.com` address. It changes when the PC
+  restarts; the current one is written to `/opt/baatcheet/SITE-ADDRESS.txt`. Fine for trying it out.
+- Calls: add a free Metered TURN login (dashboard.metered.ca) so calls also connect on mobile data.
+- Group calls are off in this mode (LiveKit needs a public IP).
+- **No source code on the PC.** GitHub Actions publishes the images `ghcr.io/asdf968566-art/baatcheet-server`
+  and `baatcheet-web` (amd64 + arm64) after every green run on `main`. The PC keeps only the compose files,
+  `.env` (settings and secrets) and the data (database and uploaded files in Docker volumes) in `/opt/baatcheet`.
+- **Controlled from GitHub.** A `baatcheet-update` timer fetches the newest run files and images every
+  15 minutes, so whatever is merged to `main` goes live by itself. Pin a version with `BAATCHEET_TAG=<commit sha>`
+  in `.env`.
+- A `baatcheet` systemd service starts everything on boot. Logs: `cd /opt/baatcheet && docker compose -f docker-compose.yml -f docker-compose.home.yml -f docker-compose.release.yml logs -f server`.
+- Back up the data: `docker run --rm -v baatcheet_pgdata:/d:ro -v $PWD:/b alpine tar czf /b/db.tgz -C /d .` (and the same for `baatcheet_uploads`), or use `pg_dump` as below.
+- Rate limits see each visitor's real IP through the tunnel (`CLIENT_IP_HEADER=cf-connecting-ip`).
+- CI runs this exact mode with a real trycloudflare tunnel (job `home` in `.github/workflows/baatcheet.yml`).
+
+## Quickest way on a cloud server: one-command installer
 
 On a fresh Ubuntu server (Oracle Cloud Always Free works) with your domain's A record pointing at it:
 

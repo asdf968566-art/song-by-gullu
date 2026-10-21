@@ -654,7 +654,7 @@ first, then `Baatcheet/docs/` (API, DEPLOYMENT, TESTING with a two-device call c
   `realtime/calls.ts` (1:1 P2P signalling relay, busy / missed / reconnect grace; groups via LiveKit tokens).
 - Web: Next.js 15 App Router + Tailwind v4, own components in `components/ui`, store `lib/store.ts`, call engine
   `lib/calls.ts` (only the caller sends offers, incl. ICE restarts).
-- Tests: `npm test` (49 vitest API tests on a real Postgres, DB `baatcheet_test`), `npm run e2e` (Playwright, Chromium
+- Tests: `npm test` (53 vitest API tests on a real Postgres, DB `baatcheet_test`), `npm run e2e` (Playwright, Chromium
   fake camera: two browsers register, chat, upload, real WebRTC video call). In this sandbox run e2e with
   `PW_CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome`. Postgres 16 is installed locally
   (`pg_ctlcluster 16 main start`, user/password baatcheet).
@@ -662,7 +662,13 @@ first, then `Baatcheet/docs/` (API, DEPLOYMENT, TESTING with a two-device call c
 - Prisma refuses `migrate reset` from an AI agent without the owner's explicit consent; tests use `migrate deploy` +
   TRUNCATE instead. Don't bypass that guard.
 - CI: `.github/workflows/baatcheet.yml` (paths `Baatcheet/**`); build-apk.yml ignores `Baatcheet/**`.
-- Not done / needs the owner: a server + domain to deploy (docs/DEPLOYMENT.md), SMTP, TURN, LiveKit, VAPID, Twilio.
+- Hosting (Oct 21): owner has no card of their own (Oracle signup failed: "information inaccurate" with a friend's
+  card), domain **tbdi.in** (GoDaddy), and a Linux PC that runs 24×7. Owner's rule: "code PC me nhi rkhna, sb
+  GitHub pe rahega, whi se control hoga". So: `deploy/install-home.sh` (Cloudflare Tunnel, optional Metered TURN,
+  no source on the PC) runs the ghcr.io images that the `publish` job builds on green `main`; a 15-min systemd timer
+  (`deploy/update.sh`) pulls new run files + images. CI jobs `home` (build mode, real trycloudflare tunnel) and
+  `home-release` (only run files + published images). `deploy/install.sh` = cloud VM variant (clones the repo).
+- Still needs the owner: run the installer on the PC, Brevo SMTP, Metered TURN, Cloudflare for tbdi.in.
 
 ## 5. Problems hit and how they were solved (why the code looks like it does)
 

@@ -6,9 +6,12 @@ let transport: Transporter | null = null;
 
 /** Every e-mail sent in tests ends up here, so tests can follow the real links. */
 export const sentMail: { to: string; subject: string; text: string }[] = [];
+/** Tests set this to simulate an SMTP server that is down. */
+export const testMail = { fail: false };
 
 export async function sendMail(to: string, subject: string, text: string, html?: string): Promise<void> {
   if (config.NODE_ENV === 'test') {
+    if (testMail.fail) throw new Error('connect ECONNREFUSED (test)');
     sentMail.push({ to, subject, text });
     return;
   }

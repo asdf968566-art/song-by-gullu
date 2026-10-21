@@ -50,7 +50,13 @@ function Verify() {
     <div className="space-y-4 text-center">
       <MailCheck className="mx-auto size-10 text-accent" />
       <h1 className="text-xl font-semibold">{status === 'error' ? 'Link not valid' : 'Check your inbox'}</h1>
-      <p className="text-sm text-muted">{status === 'error' ? msg : 'We sent you a link to confirm your e-mail. Open it to start chatting and calling.'}</p>
+      <p className="text-sm text-muted">
+        {status === 'error'
+          ? msg
+          : params.get('sent') === '0'
+            ? 'Your account is ready, but we couldn’t send the confirmation e-mail just now. Try sending it again in a few minutes.'
+            : 'We sent you a link to confirm your e-mail. Open it to start chatting and calling.'}
+      </p>
       {resent ? <p className="text-sm text-ok">Sent again.</p> : <Button variant="secondary" onClick={resend}>Send the link again</Button>}
       {status !== 'error' && msg && <p className="text-sm text-danger">{msg}</p>}
       <p className="text-sm">

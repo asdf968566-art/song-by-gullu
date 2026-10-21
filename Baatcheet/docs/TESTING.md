@@ -7,7 +7,7 @@ cd Baatcheet
 npm ci
 # Postgres must be running; the tests use the database baatcheet_test (created automatically)
 export TEST_DATABASE_URL=postgresql://baatcheet:baatcheet@localhost:5432/baatcheet_test
-npm test                         # API: 49 tests
+npm test                         # API: 53 tests
 npm run build -w web && npm run e2e   # browser end-to-end: 3 tests
 ```
 

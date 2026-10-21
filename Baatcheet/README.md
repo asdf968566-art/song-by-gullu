@@ -60,6 +60,11 @@ docker compose up --build
 Calls need a secure context: `localhost` works; another device on your LAN needs HTTPS (see
 Troubleshooting).
 
+## Host it on your own Linux PC
+
+One command sets up a PC that stays on, puts it online with a free Cloudflare Tunnel and starts on boot —
+see [docs/DEPLOYMENT.md → On your own Linux PC](docs/DEPLOYMENT.md#on-your-own-linux-pc-free-no-public-ip-needed).
+
 ## Run locally without Docker
 
 Needs Node.js 20+ and PostgreSQL 14+.
@@ -131,7 +136,7 @@ Full-mesh WebRTC was deliberately not used for groups: it doesn't scale past 3�
 
 ## Tests
 
-49 API tests + 3 browser end-to-end tests, including a real WebRTC video call between two
+53 API tests + 3 browser end-to-end tests, including a real WebRTC video call between two
 browsers. What each covers and the **manual two-device checklist** (needed before launch — an
 automated run on one machine doesn't prove NAT traversal): [docs/TESTING.md](docs/TESTING.md).
 CI: `.github/workflows/baatcheet.yml` runs typecheck, API tests, builds, Playwright, and builds
