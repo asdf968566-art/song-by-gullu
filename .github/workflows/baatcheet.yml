@@ -74,7 +74,8 @@ jobs:
         run: |
           cp .env.example .env && docker compose config -q
           DOMAIN=chat.example.com TURN_EXTERNAL_IP=1.2.3.4/10.0.0.2 docker compose -f docker-compose.yml -f docker-compose.prod.yml config -q
-          bash -n deploy/install.sh
+          bash -n deploy/install.sh && bash -n deploy/install-home.sh && bash -n deploy/home-up.sh
+          docker compose -f docker-compose.yml -f docker-compose.home.yml --profile quick config -q
       - name: Build API image
         run: docker build -f server/Dockerfile -t baatcheet-server .
       - name: Build web image
@@ -92,3 +93,49 @@ jobs:
       - name: Logs on failure
         if: failure()
         run: docker compose logs --tail=200
+
+  # Home-PC mode end to end: the same script the owner runs, with a free trycloudflare.com tunnel.
+  home:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Settings like install-home.sh writes them (option b, no TURN)
+        run: |
+          cat > .env <<ENV
+          NODE_ENV=production
+          HOME_TUNNEL=quick
+          CLOUDFLARE_TUNNEL_TOKEN=
+          POSTGRES_PASSWORD=ci$(openssl rand -hex 8)
+          SESSION_SECRET=$(openssl rand -hex 32)
+          APP_URL=https://pending.invalid
+          API_URL=https://pending.invalid
+          TRUST_PROXY=2
+          ADMIN_EMAILS=admin@example.com
+          STORAGE_DRIVER=local
+          LOCAL_UPLOAD_DIR=/data/uploads
+          STUN_URLS=stun:stun.l.google.com:19302
+          TURN_URLS=
+          SMTP_URL=smtp://user:pass@localhost:2525
+          MAIL_FROM=Baatcheet <admin@example.com>
+          NEXT_PUBLIC_SOCKET_URL=
+          ENV
+          sed -i 's/^ *//' .env
+          echo "DATABASE_URL=postgresql://baatcheet:$(grep ^POSTGRES_PASSWORD= .env | cut -d= -f2)@postgres:5432/baatcheet" >> .env
+      - name: Start with deploy/home-up.sh
+        run: bash deploy/home-up.sh --build
+      - name: The site answers through the public tunnel address
+        run: |
+          URL=$(cat ../SITE-ADDRESS.txt); echo "$URL"
+          for i in $(seq 1 30); do curl -fsS "$URL/readyz" && break; sleep 5; done
+          curl -fsS "$URL/readyz"
+          curl -fsS -o /dev/null -w "register page %{http_code}\n" "$URL/register"
+          # Registering through the tunnel proves cookies, the origin check and the database.
+          curl -fsS -c jar -H "Origin: $URL" -H 'Content-Type: application/json' \
+            -d '{"email":"ci@example.com","password":"Password123","username":"ci_user","displayName":"CI"}' "$URL/api/auth/register" -o /dev/null -w "register %{http_code}\n"
+          curl -fsS -b jar "$URL/api/auth/me"
+          # Socket.IO handshake through the tunnel
+          curl -fsS -b jar "$URL/socket.io/?EIO=4&transport=polling" | head -c 200; echo
+      - name: Logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.yml -f docker-compose.home.yml --profile quick logs --tail=150

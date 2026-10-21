@@ -23,7 +23,7 @@ import { checkOrigin, loadSession, requireAdmin, requireAuth } from './http/sess
 export function createApp() {
   const app = express();
   app.disable('x-powered-by');
-  if (config.TRUST_PROXY) app.set('trust proxy', 1);
+  if (config.TRUST_PROXY) app.set('trust proxy', config.TRUST_PROXY);
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
   app.use(pinoHttp({ logger, autoLogging: { ignore: (req) => req.url === '/healthz' } }));
 

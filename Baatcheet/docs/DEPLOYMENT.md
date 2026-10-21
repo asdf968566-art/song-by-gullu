@@ -4,7 +4,25 @@ The repo ships everything for one server (a VPS with 2 vCPU / 4 GB RAM handles a
 concurrent users): PostgreSQL, the API, the web app, Caddy (HTTPS), coturn (TURN), LiveKit (group
 calls) and file storage (a Docker volume, or S3 / the optional MinIO). For larger setups use managed Postgres and S3 and see "Scaling".
 
-## Quickest way: one-command installer
+## On your own Linux PC (free, no public IP needed)
+
+A PC that stays on (4 GB+ RAM) can host Baatcheet. A Cloudflare Tunnel puts it online without opening
+ports on the router, so it also works behind Jio / Airtel CGNAT:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/asdf968566-art/song-by-gullu/main/Baatcheet/deploy/install-home.sh | sudo bash
+```
+
+- Option **a**: your domain on a free Cloudflare account → a tunnel token (Zero Trust → Networks → Tunnels),
+  public hostname `your domain → HTTP caddy:80`. The address never changes.
+- Option **b**: no domain → a free random `https://….trycloudflare.com` address. It changes when the PC
+  restarts; the current one is written to `/opt/baatcheet/SITE-ADDRESS.txt`. Fine for trying it out.
+- Calls: add a free Metered TURN login (dashboard.metered.ca) so calls also connect on mobile data.
+- Group calls are off in this mode (LiveKit needs a public IP).
+- A `baatcheet` systemd service starts everything on boot. Logs: `cd /opt/baatcheet/Baatcheet && docker compose logs -f server`.
+- CI runs this exact mode with a real trycloudflare tunnel (job `home` in `.github/workflows/baatcheet.yml`).
+
+## Quickest way on a cloud server: one-command installer
 
 On a fresh Ubuntu server (Oracle Cloud Always Free works) with your domain's A record pointing at it:
 

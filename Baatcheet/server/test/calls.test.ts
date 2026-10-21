@@ -32,6 +32,23 @@ describe('calls', () => {
     expect(turn.credential).toBe(createHmac('sha1', 'turn-test-secret').update(turn.username).digest('base64'));
   });
 
+  it('uses a fixed login for a hosted TURN service when there is no TURN_SECRET', async () => {
+    const { config, loadConfig } = await import('../src/config.js');
+    const saved = { TURN_SECRET: config.TURN_SECRET, TURN_URLS: config.TURN_URLS };
+    Object.assign(config, { TURN_SECRET: undefined, TURN_URLS: 'turn:relay.example.test:80', TURN_USERNAME: 'hosted-user', TURN_CREDENTIAL: 'hosted-pass' });
+    try {
+      const a = await register(srv);
+      const r = await a.agent.get('/api/calls/ice-servers').expect(200);
+      expect(r.body.iceServers).toContainEqual({ urls: ['turn:relay.example.test:80'], username: 'hosted-user', credential: 'hosted-pass' });
+    } finally {
+      Object.assign(config, saved, { TURN_USERNAME: undefined, TURN_CREDENTIAL: undefined });
+    }
+    // TURN without any credentials is a configuration error.
+    const base = { DATABASE_URL: 'postgresql://x@localhost/x', SESSION_SECRET: 'x'.repeat(40), TURN_URLS: 'turn:x:3478' };
+    expect(() => loadConfig(base)).toThrow(/TURN_USERNAME/);
+    expect(() => loadConfig({ ...base, TURN_USERNAME: 'u', TURN_CREDENTIAL: 'p' })).not.toThrow();
+  });
+
   it('rings, accepts, relays offer/answer/ICE only between the two parties, and ends', async () => {
     const { a, b, sa, sb, convId } = await setup();
     const incoming = once(sb, 'call:incoming');

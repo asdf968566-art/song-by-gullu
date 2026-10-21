@@ -18,6 +18,9 @@ export function iceConfigFor(userId: string): IceConfig {
     const username = `${Math.floor(Date.now() / 1000) + config.TURN_TTL_SECONDS}:${userId}`;
     const credential = hmac(config.TURN_SECRET, username, 'sha1').toString('base64');
     iceServers.push({ urls: turn, username, credential });
+  } else if (turn.length && config.TURN_USERNAME && config.TURN_CREDENTIAL) {
+    // A hosted TURN service with a fixed login (it can't be per-user or expiring).
+    iceServers.push({ urls: turn, username: config.TURN_USERNAME, credential: config.TURN_CREDENTIAL });
   }
   return { iceServers, ttl: config.TURN_TTL_SECONDS };
 }

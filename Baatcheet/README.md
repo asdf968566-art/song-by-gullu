@@ -60,6 +60,11 @@ docker compose up --build
 Calls need a secure context: `localhost` works; another device on your LAN needs HTTPS (see
 Troubleshooting).
 
+## Host it on your own Linux PC
+
+One command sets up a PC that stays on, puts it online with a free Cloudflare Tunnel and starts on boot —
+see [docs/DEPLOYMENT.md → On your own Linux PC](docs/DEPLOYMENT.md#on-your-own-linux-pc-free-no-public-ip-needed).
+
 ## Run locally without Docker
 
 Needs Node.js 20+ and PostgreSQL 14+.
