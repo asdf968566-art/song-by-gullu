@@ -59,9 +59,16 @@ auth.post('/register', strict, h(async (req, res) => {
     if (e.code === 'P2002') throw conflict('That e-mail or username is taken');
     throw e;
   });
-  await sendVerification(user.id, user.email);
+  // A mail server that is down must not break sign-up: the account exists, the user can resend later.
+  const verificationEmailSent = await sendVerification(user.id, user.email).then(
+    () => true,
+    (err) => {
+      req.log?.error({ err }, 'verification e-mail failed');
+      return false;
+    },
+  );
   await createSession(res, req, user.id);
-  res.status(201).json(await mePayload(user.id));
+  res.status(201).json({ ...(await mePayload(user.id)), verificationEmailSent });
 }));
 
 auth.post('/login', loginLimit, h(async (req, res) => {
@@ -111,7 +118,12 @@ auth.post('/verify-email', strict, h(async (req, res) => {
 auth.post('/resend-verification', requireAuth, limit(60 * 60_000, 5), h(async (req, res) => {
   const user = me(req);
   if (user.emailVerifiedAt) return res.json({ ok: true, alreadyVerified: true });
-  await sendVerification(user.id, user.email);
+  try {
+    await sendVerification(user.id, user.email);
+  } catch (err) {
+    req.log?.error({ err }, 'verification e-mail failed');
+    throw new HttpError(502, 'Couldn’t send the e-mail right now. Please try again in a few minutes.', 'mail_failed');
+  }
   res.json({ ok: true });
 }));
 
@@ -121,7 +133,9 @@ auth.post('/forgot-password', strict, h(async (req, res) => {
   if (user && !user.suspendedAt) {
     const token = await issueToken(user.id, 'RESET_PASSWORD', 1);
     const link = `${config.APP_URL}/reset-password?token=${encodeURIComponent(token)}`;
-    await sendMail(email, 'Reset your Baatcheet password', `Someone asked to reset your password.\n\nSet a new one here (valid for 1 hour):\n${link}\n\nIf it wasn't you, ignore this e-mail.`);
+    await sendMail(email, 'Reset your Baatcheet password', `Someone asked to reset your password.\n\nSet a new one here (valid for 1 hour):\n${link}\n\nIf it wasn't you, ignore this e-mail.`).catch((err) =>
+      req.log?.error({ err }, 'reset e-mail failed'),
+    );
   }
   // Same answer either way, so this can't be used to find accounts.
   res.json({ ok: true });

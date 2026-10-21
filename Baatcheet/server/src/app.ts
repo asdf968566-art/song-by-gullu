@@ -24,6 +24,14 @@ export function createApp() {
   const app = express();
   app.disable('x-powered-by');
   if (config.TRUST_PROXY) app.set('trust proxy', config.TRUST_PROXY);
+  if (config.CLIENT_IP_HEADER) {
+    const header = config.CLIENT_IP_HEADER;
+    app.use((req, _res, next) => {
+      const ip = req.headers[header];
+      if (typeof ip === 'string' && ip.length <= 64) Object.defineProperty(req, 'ip', { value: ip.trim(), configurable: true });
+      next();
+    });
+  }
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
   app.use(pinoHttp({ logger, autoLogging: { ignore: (req) => req.url === '/healthz' } }));
 

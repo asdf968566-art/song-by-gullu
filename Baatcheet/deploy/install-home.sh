@@ -89,8 +89,9 @@ SESSION_DAYS=30
 APP_URL=$URL
 API_URL=$URL
 CORS_ORIGINS=
-# Cloudflare Tunnel + Caddy = 2 proxies in front of the API (real visitor IPs for rate limits)
-TRUST_PROXY=2
+TRUST_PROXY=true
+# The API is only reachable through the tunnel, which tells it each visitor's real IP (for rate limits)
+CLIENT_IP_HEADER=cf-connecting-ip
 ADMIN_EMAILS=$ADMIN_EMAIL
 LOG_LEVEL=info
 STORAGE_DRIVER=local

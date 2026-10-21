@@ -21,8 +21,8 @@ export default function RegisterPage() {
     setBusy(true);
     setError(null);
     try {
-      await api.post('/auth/register', { ...f, username: f.username.toLowerCase() });
-      router.replace('/verify-email?sent=1');
+      const r = await api.post<{ verificationEmailSent: boolean }>('/auth/register', { ...f, username: f.username.toLowerCase() });
+      router.replace(r.verificationEmailSent ? '/verify-email?sent=1' : '/verify-email?sent=0');
     } catch (err) {
       setError(errorText(err));
     } finally {

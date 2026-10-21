@@ -110,7 +110,8 @@ jobs:
           SESSION_SECRET=$(openssl rand -hex 32)
           APP_URL=https://pending.invalid
           API_URL=https://pending.invalid
-          TRUST_PROXY=2
+          TRUST_PROXY=true
+          CLIENT_IP_HEADER=cf-connecting-ip
           ADMIN_EMAILS=admin@example.com
           STORAGE_DRIVER=local
           LOCAL_UPLOAD_DIR=/data/uploads
@@ -133,7 +134,8 @@ jobs:
           # Registering through the tunnel proves cookies, the origin check and the database.
           curl -fsS -c jar -H "Origin: $URL" -H 'Content-Type: application/json' \
             -d '{"email":"ci@example.com","password":"Password123","username":"ci_user","displayName":"CI"}' "$URL/api/auth/register" -o /dev/null -w "register %{http_code}\n"
-          curl -fsS -b jar "$URL/api/auth/me"
+          curl -fsS -b jar "$URL/api/auth/me"; echo
+          # SMTP is deliberately unreachable here: sign-up must still work (verificationEmailSent=false).
           # Socket.IO handshake through the tunnel
           curl -fsS -b jar "$URL/socket.io/?EIO=4&transport=polling" | head -c 200; echo
       - name: Logs on failure

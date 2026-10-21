@@ -16,6 +16,9 @@ const schema = z
     SESSION_SECRET: z.string().min(32, 'SESSION_SECRET must be at least 32 characters'),
     SESSION_DAYS: z.coerce.number().int().min(1).max(365).default(30),
     COOKIE_DOMAIN: z.string().optional(),
+    /** Header that carries the visitor's IP, set by a tunnel the API is only reachable through
+     *  (e.g. cf-connecting-ip behind Cloudflare Tunnel). Overrides TRUST_PROXY for req.ip. */
+    CLIENT_IP_HEADER: z.string().toLowerCase().optional(),
     /** Reverse proxies in front of the API: true = 1, or a number (2 behind Cloudflare Tunnel + Caddy). */
     TRUST_PROXY: z
       .string()

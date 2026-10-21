@@ -654,7 +654,7 @@ first, then `Baatcheet/docs/` (API, DEPLOYMENT, TESTING with a two-device call c
   `realtime/calls.ts` (1:1 P2P signalling relay, busy / missed / reconnect grace; groups via LiveKit tokens).
 - Web: Next.js 15 App Router + Tailwind v4, own components in `components/ui`, store `lib/store.ts`, call engine
   `lib/calls.ts` (only the caller sends offers, incl. ICE restarts).
-- Tests: `npm test` (49 vitest API tests on a real Postgres, DB `baatcheet_test`), `npm run e2e` (Playwright, Chromium
+- Tests: `npm test` (52 vitest API tests on a real Postgres, DB `baatcheet_test`), `npm run e2e` (Playwright, Chromium
   fake camera: two browsers register, chat, upload, real WebRTC video call). In this sandbox run e2e with
   `PW_CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome`. Postgres 16 is installed locally
   (`pg_ctlcluster 16 main start`, user/password baatcheet).

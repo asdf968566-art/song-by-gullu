@@ -20,6 +20,7 @@ curl -fsSL https://raw.githubusercontent.com/asdf968566-art/song-by-gullu/main/B
 - Calls: add a free Metered TURN login (dashboard.metered.ca) so calls also connect on mobile data.
 - Group calls are off in this mode (LiveKit needs a public IP).
 - A `baatcheet` systemd service starts everything on boot. Logs: `cd /opt/baatcheet/Baatcheet && docker compose logs -f server`.
+- Rate limits see each visitor's real IP through the tunnel (`CLIENT_IP_HEADER=cf-connecting-ip`).
 - CI runs this exact mode with a real trycloudflare tunnel (job `home` in `.github/workflows/baatcheet.yml`).
 
 ## Quickest way on a cloud server: one-command installer

@@ -136,7 +136,7 @@ Full-mesh WebRTC was deliberately not used for groups: it doesn't scale past 3â€
 
 ## Tests
 
-49 API tests + 3 browser end-to-end tests, including a real WebRTC video call between two
+52 API tests + 3 browser end-to-end tests, including a real WebRTC video call between two
 browsers. What each covers and the **manual two-device checklist** (needed before launch â€” an
 automated run on one machine doesn't prove NAT traversal): [docs/TESTING.md](docs/TESTING.md).
 CI: `.github/workflows/baatcheet.yml` runs typecheck, API tests, builds, Playwright, and builds
