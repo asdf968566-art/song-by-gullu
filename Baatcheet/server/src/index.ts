@@ -2,12 +2,14 @@ import { createServer } from 'node:http';
 import { config } from './config.js';
 import { prisma } from './db.js';
 import { logger } from './logger.js';
+import { ensureBucket } from './lib/storage.js';
 import { createApp } from './app.js';
 import { endAllCalls } from './realtime/calls.js';
 import { createSocketServer } from './realtime/socket.js';
 
 async function main() {
   await prisma.$connect();
+  await ensureBucket();
   // Promote configured admins that already have an account.
   const admins = config.ADMIN_EMAILS.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
   if (admins.length) await prisma.user.updateMany({ where: { email: { in: admins } }, data: { role: 'ADMIN' } });

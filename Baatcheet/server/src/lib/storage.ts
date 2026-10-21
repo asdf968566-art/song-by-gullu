@@ -5,7 +5,7 @@ import { createReadStream, createWriteStream } from 'node:fs';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { Transform } from 'node:stream';
-import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { CreateBucketCommand, DeleteObjectCommand, GetObjectCommand, HeadBucketCommand, HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { Request, Response } from 'express';
 import { config } from '../config.js';
@@ -32,6 +32,16 @@ function s3(endpoint?: string) {
 const internal = config.STORAGE_DRIVER === 's3' ? s3(config.S3_ENDPOINT) : null;
 // Signed URLs must use the host the browser can reach (e.g. localhost:9000, not the docker service name).
 const signer = config.STORAGE_DRIVER === 's3' ? s3(config.S3_PUBLIC_ENDPOINT ?? config.S3_ENDPOINT) : null;
+
+/** Creates the bucket on first start if it doesn't exist (e.g. a fresh MinIO). */
+export async function ensureBucket() {
+  if (!internal) return;
+  try {
+    await internal.send(new HeadBucketCommand({ Bucket: config.S3_BUCKET }));
+  } catch {
+    await internal.send(new CreateBucketCommand({ Bucket: config.S3_BUCKET }));
+  }
+}
 
 function sign(action: string, key: string, exp: number, extra = ''): string {
   return hmac(config.SESSION_SECRET, `${action}\n${key}\n${exp}\n${extra}`).toString('base64url');

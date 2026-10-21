@@ -54,7 +54,7 @@ docker compose up --build
 
 - App: <http://localhost:8080> (register, then open the e-mail in Mailpit to verify)
 - E-mails: <http://localhost:8025>
-- MinIO console: <http://localhost:9001>
+- Files are kept in the Docker volume `uploads`. For S3 storage: `docker compose --profile s3 up` with `STORAGE_DRIVER=s3`.
 - Seed fictional users: `docker compose exec server npx tsx prisma/seed.ts` → log in as `asha@example.test` / `Password123` (admin), `ravi@…`, `meera@…`, `kabir@…`.
 
 Calls need a secure context: `localhost` works; another device on your LAN needs HTTPS (see

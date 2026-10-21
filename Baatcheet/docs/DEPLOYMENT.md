@@ -2,7 +2,7 @@
 
 The repo ships everything for one server (a VPS with 2 vCPU / 4 GB RAM handles a few hundred
 concurrent users): PostgreSQL, the API, the web app, Caddy (HTTPS), coturn (TURN), LiveKit (group
-calls) and MinIO (files). For larger setups use managed Postgres and S3 and see "Scaling".
+calls) and file storage (a Docker volume, or S3 / the optional MinIO). For larger setups use managed Postgres and S3 and see "Scaling".
 
 ## 1. Server and DNS
 
@@ -24,7 +24,7 @@ Edit `.env`:
 - New secrets: `SESSION_SECRET` (`openssl rand -base64 48`), `POSTGRES_PASSWORD`, `S3_SECRET_ACCESS_KEY`, `TURN_SECRET` (`openssl rand -hex 32`).
 - `SMTP_URL` from your e-mail provider, e.g. `smtps://USER:PASSWORD@smtp.provider.com:465` (required in production).
 - `ADMIN_EMAILS=you@example.com`.
-- Files: keep MinIO or set a managed S3 (`S3_ENDPOINT` empty for AWS, `S3_PUBLIC_ENDPOINT` = public bucket endpoint, `S3_FORCE_PATH_STYLE=false` for AWS). The bucket must stay **private**; the app hands out signed URLs. Allow CORS `PUT, GET` from your `APP_URL` on the bucket.
+- Files: the default `STORAGE_DRIVER=local` keeps them in the `uploads` volume (back it up). For S3 set `STORAGE_DRIVER=s3` and a managed S3 (or MinIO with `--profile s3`) (`S3_ENDPOINT` empty for AWS, `S3_PUBLIC_ENDPOINT` = public bucket endpoint, `S3_FORCE_PATH_STYLE=false` for AWS). The bucket must stay **private**; the app hands out signed URLs. Allow CORS `PUT, GET` from your `APP_URL` on the bucket.
 - TURN: `TURN_URLS=turn:turn.example.com:3478?transport=udp,turn:turn.example.com:3478?transport=tcp,turns:turn.example.com:5349?transport=tcp`, `TURN_EXTERNAL_IP=<server public IP>`, and TLS files in `deploy/turn-certs/` (`fullchain.pem`, `privkey.pem`, e.g. from certbot for turn.example.com).
 - Group calls: copy `deploy/livekit.example.yaml` to `deploy/livekit.yaml`, set keys, set `LIVEKIT_URL=wss://rtc.example.com` and the same `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET`. Add a Caddy site `rtc.example.com { reverse_proxy localhost:7880 }` (LiveKit runs on the host network). Leave the `LIVEKIT_*` values empty to turn group calls off.
 - Push notifications: `npm run vapid -w server` (or `npx web-push generate-vapid-keys`) → `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT=mailto:you@example.com`.
@@ -59,9 +59,9 @@ Then do the two-device checklist in `docs/TESTING.md` with one phone on mobile d
 docker compose exec -T postgres pg_dump -U baatcheet -Fc baatcheet > backups/baatcheet-$(date +%F).dump
 find backups -name '*.dump' -mtime +14 -delete
 
-# Files: mirror the bucket
-docker run --rm --network baatcheet_default -v $PWD/backups/files:/backup minio/mc \
-  sh -c 'mc alias set s http://minio:9000 $KEY $SECRET && mc mirror --overwrite s/baatcheet /backup'
+# Files (local driver): copy the uploads volume
+docker run --rm -v baatcheet_uploads:/data:ro -v $PWD/backups:/backup alpine tar czf /backup/uploads-$(date +%F).tgz -C /data .
+# Files (S3): use your provider's versioning / replication, or `aws s3 sync s3://BUCKET backups/files`
 
 # Restore
 docker compose exec -T postgres pg_restore -U baatcheet -d baatcheet --clean --if-exists < backups/baatcheet-2026-10-21.dump

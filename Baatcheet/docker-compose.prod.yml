@@ -8,7 +8,7 @@ services:
       - caddydata:/data
     restart: unless-stopped
   minio:
-    # Don't expose MinIO's console publicly; put the bucket behind its own domain or use a managed S3.
+    # Only with --profile s3. Don't expose MinIO's console publicly; prefer a managed S3.
     ports: !override ["127.0.0.1:9000:9000"]
   mailpit:
     # Not used in production (set SMTP_URL to a real provider); keep it unreachable.
