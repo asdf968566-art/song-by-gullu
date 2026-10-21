@@ -16,7 +16,11 @@
   ],
   "voice": "edge",
   "youtube": "FWX2mz5Nbps",
-  "file": "short-20261020-1259.mp4"
+  "file": "short-20261020-1259.mp4",
+  "views": 1,
+  "likes": 0,
+  "comments": 0,
+  "score": 1.0
  },
  {
   "date": "20261020-1452",
@@ -30,7 +34,11 @@
   },
   "voice": "edge",
   "youtube": "degBJTEk_P0",
-  "file": "long-20261020-1452.mp4"
+  "file": "long-20261020-1452.mp4",
+  "views": 0,
+  "likes": 0,
+  "comments": 0,
+  "score": 0.0
  },
  {
   "date": "20261020-1746",
@@ -44,6 +52,24 @@
   },
   "voice": "edge",
   "youtube": "cMF1y7FAra4",
-  "file": "short-20261020-1746.mp4"
+  "file": "short-20261020-1746.mp4",
+  "views": 0,
+  "likes": 0,
+  "comments": 0,
+  "score": 0.0
+ },
+ {
+  "date": "20261021-1046",
+  "kind": "long",
+  "format": "trend",
+  "title": "दशहरा की रात: जब 100 फीट का पुतला जीवित हो गया! 🔥 AI Movie",
+  "seconds": 684.6,
+  "pictures": {
+   "reused": 11,
+   "pollinations": 50
+  },
+  "voice": "edge",
+  "youtube": null,
+  "file": "long-20261021-1046.mp4"
  }
 ]
