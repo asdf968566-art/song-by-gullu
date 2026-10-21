@@ -624,6 +624,10 @@ request the owner made, in order.
     `SangeetWeb/privacy.html`) → secrets `YT_CLIENT_ID` / `YT_CLIENT_SECRET`. Run the workflow by hand with "login"
     → the log shows a code for google.com/device → `token.enc` (refresh token, openssl-encrypted with the client
     secret). Uploads set `containsSyntheticMedia`. Unaudited API projects' uploads stay private until Google's audit.
+  - Learns from the channel (Oct 21, owner: "tu khud dekh le trend ke hisab se"): `channel_stats` reads views /
+    likes / comments of the uploaded videos (Data API, the channel login) into history (`score` = (views + 20 likes +
+    40 comments) per day). `pick_format` weights formats by their average score (untried = average, 1 in 4 picks
+    random, the last 2 Short / last 1 long formats skipped), and the prompts get the channel's best titles.
   - Told the owner: no fake views; monetization (1000 subs + 4000 h or 10M Shorts views in 90 days) can't be promised;
     mass-produced repetitive AI videos are demonetized, so every video is a different format/story.
 - Other platforms checked Oct 9 from CI: Gaana's old open API is gone (404); Wynk, Hungama, Spotify have no open
