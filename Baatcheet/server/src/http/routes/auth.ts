@@ -53,6 +53,7 @@ auth.post('/register', strict, h(async (req, res) => {
       email: input.email,
       passwordHash: await hashPassword(input.password),
       role: isAdminEmail(input.email) ? 'ADMIN' : 'USER',
+      emailVerifiedAt: config.AUTO_VERIFY_EMAIL ? new Date() : null,
       profile: { create: { username: input.username, displayName: input.displayName } },
     },
   }).catch((e: { code?: string }) => {
@@ -60,7 +61,7 @@ auth.post('/register', strict, h(async (req, res) => {
     throw e;
   });
   // A mail server that is down must not break sign-up: the account exists, the user can resend later.
-  const verificationEmailSent = await sendVerification(user.id, user.email).then(
+  const verificationEmailSent = config.AUTO_VERIFY_EMAIL || await sendVerification(user.id, user.email).then(
     () => true,
     (err) => {
       req.log?.error({ err }, 'verification e-mail failed');

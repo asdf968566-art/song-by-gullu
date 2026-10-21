@@ -4,6 +4,13 @@ The repo ships everything for one server (a VPS with 2 vCPU / 4 GB RAM handles a
 concurrent users): PostgreSQL, the API, the web app, Caddy (HTTPS), coturn (TURN), LiveKit (group
 calls) and file storage (a Docker volume, or S3 / the optional MinIO). For larger setups use managed Postgres and S3 and see "Scaling".
 
+## Try it first: a temporary trial from GitHub Actions
+
+Actions → **Baatcheet trial** → Run workflow (1–5 hours). The run's summary shows a
+`https://….trycloudflare.com` address. It is for testing only: e-mail verification is skipped
+(`AUTO_VERIFY_EMAIL=true`, so password reset doesn't work), there is no TURN, and everything is deleted when
+the run ends.
+
 ## On your own Linux PC (free, no public IP needed)
 
 A PC that stays on (4 GB+ RAM) can host Baatcheet. A Cloudflare Tunnel puts it online without opening

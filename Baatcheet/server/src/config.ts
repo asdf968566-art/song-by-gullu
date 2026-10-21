@@ -67,6 +67,8 @@ const schema = z
     LOG_LEVEL: z.string().default('info'),
     /** Disables rate limits in automated tests only. */
     DISABLE_RATE_LIMIT: bool.default('false'),
+    /** Trial runs only: new accounts count as verified and no e-mail is needed. Password reset then can't work. */
+    AUTO_VERIFY_EMAIL: bool.default('false'),
   })
   .superRefine((c, ctx) => {
     if (c.STORAGE_DRIVER === 's3') {
@@ -78,7 +80,7 @@ const schema = z
       ctx.addIssue({ code: 'custom', path: ['TURN_SECRET'], message: 'TURN_URLS needs TURN_SECRET (own coturn) or TURN_USERNAME + TURN_CREDENTIAL (hosted TURN)' });
     }
     if (c.NODE_ENV === 'production') {
-      if (!c.SMTP_URL) ctx.addIssue({ code: 'custom', path: ['SMTP_URL'], message: 'SMTP_URL is required in production (verification and reset e-mails)' });
+      if (!c.SMTP_URL && !c.AUTO_VERIFY_EMAIL) ctx.addIssue({ code: 'custom', path: ['SMTP_URL'], message: 'SMTP_URL is required in production (verification and reset e-mails)' });
       if (c.DISABLE_RATE_LIMIT) ctx.addIssue({ code: 'custom', path: ['DISABLE_RATE_LIMIT'], message: 'Rate limits cannot be disabled in production' });
       if (!c.APP_URL.startsWith('https://')) ctx.addIssue({ code: 'custom', path: ['APP_URL'], message: 'APP_URL must be https in production' });
     }

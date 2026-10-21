@@ -184,3 +184,21 @@ describe('client IP behind a tunnel', () => {
     }
   });
 });
+
+describe('trial mode', () => {
+  it('AUTO_VERIFY_EMAIL makes new accounts verified without any e-mail', async () => {
+    const { config, loadConfig } = await import('../src/config.js');
+    const { sentMail } = await import('../src/lib/mail.js');
+    config.AUTO_VERIFY_EMAIL = true;
+    try {
+      const res = await api(srv.http).post('/api/auth/register').send({ email: 'trial@test.local', password: 'Password123', username: 'trial_user', displayName: 'Trial' }).expect(201);
+      expect(res.body.emailVerified).toBe(true);
+      expect(sentMail.filter((m) => m.to === 'trial@test.local')).toHaveLength(0);
+    } finally {
+      config.AUTO_VERIFY_EMAIL = false;
+    }
+    const prod = { NODE_ENV: 'production', DATABASE_URL: 'postgresql://x@localhost/x', SESSION_SECRET: 'x'.repeat(40), APP_URL: 'https://chat.example.com' };
+    expect(() => loadConfig(prod)).toThrow(/SMTP_URL/);
+    expect(() => loadConfig({ ...prod, AUTO_VERIFY_EMAIL: 'true' })).not.toThrow();
+  });
+});
