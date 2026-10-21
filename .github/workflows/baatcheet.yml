@@ -1,0 +1,94 @@
+name: Baatcheet
+
+on:
+  push:
+    branches: ["main", "claude/**"]
+    paths: ["Baatcheet/**", ".github/workflows/baatcheet.yml"]
+  pull_request:
+    paths: ["Baatcheet/**", ".github/workflows/baatcheet.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: Baatcheet
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: baatcheet
+          POSTGRES_PASSWORD: baatcheet
+          POSTGRES_DB: baatcheet
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U baatcheet" --health-interval 5s --health-retries 20
+    env:
+      TEST_DATABASE_URL: postgresql://baatcheet:baatcheet@localhost:5432/baatcheet_test
+      E2E_DATABASE_URL: postgresql://baatcheet:baatcheet@localhost:5432/baatcheet_e2e
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Baatcheet/package-lock.json
+      - run: npm ci
+      - name: Generate Prisma client
+        run: npx prisma generate
+        working-directory: Baatcheet/server
+      - name: Typecheck
+        run: npm run typecheck
+      - name: API tests (auth, messaging, groups, uploads, calls, admin)
+        run: npm test
+      - name: Build API
+        run: npm run build -w server
+      - name: Build web app
+        run: npm run build -w web
+        env:
+          NEXT_PUBLIC_SOCKET_URL: http://localhost:4000
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+        working-directory: Baatcheet/web
+      - name: End-to-end tests (register, real-time chat, real WebRTC video call)
+        run: npm run e2e
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-results
+          path: Baatcheet/web/test-results
+          if-no-files-found: ignore
+
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check docker-compose.yml
+        run: |
+          cp .env.example .env && docker compose config -q
+          DOMAIN=chat.example.com TURN_EXTERNAL_IP=1.2.3.4/10.0.0.2 docker compose -f docker-compose.yml -f docker-compose.prod.yml config -q
+          bash -n deploy/install.sh
+      - name: Build API image
+        run: docker build -f server/Dockerfile -t baatcheet-server .
+      - name: Build web image
+        run: docker build -f web/Dockerfile -t baatcheet-web .
+      - name: Start the full stack and check it answers
+        run: |
+          docker compose up -d --build
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:8080/readyz && curl -fsS http://localhost:8080/ -o /dev/null; then echo "STACK UP"; break; fi
+            sleep 5
+          done
+          curl -fsS http://localhost:8080/readyz
+          curl -fsS -o /dev/null -w "register page %{http_code}\n" http://localhost:8080/register
+          docker compose ps
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs --tail=200

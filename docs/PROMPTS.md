@@ -116,3 +116,4 @@ Exact words (Hinglish), with what was done. Secrets are redacted. Times are UTC.
 - 2026-10-04: "bhai tu catalog ko more then 10 lakh tak krle jisse jb bnada search karega to jyada tar gaane me cata log me hi mil jaye ga jo nhi milega wo youtube metadata se mil jayega ok" → deep crawl, catalog first then YouTube.
 - 2026-10-04: "Bhai sath me te download wala function bhi check kr lena" (screenshots of a download stuck at 0%) → fixed.
 - 2026-10-04: "Ye bhi check Krle ok" (speed dialog screenshot) → layout fixed.
+- 2026-10-21: "MASTER PROMPT: Build a Complete Real-Time Chat, Voice & Video Calling Website" (Next.js, Socket.IO, WebRTC, PostgreSQL/Prisma, S3, TURN, LiveKit, admin, tests, Docker) → new separate project `Baatcheet/` (milestone 1: full app, 49 API tests + 3 Playwright e2e incl. a real WebRTC video call).

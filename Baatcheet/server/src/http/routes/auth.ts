@@ -1,0 +1,228 @@
+import { Router } from 'express';
+import { z } from 'zod';
+import { email as emailSchema, loginInput, password as passwordSchema, registerInput, resetInput } from '@baatcheet/shared';
+import { config } from '../../config.js';
+import { prisma } from '../../db.js';
+import { dummyHash, hashPassword, randomToken, sha256, verifyPassword } from '../../lib/crypto.js';
+import { HttpError, badRequest, conflict, h, notFound, parse, unauthorized } from '../../lib/errors.js';
+import { sendMail } from '../../lib/mail.js';
+import { limit } from '../../lib/rate.js';
+import { deleteObject } from '../../lib/storage.js';
+import { disconnectSession, disconnectUser } from '../../realtime/hub.js';
+import { audit } from '../../services/audit.js';
+import { mePayload } from '../../services/me.js';
+import { otp } from '../../services/otp.js';
+import { clearSessionCookie, createSession, me, requireAuth } from '../session.js';
+
+export const auth = Router();
+
+const MAX_FAILS = 5;
+const LOCK_MINUTES = 15;
+
+const strict = limit(15 * 60_000, 20);
+const loginLimit = limit(60_000, 10);
+
+async function issueToken(userId: string, purpose: 'VERIFY_EMAIL' | 'RESET_PASSWORD', hours: number) {
+  await prisma.authToken.deleteMany({ where: { userId, purpose, usedAt: null } });
+  const token = randomToken();
+  await prisma.authToken.create({ data: { userId, purpose, tokenHash: sha256(token), expiresAt: new Date(Date.now() + hours * 3600_000) } });
+  return token;
+}
+
+async function useToken(token: string, purpose: 'VERIFY_EMAIL' | 'RESET_PASSWORD') {
+  const row = await prisma.authToken.findUnique({ where: { tokenHash: sha256(token) } });
+  if (!row || row.purpose !== purpose || row.usedAt || row.expiresAt < new Date()) throw badRequest('This link is invalid or has expired');
+  await prisma.authToken.update({ where: { id: row.id }, data: { usedAt: new Date() } });
+  return row.userId;
+}
+
+async function sendVerification(userId: string, to: string) {
+  const token = await issueToken(userId, 'VERIFY_EMAIL', 48);
+  const link = `${config.APP_URL}/verify-email?token=${encodeURIComponent(token)}`;
+  await sendMail(to, 'Verify your Baatcheet e-mail', `Welcome to Baatcheet!\n\nConfirm your e-mail address:\n${link}\n\nThe link works for 48 hours.`);
+}
+
+const isAdminEmail = (e: string) => config.ADMIN_EMAILS.split(',').map((s) => s.trim().toLowerCase()).includes(e);
+
+auth.post('/register', strict, h(async (req, res) => {
+  const input = parse(registerInput, req.body);
+  if (await prisma.userProfile.findUnique({ where: { username: input.username } })) throw conflict('That username is taken');
+  if (await prisma.user.findUnique({ where: { email: input.email } })) throw conflict('An account with this e-mail already exists');
+  const user = await prisma.user.create({
+    data: {
+      email: input.email,
+      passwordHash: await hashPassword(input.password),
+      role: isAdminEmail(input.email) ? 'ADMIN' : 'USER',
+      profile: { create: { username: input.username, displayName: input.displayName } },
+    },
+  }).catch((e: { code?: string }) => {
+    if (e.code === 'P2002') throw conflict('That e-mail or username is taken');
+    throw e;
+  });
+  await sendVerification(user.id, user.email);
+  await createSession(res, req, user.id);
+  res.status(201).json(await mePayload(user.id));
+}));
+
+auth.post('/login', loginLimit, h(async (req, res) => {
+  const input = parse(loginInput, req.body);
+  const user = await prisma.user.findUnique({ where: { email: input.email } });
+  if (!user) {
+    await verifyPassword(await dummyHash(), input.password);
+    throw unauthorized('Wrong e-mail or password');
+  }
+  if (user.lockedUntil && user.lockedUntil > new Date()) {
+    throw new HttpError(429, 'Too many failed attempts. Try again in a few minutes or reset your password.', 'locked');
+  }
+  if (!(await verifyPassword(user.passwordHash, input.password))) {
+    const fails = user.failedLogins + 1;
+    await prisma.user.update({
+      where: { id: user.id },
+      data: fails >= MAX_FAILS ? { failedLogins: 0, lockedUntil: new Date(Date.now() + LOCK_MINUTES * 60_000) } : { failedLogins: fails },
+    });
+    throw unauthorized('Wrong e-mail or password');
+  }
+  if (user.suspendedAt) throw new HttpError(403, 'This account is suspended', 'suspended');
+  await prisma.user.update({ where: { id: user.id }, data: { failedLogins: 0, lockedUntil: null } });
+  await createSession(res, req, user.id);
+  res.json(await mePayload(user.id));
+}));
+
+auth.post('/logout', h(async (req, res) => {
+  if (req.session) {
+    await prisma.session.update({ where: { id: req.session.id }, data: { revokedAt: new Date() } });
+    disconnectSession(req.session.id);
+  }
+  clearSessionCookie(res);
+  res.json({ ok: true });
+}));
+
+auth.get('/me', requireAuth, h(async (req, res) => {
+  res.json(await mePayload(me(req).id));
+}));
+
+auth.post('/verify-email', strict, h(async (req, res) => {
+  const { token } = parse(z.object({ token: z.string().min(10).max(200) }), req.body);
+  const userId = await useToken(token, 'VERIFY_EMAIL');
+  await prisma.user.update({ where: { id: userId }, data: { emailVerifiedAt: new Date() } });
+  res.json({ ok: true });
+}));
+
+auth.post('/resend-verification', requireAuth, limit(60 * 60_000, 5), h(async (req, res) => {
+  const user = me(req);
+  if (user.emailVerifiedAt) return res.json({ ok: true, alreadyVerified: true });
+  await sendVerification(user.id, user.email);
+  res.json({ ok: true });
+}));
+
+auth.post('/forgot-password', strict, h(async (req, res) => {
+  const { email } = parse(z.object({ email: emailSchema }), req.body);
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (user && !user.suspendedAt) {
+    const token = await issueToken(user.id, 'RESET_PASSWORD', 1);
+    const link = `${config.APP_URL}/reset-password?token=${encodeURIComponent(token)}`;
+    await sendMail(email, 'Reset your Baatcheet password', `Someone asked to reset your password.\n\nSet a new one here (valid for 1 hour):\n${link}\n\nIf it wasn't you, ignore this e-mail.`);
+  }
+  // Same answer either way, so this can't be used to find accounts.
+  res.json({ ok: true });
+}));
+
+auth.post('/reset-password', strict, h(async (req, res) => {
+  const input = parse(resetInput, req.body);
+  const userId = await useToken(input.token, 'RESET_PASSWORD');
+  await prisma.user.update({
+    where: { id: userId },
+    // Reaching the link proves the mailbox too.
+    data: { passwordHash: await hashPassword(input.password), failedLogins: 0, lockedUntil: null, emailVerifiedAt: new Date() },
+  });
+  await prisma.session.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } });
+  disconnectUser(userId);
+  res.json({ ok: true });
+}));
+
+auth.post('/change-password', requireAuth, strict, h(async (req, res) => {
+  const input = parse(z.object({ current: z.string().min(1).max(128), password: passwordSchema }), req.body);
+  const user = me(req);
+  if (!(await verifyPassword(user.passwordHash, input.current))) throw badRequest('Current password is wrong');
+  await prisma.user.update({ where: { id: user.id }, data: { passwordHash: await hashPassword(input.password) } });
+  // Log out every other device.
+  const others = await prisma.session.findMany({ where: { userId: user.id, revokedAt: null, id: { not: req.session!.id } } });
+  await prisma.session.updateMany({ where: { id: { in: others.map((s) => s.id) } }, data: { revokedAt: new Date() } });
+  others.forEach((s) => disconnectSession(s.id));
+  res.json({ ok: true });
+}));
+
+// ----- phone OTP (optional; needs Twilio Verify) -----
+
+const phoneSchema = z.string().trim().regex(/^\+[1-9]\d{7,14}$/, 'Use the international format, e.g. +919876543210');
+
+auth.post('/otp/start', limit(60 * 60_000, 5), h(async (req, res) => {
+  const { phone } = parse(z.object({ phone: phoneSchema }), req.body);
+  if (!req.user) {
+    // Logging in with a phone only works for a number already confirmed on an account.
+    const owner = await prisma.user.findUnique({ where: { phone } });
+    if (!owner?.phoneVerifiedAt) return res.json({ ok: true });
+  }
+  await otp.start(phone);
+  res.json({ ok: true });
+}));
+
+auth.post('/otp/verify', limit(15 * 60_000, 10), h(async (req, res) => {
+  const { phone, code } = parse(z.object({ phone: phoneSchema, code: z.string().regex(/^\d{4,10}$/) }), req.body);
+  if (!(await otp.check(phone, code))) throw badRequest('Wrong or expired code');
+  if (req.user) {
+    const taken = await prisma.user.findUnique({ where: { phone } });
+    if (taken && taken.id !== req.user.id) throw conflict('This number is used by another account');
+    await prisma.user.update({ where: { id: req.user.id }, data: { phone, phoneVerifiedAt: new Date() } });
+    return res.json(await mePayload(req.user.id));
+  }
+  const user = await prisma.user.findUnique({ where: { phone } });
+  if (!user?.phoneVerifiedAt) throw badRequest('Wrong or expired code');
+  if (user.suspendedAt) throw new HttpError(403, 'This account is suspended', 'suspended');
+  await createSession(res, req, user.id);
+  res.json(await mePayload(user.id));
+}));
+
+// ----- sessions / devices -----
+
+auth.get('/sessions', requireAuth, h(async (req, res) => {
+  const rows = await prisma.session.findMany({
+    where: { userId: me(req).id, revokedAt: null, expiresAt: { gt: new Date() } },
+    orderBy: { lastUsedAt: 'desc' },
+  });
+  res.json(rows.map((s) => ({ id: s.id, userAgent: s.userAgent, ip: s.ip, createdAt: s.createdAt, lastUsedAt: s.lastUsedAt, current: s.id === req.session!.id })));
+}));
+
+auth.delete('/sessions/:id', requireAuth, h(async (req, res) => {
+  const s = await prisma.session.findUnique({ where: { id: req.params.id } });
+  if (!s || s.userId !== me(req).id) throw notFound('Session not found');
+  await prisma.session.update({ where: { id: s.id }, data: { revokedAt: new Date() } });
+  disconnectSession(s.id);
+  res.json({ ok: true });
+}));
+
+auth.post('/sessions/revoke-others', requireAuth, h(async (req, res) => {
+  const others = await prisma.session.findMany({ where: { userId: me(req).id, revokedAt: null, id: { not: req.session!.id } } });
+  await prisma.session.updateMany({ where: { id: { in: others.map((s) => s.id) } }, data: { revokedAt: new Date() } });
+  others.forEach((s) => disconnectSession(s.id));
+  res.json({ ok: true, count: others.length });
+}));
+
+// ----- account deletion -----
+
+auth.post('/delete-account', requireAuth, strict, h(async (req, res) => {
+  const { password } = parse(z.object({ password: z.string().min(1).max(128) }), req.body);
+  const user = me(req);
+  if (!(await verifyPassword(user.passwordHash, password))) throw badRequest('Password is wrong');
+  const uploads = await prisma.upload.findMany({ where: { userId: user.id }, select: { key: true } });
+  // Messages stay in other people's chats as "Deleted user" (sender set to null by the database);
+  // the user's files, profile, contacts, sessions and memberships are removed.
+  await prisma.messageAttachment.deleteMany({ where: { message: { senderId: user.id } } });
+  await prisma.message.updateMany({ where: { senderId: user.id }, data: { body: null, deletedAt: new Date() } });
+  await audit(user.id, 'account.delete', 'user', user.id, req.ip);
+  await prisma.user.delete({ where: { id: user.id } });
+  await Promise.all(uploads.map((u) => deleteObject(u.key)));
+  disconnectUser(user.id);
+  clearSessionCookie(res);
+  res.json({ ok: true });
+}));
