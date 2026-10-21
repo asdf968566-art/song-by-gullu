@@ -4,6 +4,24 @@ The repo ships everything for one server (a VPS with 2 vCPU / 4 GB RAM handles a
 concurrent users): PostgreSQL, the API, the web app, Caddy (HTTPS), coturn (TURN), LiveKit (group
 calls) and file storage (a Docker volume, or S3 / the optional MinIO). For larger setups use managed Postgres and S3 and see "Scaling".
 
+## Quickest way: one-command installer
+
+On a fresh Ubuntu server (Oracle Cloud Always Free works) with your domain's A record pointing at it:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/asdf968566-art/song-by-gullu/main/Baatcheet/deploy/install.sh | sudo bash
+```
+
+It asks for the domain, your admin e-mail and SMTP details, then installs Docker, opens the server's
+firewall, generates every secret (`.env`, `deploy/livekit.yaml`, VAPID keys), and starts the full
+stack with HTTPS, TURN and LiveKit group calls. Run the same command again to update.
+
+On Oracle Cloud also open the ports in the VCN: Networking → Virtual cloud networks → your VCN →
+Security Lists → Default → Add Ingress Rules (source `0.0.0.0/0`): TCP 80, 443, 3478, 7881 and
+UDP 443, 3478, 49160-49999, 50000-60000.
+
+The rest of this page is the manual way.
+
 ## 1. Server and DNS
 
 1. A Linux VPS with Docker Engine + Compose v2.24 or newer (`docker compose version`).
