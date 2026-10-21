@@ -5,13 +5,14 @@
 #
 # The site goes online through a Cloudflare Tunnel: your own domain (free Cloudflare account) or, without
 # one, a free random *.trycloudflare.com address. Calls use a hosted TURN service (Metered free plan).
-# Run it again any time to update. It never opens ports on your PC or router.
+# No source code is kept on the PC: it runs the images GitHub Actions publishes, and a timer pulls the
+# newest ones every 15 minutes, so whatever is merged on GitHub goes live by itself.
+# The PC keeps only: the compose files, .env (settings + secrets) and the data (database, uploaded files).
+# It never opens ports on your PC or router.
 set -euo pipefail
 
-REPO="${REPO:-https://github.com/asdf968566-art/song-by-gullu.git}"
-BRANCH="${BRANCH:-main}"
-DIR="${DIR:-/opt/baatcheet}"
-APP="$DIR/Baatcheet"
+RAW="${RAW:-https://raw.githubusercontent.com/asdf968566-art/song-by-gullu/${BRANCH:-main}/Baatcheet}"
+APP="${DIR:-/opt/baatcheet}"
 
 say() { printf '\n\033[1;32m==> %s\033[0m\n' "$*"; }
 die() { printf '\n\033[1;31mERROR: %s\033[0m\n' "$*" >&2; exit 1; }
@@ -22,22 +23,31 @@ asks() { local v; read -r -s -p "$2: " v </dev/tty || true; echo >/dev/tty; prin
 MEM_GB=$(( $(awk '/MemTotal/{print $2}' /proc/meminfo) / 1024 / 1024 ))
 [ "$MEM_GB" -ge 3 ] || die "This PC has ${MEM_GB} GB RAM; Baatcheet needs at least 4 GB."
 
-say "Installing Docker and git"
+say "Installing Docker"
 if command -v apt-get >/dev/null; then
   export DEBIAN_FRONTEND=noninteractive
-  apt-get update -y >/dev/null && apt-get install -y ca-certificates curl git openssl python3 >/dev/null
+  apt-get update -y >/dev/null && apt-get install -y ca-certificates curl openssl python3 >/dev/null
 fi
-command -v git >/dev/null || die "Please install git first."
 command -v docker >/dev/null || curl -fsSL https://get.docker.com | sh >/dev/null
 systemctl enable --now docker >/dev/null
 
-say "Downloading Baatcheet ($BRANCH)"
-if [ -d "$DIR/.git" ]; then
-  git -C "$DIR" fetch -q origin "$BRANCH" && git -C "$DIR" checkout -q -B "$BRANCH" "origin/$BRANCH"
-else
-  git clone -q --depth 1 -b "$BRANCH" "$REPO" "$DIR"
-fi
+say "Downloading the run files (no source code)"
+mkdir -p "$APP/deploy"
 cd "$APP"
+cat > deploy/update.sh <<UPD
+#!/usr/bin/env bash
+# Fetches the newest run files from GitHub, then pulls the newest images and restarts what changed.
+set -euo pipefail
+cd "\$(dirname "\$0")/.."
+for f in docker-compose.yml docker-compose.home.yml docker-compose.release.yml deploy/Caddyfile.local deploy/home-up.sh; do
+  curl -fsSL "$RAW/\$f" -o "\$f.new" && mv "\$f.new" "\$f"
+done
+exec bash deploy/home-up.sh
+UPD
+chmod +x deploy/update.sh
+for f in docker-compose.yml docker-compose.home.yml docker-compose.release.yml deploy/Caddyfile.local deploy/home-up.sh; do
+  curl -fsSL "$RAW/$f" -o "$f" || die "Couldn't download $f from GitHub."
+done
 
 if [ ! -f .env ]; then
   say "First-time setup"
@@ -117,7 +127,8 @@ else
   say "Keeping existing settings ($APP/.env)"
 fi
 
-# Start on every boot; for the random address this also re-reads the new address after a restart.
+# Start on every boot (for the random address this also re-reads the new address after a restart),
+# and look for updates on GitHub every 15 minutes.
 cat > /etc/systemd/system/baatcheet.service <<UNIT
 [Unit]
 Description=Baatcheet
@@ -135,8 +146,31 @@ TimeoutStartSec=1800
 [Install]
 WantedBy=multi-user.target
 UNIT
+cat > /etc/systemd/system/baatcheet-update.service <<UNIT
+[Unit]
+Description=Baatcheet update from GitHub
+After=baatcheet.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=$APP
+ExecStart=/bin/bash $APP/deploy/update.sh
+TimeoutStartSec=1800
+UNIT
+cat > /etc/systemd/system/baatcheet-update.timer <<UNIT
+[Unit]
+Description=Check GitHub for a new Baatcheet every 15 minutes
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=15min
+
+[Install]
+WantedBy=timers.target
+UNIT
 systemctl daemon-reload
 systemctl enable baatcheet.service >/dev/null
+systemctl enable --now baatcheet-update.timer >/dev/null
 
-say "Building and starting (first time takes 5–20 minutes)"
-bash deploy/home-up.sh --build
+say "Downloading and starting (first time takes a few minutes)"
+bash deploy/home-up.sh

@@ -19,7 +19,14 @@ curl -fsSL https://raw.githubusercontent.com/asdf968566-art/song-by-gullu/main/B
   restarts; the current one is written to `/opt/baatcheet/SITE-ADDRESS.txt`. Fine for trying it out.
 - Calls: add a free Metered TURN login (dashboard.metered.ca) so calls also connect on mobile data.
 - Group calls are off in this mode (LiveKit needs a public IP).
-- A `baatcheet` systemd service starts everything on boot. Logs: `cd /opt/baatcheet/Baatcheet && docker compose logs -f server`.
+- **No source code on the PC.** GitHub Actions publishes the images `ghcr.io/asdf968566-art/baatcheet-server`
+  and `baatcheet-web` (amd64 + arm64) after every green run on `main`. The PC keeps only the compose files,
+  `.env` (settings and secrets) and the data (database and uploaded files in Docker volumes) in `/opt/baatcheet`.
+- **Controlled from GitHub.** A `baatcheet-update` timer fetches the newest run files and images every
+  15 minutes, so whatever is merged to `main` goes live by itself. Pin a version with `BAATCHEET_TAG=<commit sha>`
+  in `.env`.
+- A `baatcheet` systemd service starts everything on boot. Logs: `cd /opt/baatcheet && docker compose -f docker-compose.yml -f docker-compose.home.yml -f docker-compose.release.yml logs -f server`.
+- Back up the data: `docker run --rm -v baatcheet_pgdata:/d:ro -v $PWD:/b alpine tar czf /b/db.tgz -C /d .` (and the same for `baatcheet_uploads`), or use `pg_dump` as below.
 - Rate limits see each visitor's real IP through the tunnel (`CLIENT_IP_HEADER=cf-connecting-ip`).
 - CI runs this exact mode with a real trycloudflare tunnel (job `home` in `.github/workflows/baatcheet.yml`).
 
