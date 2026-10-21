@@ -4,7 +4,7 @@ on:
   push:
     branches: ["main", "claude/**"]
     # Notes and the web app don't change the APK.
-    paths-ignore: ["docs/**", "CLAUDE.md", "README.md", "SangeetWeb/**"]
+    paths-ignore: ["docs/**", "CLAUDE.md", "README.md", "SangeetWeb/**", "Baatcheet/**", ".github/workflows/baatcheet.yml"]
   pull_request:
   workflow_dispatch:
   # Daily health check: JioSaavn / YouTube change often; find out the same morning if something broke.

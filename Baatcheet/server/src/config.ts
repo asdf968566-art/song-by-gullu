@@ -1,0 +1,89 @@
+import { z } from 'zod';
+
+const bool = z.enum(['true', 'false', '1', '0']).transform((v) => v === 'true' || v === '1');
+
+const schema = z
+  .object({
+    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+    PORT: z.coerce.number().int().default(4000),
+    DATABASE_URL: z.string().url(),
+    /** Public URL of the web app (links in e-mails, CORS origin). */
+    APP_URL: z.string().url().default('http://localhost:3000'),
+    /** Public URL of this API (for local-storage upload links). */
+    API_URL: z.string().url().default('http://localhost:4000'),
+    /** Extra allowed browser origins, comma separated. */
+    CORS_ORIGINS: z.string().default(''),
+    SESSION_SECRET: z.string().min(32, 'SESSION_SECRET must be at least 32 characters'),
+    SESSION_DAYS: z.coerce.number().int().min(1).max(365).default(30),
+    COOKIE_DOMAIN: z.string().optional(),
+    TRUST_PROXY: bool.default('false'),
+
+    STORAGE_DRIVER: z.enum(['s3', 'local']).default('local'),
+    LOCAL_UPLOAD_DIR: z.string().default('./uploads'),
+    S3_ENDPOINT: z.string().optional(),
+    S3_PUBLIC_ENDPOINT: z.string().optional(),
+    S3_REGION: z.string().default('us-east-1'),
+    S3_BUCKET: z.string().optional(),
+    S3_ACCESS_KEY_ID: z.string().optional(),
+    S3_SECRET_ACCESS_KEY: z.string().optional(),
+    S3_FORCE_PATH_STYLE: bool.default('true'),
+
+    STUN_URLS: z.string().default('stun:stun.l.google.com:19302'),
+    TURN_URLS: z.string().default(''),
+    /** coturn `static-auth-secret` (use-auth-secret). Credentials are minted per user and expire. */
+    TURN_SECRET: z.string().optional(),
+    TURN_TTL_SECONDS: z.coerce.number().int().default(3600),
+    /** How long a call rings before it counts as missed. */
+    CALL_RING_SECONDS: z.coerce.number().int().min(5).max(120).default(45),
+
+    SMTP_URL: z.string().optional(),
+    MAIL_FROM: z.string().default('Baatcheet <no-reply@localhost>'),
+
+    TWILIO_ACCOUNT_SID: z.string().optional(),
+    TWILIO_AUTH_TOKEN: z.string().optional(),
+    TWILIO_VERIFY_SERVICE_SID: z.string().optional(),
+
+    VAPID_PUBLIC_KEY: z.string().optional(),
+    VAPID_PRIVATE_KEY: z.string().optional(),
+    VAPID_SUBJECT: z.string().default('mailto:admin@localhost'),
+
+    LIVEKIT_URL: z.string().optional(),
+    LIVEKIT_API_KEY: z.string().optional(),
+    LIVEKIT_API_SECRET: z.string().optional(),
+
+    /** Comma-separated e-mails that become ADMIN when they register (or on start if they exist). */
+    ADMIN_EMAILS: z.string().default(''),
+    LOG_LEVEL: z.string().default('info'),
+    /** Disables rate limits in automated tests only. */
+    DISABLE_RATE_LIMIT: bool.default('false'),
+  })
+  .superRefine((c, ctx) => {
+    if (c.STORAGE_DRIVER === 's3') {
+      for (const k of ['S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY'] as const) {
+        if (!c[k]) ctx.addIssue({ code: 'custom', path: [k], message: `${k} is required when STORAGE_DRIVER=s3` });
+      }
+    }
+    if (c.TURN_URLS && !c.TURN_SECRET) {
+      ctx.addIssue({ code: 'custom', path: ['TURN_SECRET'], message: 'TURN_SECRET is required when TURN_URLS is set' });
+    }
+    if (c.NODE_ENV === 'production') {
+      if (!c.SMTP_URL) ctx.addIssue({ code: 'custom', path: ['SMTP_URL'], message: 'SMTP_URL is required in production (verification and reset e-mails)' });
+      if (c.DISABLE_RATE_LIMIT) ctx.addIssue({ code: 'custom', path: ['DISABLE_RATE_LIMIT'], message: 'Rate limits cannot be disabled in production' });
+      if (!c.APP_URL.startsWith('https://')) ctx.addIssue({ code: 'custom', path: ['APP_URL'], message: 'APP_URL must be https in production' });
+    }
+  });
+
+export type Config = z.infer<typeof schema>;
+
+export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
+  const parsed = schema.safeParse(env);
+  if (!parsed.success) {
+    const lines = parsed.error.issues.map((i) => `  - ${i.path.join('.')}: ${i.message}`);
+    throw new Error(`Invalid configuration. Fix these environment variables (see .env.example):\n${lines.join('\n')}`);
+  }
+  return parsed.data;
+}
+
+export const config = loadConfig();
+export const isProd = config.NODE_ENV === 'production';
+export const allowedOrigins = [config.APP_URL, ...config.CORS_ORIGINS.split(',').map((s) => s.trim()).filter(Boolean)];

@@ -643,6 +643,27 @@ request the owner made, in order.
   `.github/scripts/sync-reports.py`) copies open app reports (body has "**What happened:**") from the token's
   account into this repo (label "app report") and closes the original with a link. Read them here.
 
+## 4b. Baatcheet (Oct 21) — separate chat / voice / video calling website
+
+Owner pasted a long English "MASTER PROMPT" for a production chat + calling site. Built as its own project in
+`Baatcheet/` (npm workspaces: `shared/`, `server/`, `web/`); it shares nothing with Sangeet. Read `Baatcheet/README.md`
+first, then `Baatcheet/docs/` (API, DEPLOYMENT, TESTING with a two-device call checklist, TROUBLESHOOTING, SECURITY).
+- Server: Express + Socket.IO + Prisma/PostgreSQL (`server/prisma/schema.prisma`, migration adds pg_trgm indexes),
+  cookie sessions (SHA-256 of token stored), argon2id, Origin check = CSRF, signed upload/download URLs
+  (`lib/storage.ts`: S3 or local folder), coturn REST credentials (`lib/turn.ts`), call state machine in
+  `realtime/calls.ts` (1:1 P2P signalling relay, busy / missed / reconnect grace; groups via LiveKit tokens).
+- Web: Next.js 15 App Router + Tailwind v4, own components in `components/ui`, store `lib/store.ts`, call engine
+  `lib/calls.ts` (only the caller sends offers, incl. ICE restarts).
+- Tests: `npm test` (49 vitest API tests on a real Postgres, DB `baatcheet_test`), `npm run e2e` (Playwright, Chromium
+  fake camera: two browsers register, chat, upload, real WebRTC video call). In this sandbox run e2e with
+  `PW_CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome`. Postgres 16 is installed locally
+  (`pg_ctlcluster 16 main start`, user/password baatcheet).
+- TypeScript is pinned to 5.9 (TS 7 breaks `next build`: "reading 'fileExists'").
+- Prisma refuses `migrate reset` from an AI agent without the owner's explicit consent; tests use `migrate deploy` +
+  TRUNCATE instead. Don't bypass that guard.
+- CI: `.github/workflows/baatcheet.yml` (paths `Baatcheet/**`); build-apk.yml ignores `Baatcheet/**`.
+- Not done / needs the owner: a server + domain to deploy (docs/DEPLOYMENT.md), SMTP, TURN, LiveKit, VAPID, Twilio.
+
 ## 5. Problems hit and how they were solved (why the code looks like it does)
 
 | Problem | Cause | Fix |
