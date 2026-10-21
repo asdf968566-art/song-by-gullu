@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 concurrency:
   group: baatcheet-trial
@@ -58,6 +59,14 @@ jobs:
             echo "Open it on two phones, sign up with two accounts, add each other (Contacts → search the username), chat and call."
             echo "It stops in ${{ inputs.hours }} hour(s); everything in it is deleted then."
           } >> "$GITHUB_STEP_SUMMARY"
+      - name: Post the address on the issue "Baatcheet trial link"
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          URL=$(cat SITE-ADDRESS.txt)
+          N=$(gh issue list -R "$GITHUB_REPOSITORY" --state open --search 'in:title "Baatcheet trial link"' --json number -q '.[0].number')
+          [ -n "$N" ] || N=$(gh issue create -R "$GITHUB_REPOSITORY" --title "Baatcheet trial link" --body "Each trial run posts its address here." | grep -o '[0-9]*$')
+          gh issue comment "$N" -R "$GITHUB_REPOSITORY" --body "Trial is live for ${{ inputs.hours }} hour(s) (until $(date -u -d "+${{ inputs.hours }} hours" '+%H:%M UTC')): $URL"
       - name: Keep running
         run: |
           H="${{ inputs.hours }}"; case "$H" in 1|2|3|4|5) ;; *) H=3;; esac
