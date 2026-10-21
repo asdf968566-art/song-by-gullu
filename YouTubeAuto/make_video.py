@@ -196,10 +196,75 @@ SCENE_RULES = """- narration: what is heard, in simple everyday Hindi in Devanag
   light. {shape}, no text, no letters, no watermark in the picture."""
 
 
+# ---------- What works on the channel ----------
+def channel_stats(history):
+    """Views, likes and comments of the channel's own videos (1 quota unit per 50), kept in the history."""
+    ids = [h["youtube"] for h in history if h.get("youtube")]
+    if not ids:
+        return
+    token = None
+    try:
+        token = access_token()
+    except Exception as e:
+        log("stats: login failed", e)
+    got = {}
+    for k in range(0, len(ids), 50):
+        q = "https://www.googleapis.com/youtube/v3/videos?part=statistics&id=" + ",".join(ids[k:k + 50])
+        try:
+            d = json.loads(http(q + ("" if token else "&key=" + YT_KEY),
+                                headers={"Authorization": "Bearer " + token} if token else None))
+            got.update({v["id"]: v.get("statistics", {}) for v in d.get("items", [])})
+        except Exception as e:
+            log("stats failed:", e)
+            return
+    now = datetime.now(timezone.utc)
+    for h in history:
+        s = got.get(h.get("youtube"))
+        if s is None:
+            continue
+        h["views"], h["likes"] = int(s.get("viewCount", 0)), int(s.get("likeCount", 0))
+        h["comments"] = int(s.get("commentCount", 0))
+        made = datetime.strptime(h["date"], "%Y%m%d-%H%M").replace(tzinfo=timezone.utc)
+        days = max(1.0, (now - made).total_seconds() / 86400)
+        # Likes and comments count extra: they are what YouTube pushes.
+        h["score"] = round((h["views"] + 20 * h["likes"] + 40 * h["comments"]) / days, 1)
+    for h in history[-12:]:
+        if "score" in h:
+            log(f"stats: {h['score']:>8}/day  {h.get('views')} views  {h['format'][:40]} | {h['title'][:60]}")
+
+
+def pick_format(keys, history, kind, avoid):
+    """Formats that did well on the channel come more often; untried ones get an average chance, and 1 in 4 picks
+    is random so new trends still get tried. `avoid` = how many of the latest formats not to repeat."""
+    mine = [h for h in history if h.get("kind", "short") == kind]
+    recent = [h["format"] for h in mine][-avoid:] if avoid else []
+    keys = [k for k in keys if k not in recent] or keys
+    scores = {}
+    for h in mine:
+        if "score" in h:
+            scores.setdefault(h["format"], []).append(h["score"])
+    avg = {k: sum(v) / len(v) for k, v in scores.items()}
+    if random.random() < 0.25 or not avg:
+        pick = random.choice(keys)
+        log("format: random pick", pick[:50])
+        return pick
+    mean = sum(avg.values()) / len(avg) or 1
+    weights = [0.3 + 2 * avg.get(k, mean) / (mean or 1) for k in keys]
+    pick = random.choices(keys, weights)[0]
+    log("format: weighted", {k[:30]: round(w, 2) for k, w in zip(keys, weights)}, "->", pick[:50])
+    return pick
+
+
+def best_titles(history, kind, n=5):
+    done = sorted([h for h in history if h.get("kind", "short") == kind and h.get("score")], key=lambda h: -h["score"])
+    return [f"{h['title']} ({h['views']} views)" for h in done[:n]]
+
+
 def plan_short(titles, history):
-    used = [h.get("format", "") for h in history if h.get("kind", "short") == "short"][-len(SHORT_FORMATS) + 1:]
-    fmt, kids = random.choice([f for f in SHORT_FORMATS if f[0] not in used] or SHORT_FORMATS)
+    key = pick_format([f[0] for f in SHORT_FORMATS], history, "short", avoid=2)
+    fmt, kids = next(f for f in SHORT_FORMATS if f[0] == key)
     recent = [h.get("title", "") for h in history[-40:]]
+    best = best_titles(history, "short")
     prompt = f"""You run a Hindi YouTube channel of ORIGINAL AI-made videos. Make the next Short.
 
 Format: {fmt}
@@ -209,6 +274,9 @@ names or copyrighted characters):
 {chr(10).join('- ' + t for t in titles[:50]) or '- (no data)'}
 
 Already made, don't repeat: {'; '.join(recent) or '(nothing yet)'}
+
+Did best on this channel so far (learn what viewers liked: topic, hook, title style):
+{chr(10).join('- ' + b for b in best) or '- (no data yet)'}
 
 Rules:
 - 7 to 9 scenes, each 1-2 short spoken sentences; all narration together 110-150 words (about 55 seconds).
@@ -229,10 +297,9 @@ Answer with only this JSON:
 
 def plan_long(titles, history):
     longs = [h for h in history if h.get("kind") == "long"]
-    used = [h.get("format", "") for h in longs][-4:]
-    # Series come back often (every 2nd long video at most), the others take turns.
-    choices = [f for f in LONG_FORMATS if f[0] not in used] or LONG_FORMATS
-    key, fmt, kids = random.choice(choices)
+    key = pick_format([f[0] for f in LONG_FORMATS], history, "long", avoid=1)
+    key, fmt, kids = next(f for f in LONG_FORMATS if f[0] == key)
+    best = best_titles(history, "long")
     series, episode, recaps = None, 1, []
     if key.startswith("series:"):
         series = key.split(":", 1)[1]
@@ -254,6 +321,9 @@ Trending in India now (for mood and topic ideas; never copy a video):
 {chr(10).join('- ' + t for t in titles[:40]) or '- (no data)'}
 
 Already made, don't repeat: {'; '.join(recent) or '(nothing yet)'}
+
+Did best on this channel so far (learn what viewers liked):
+{chr(10).join('- ' + b for b in best) or '- (no data yet)'}
 
 Make:
 - title: max 90 characters, Hindi in Devanagari (Hinglish is fine), gripping.
@@ -650,6 +720,7 @@ def upload(p, path, thumb):
 
 def main():
     history = load_history()
+    channel_stats(history)
     titles = trends()
     p = plan_long(titles, history) if LONG else plan_short(titles, history)
     log("plan:", KIND, p["format"], "|", p["title"], "|", len(p["scenes"]), "scenes")
