@@ -311,23 +311,36 @@ def main():
             tap("Clear", wait=1)
             n = find("What do you want to listen to?", contains=True) or find("Search", contains=True)
             if not n:
+                print(f"  [{query}] no search box")
                 return False
             sh(f"input tap {n['x']} {n['y']}")
             time.sleep(1)
             sh("input text '" + query.replace(" ", "%s") + "'")
             sh("input keyevent KEYCODE_ENTER")
-            time.sleep(10)
-            # A song row of the JioSaavn section (album cards sit above it; the mini player is at the bottom).
-            head = find("JioSaavn", scroll=2)
-            if not head:
-                return False
             _, h = screen()
-            rows = [r for r in nodes(dump())
-                    if word in (r["text"] + r["desc"]).lower() and head["y"] + 40 < r["y"] < h * 0.78]
-            if not rows:
-                return False
-            sh(f"input tap {rows[0]['x']} {rows[0]['y']}")
-            return True
+            swipes = 0
+            for _ in range(12):
+                time.sleep(2.5)
+                all_nodes = list(nodes(dump()))
+                box = next((r for r in all_nodes if query.split()[0] in (r["text"] + r["desc"]).lower()), None)
+                # Album cards ("Movies & albums") sit above the songs: then only rows below the JioSaavn header.
+                albums = next((r for r in all_nodes if "Movies & albums" in r["text"]), None)
+                head = next((r for r in all_nodes if r["text"] == "JioSaavn"), None)
+                if albums and not head and swipes < 2:
+                    swipe_up()
+                    swipes += 1
+                    continue
+                top = head["y"] + 40 if albums and head else (box["y"] + 150 if box and not albums else None)
+                if top is None:
+                    continue
+                # Song rows only: not the search box, not the mini player at the bottom.
+                rows = [r for r in all_nodes if word in (r["text"] + r["desc"]).lower() and top < r["y"] < h * 0.78]
+                if rows:
+                    sh(f"input tap {rows[0]['x']} {rows[0]['y']}")
+                    return True
+            print(f"  [{query}] no song row; on screen: " + " | ".join(
+                (r["text"] or r["desc"])[:30] for r in nodes(dump()) if (r["text"] or r["desc"]))[:900])
+            return False
         return go
     def radio_kind(kind):
         def check():
