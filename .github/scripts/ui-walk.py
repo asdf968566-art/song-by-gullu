@@ -322,16 +322,15 @@ def main():
             for _ in range(7):
                 time.sleep(2)
                 all_nodes = list(nodes(dump()))
-                # A JioSaavn song (its language is known): rows under the "JioSaavn" header, above the next section
-                # ("YouTube"…) and the mini player. Phone files and album cards sit above that header.
-                head = next((r for r in all_nodes if r["text"] == "JioSaavn"), None)
+                # An online song: rows under the first source header ("YouTube" / "JioSaavn"), above the mini player.
+                # Phone files, album cards and suggestion chips sit above it.
+                head = next((r for r in all_nodes if r["text"] in ("YouTube", "JioSaavn")), None)
                 if not head:
                     if swipes < 3 and any(r["text"] in ("On this phone", "💿 Movies & albums", "🎤 Songs with these lyrics") for r in all_nodes):
                         swipe_up()
                         swipes += 1
                     continue
-                below = [r["y"] for r in all_nodes if r["text"] in ("YouTube", "Audius", "Jamendo") and r["y"] > head["y"]]
-                end = min(below + [h * 0.78])
+                end = h * 0.78
                 rows = [r for r in all_nodes if word in (r["text"] + r["desc"]).lower() and head["y"] + 30 < r["y"] < end]
                 if rows:
                     print(f"  [{query}] tapped: {(rows[0]['text'] or rows[0]['desc'])[:60]}")

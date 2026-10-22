@@ -610,15 +610,18 @@ request the owner made, in order.
   - **Sources for a radio** (`candidates(p, seed, twin)`): JioSaavn's trending in the seed's language (or, for
     Pahadi, the searches `PAHADI_SEARCHES` kept by `isPahadi`), the catalog's 150 most played songs of that kind + 100
     random ones (`CatalogPool.has` = the catalog's files), and JioSaavn's `reco.getreco` of the seed or of a YouTube
-    seed's JioSaavn copy (`saavnTwin`: same clean name + singer; it also gives the year / language). Fewer
+    seed's JioSaavn copy (`saavnTwin`: same clean name + singer; it also gives the year / language; for a radio, a
+    same-name song by others will do, for the language only: YouTube results come first in Search, and a cover on
+    an unknown channel has no language). Fewer
     history-based sources (2 YouTube Music seeds, 1 JioSaavn reco, no random playlists) than the feed.
   - **Popular and new first:** `Track.plays` = JioSaavn's `play_count` (≥ 5 cr +1.5 … ≥ 1 lakh +0.3), else the
     catalog place (the files list the most played first: < 200 +1.2, < 1000 +0.6). `era`: an old seed keeps its
     years (±4 +2, > 14 years −2.5); a seed from the last 6 years or with no year also gets the newest songs (≤ 1 year
     +1, ≤ 3 +0.6). Another copy of the seed itself (`SameSong`) is left out. For You's `likeThis` uses the same.
   - Log "radio: N songs after '…' by … (kind): M the same kind". UI walk: "Search: a Bollywood song brings Hindi songs
-    next" (kesariya arijit) and "Search: a Pahadi song brings Pahadi songs next" (Narendra Singh Negi), each needs
-    ≥ 8 of the same kind.
+    next" (kesariya arijit) and "Search: a Pahadi song brings Pahadi songs next" (Narendra Singh Negi) tap the first
+    row under the first source header and need ≥ 8 of the same kind. The emulator test now has 60 min (the walk
+    alone takes ~40) and runs the walk with `python3 -u`, so its lines show in the log as they happen.
 - **YouTube Shorts channel** (Oct 20, owner sent reels about "faceless" AI YouTube channels: "saare viral video dekh
   … cartoon, motion video, ai made movie … bna aur upload kar … monotize krwa"; "upload bhi tu kr, permission de
   dunga"; then "sirf shorts nhi, full movie, cartoon, ramayan, mahabharat"). Not part of the apps:

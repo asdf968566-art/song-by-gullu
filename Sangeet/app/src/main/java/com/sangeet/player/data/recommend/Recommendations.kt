@@ -143,10 +143,10 @@ class RecommendationRepository(
     suspend fun radio(seed: Track, exclude: Set<String>, limit: Int = 15): List<Track> = withContext(Dispatchers.Default) {
         // A YouTube song's JioSaavn copy tells its year and language, and has JioSaavn's "similar" list.
         val twinJob: Deferred<Track?>? = if (seed.source != SourceType.JIOSAAVN && online.canGoOnline && settings.current.jiosaavnEnabled) {
-            CoroutineScope(SupervisorJob() + Dispatchers.IO).async { saavnTwin(seed) }
+            CoroutineScope(SupervisorJob() + Dispatchers.IO).async { saavnTwin(seed, sameName = true) }
         } else null
         val p = profile()
-        val twin = twinJob?.let { job -> withTimeoutOrNull(6_000) { job.await() } ?: run { job.cancel(); null } }
+        val twin = twinJob?.let { job -> withTimeoutOrNull(8_000) { job.await() } ?: run { job.cancel(); null } }
         val known = if (twin == null) seed else seed.copy(
             year = seed.year.takeIf { it > 0 } ?: twin.year,
             language = seed.language.ifBlank { twin.language },
@@ -636,12 +636,19 @@ class RecommendationRepository(
         return near + if (seedYear >= now - 6) fresh else 0.0
     }
 
-    /** The same song on JioSaavn (for a YouTube song): its year, play count and JioSaavn's "similar" list. */
-    private suspend fun saavnTwin(seed: Track): Track? {
+    /**
+     * The same song on JioSaavn (for a YouTube song): its year, play count and JioSaavn's "similar" list. With
+     * [sameName], a song of the same name by others will do when there is no copy by the same singer (a cover on
+     * someone's YouTube channel): it tells the language, but its year (0) and plays aren't the seed's.
+     */
+    private suspend fun saavnTwin(seed: Track, sameName: Boolean = false): Track? {
         val singer = mainSinger(seed.artist)
         val title = SameSong.cleanTitle(seed.title).ifBlank { return null }
-        return runCatching { online.saavn.search("$title ${singer.orEmpty()}".trim(), settings.current) }.getOrDefault(emptyList())
-            .firstOrNull { SameSong.cleanTitle(it.title) == title && (singer == null || artistMatch(it.artist, singer)) }
+        val found = runCatching { online.saavn.search("$title ${singer.orEmpty()}".trim(), settings.current) }.getOrDefault(emptyList())
+        found.firstOrNull { SameSong.cleanTitle(it.title) == title && (singer == null || artistMatch(it.artist, singer)) }?.let { return it }
+        if (!sameName) return null
+        val byName = if (singer == null) found else runCatching { online.saavn.search(title, settings.current) }.getOrDefault(emptyList())
+        return byName.firstOrNull { SameSong.cleanTitle(it.title) == title }?.copy(year = 0, plays = 0)
     }
 
     private fun reasonFor(artist: String, seed: Track?): String =
