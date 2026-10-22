@@ -319,8 +319,8 @@ def main():
             sh("input keyevent KEYCODE_ENTER")
             _, h = screen()
             swipes = 0
-            for _ in range(12):
-                time.sleep(2.5)
+            for _ in range(7):
+                time.sleep(2)
                 all_nodes = list(nodes(dump()))
                 box = next((r for r in all_nodes if query.split()[0] in (r["text"] + r["desc"]).lower()), None)
                 # Album cards ("Movies & albums") sit above the songs: then only rows below the JioSaavn header.
@@ -344,14 +344,14 @@ def main():
         return go
     def radio_kind(kind):
         def check():
-            for _ in range(16):
+            for _ in range(14):
                 lines = [l for l in adb("logcat", "-d").splitlines() if re.search(r"\sSangeet\s*:\s*radio:", l)]
                 m = re.search(r"radio: (\d+) songs after '(.*)' \((\S+)\): (\d+) the same kind", lines[-1]) if lines else None
                 if m:
                     n, title, got, same = int(m.group(1)), m.group(2), m.group(3), int(m.group(4))
                     return got == kind and n >= 5 and same >= min(8, n), f"after '{title}' ({got}): {same} of {n} the same kind"
                 time.sleep(3)
-            return False, f"no 'radio:' line after 48 s; now={now_title()}"
+            return False, f"no 'radio:' line after 42 s; now={now_title()}"
         return check
     step("Search: a Bollywood song brings Hindi songs next", search_and_play("kesariya arijit", "kesariya"), radio_kind("hindi"))
     step("Search: a Pahadi song brings Pahadi songs next", search_and_play("narendra singh negi", "negi"), radio_kind("pahadi"))
