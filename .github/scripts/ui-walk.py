@@ -305,6 +305,44 @@ def main():
     step("Search: remove one recent search", lambda: tap("Remove from recent", wait=2),
          lambda: (alive(), "removed"))
 
+    # Report #63: a searched song plays, and songs of its own kind (Bollywood -> Hindi, Pahadi -> Pahadi) come next.
+    def search_and_play(query, word):
+        def go():
+            tap("Clear", wait=1)
+            n = find("What do you want to listen to?", contains=True) or find("Search", contains=True)
+            if not n:
+                return False
+            sh(f"input tap {n['x']} {n['y']}")
+            time.sleep(1)
+            sh("input text '" + query.replace(" ", "%s") + "'")
+            sh("input keyevent KEYCODE_ENTER")
+            time.sleep(10)
+            # A song row of the JioSaavn section (album cards sit above it; the mini player is at the bottom).
+            head = find("JioSaavn", scroll=2)
+            if not head:
+                return False
+            _, h = screen()
+            rows = [r for r in nodes(dump())
+                    if word in (r["text"] + r["desc"]).lower() and head["y"] + 40 < r["y"] < h * 0.78]
+            if not rows:
+                return False
+            sh(f"input tap {rows[0]['x']} {rows[0]['y']}")
+            return True
+        return go
+    def radio_kind(kind):
+        def check():
+            for _ in range(16):
+                lines = [l for l in adb("logcat", "-d").splitlines() if re.search(r"\sSangeet\s*:\s*radio:", l)]
+                m = re.search(r"radio: (\d+) songs after '(.*)' \((\S+)\): (\d+) the same kind", lines[-1]) if lines else None
+                if m:
+                    n, title, got, same = int(m.group(1)), m.group(2), m.group(3), int(m.group(4))
+                    return got == kind and n >= 5 and same >= min(8, n), f"after '{title}' ({got}): {same} of {n} the same kind"
+                time.sleep(3)
+            return False, f"no 'radio:' line after 48 s; now={now_title()}"
+        return check
+    step("Search: a Bollywood song brings Hindi songs next", search_and_play("kesariya arijit", "kesariya"), radio_kind("hindi"))
+    step("Search: a Pahadi song brings Pahadi songs next", search_and_play("narendra singh negi", "negi"), radio_kind("pahadi"))
+
     def lyric_line():
         # A line from the middle of "Tujhe Dekha To" (not its name).
         tap("Clear", wait=1)

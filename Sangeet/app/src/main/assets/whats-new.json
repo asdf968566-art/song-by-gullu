@@ -1,5 +1,21 @@
 [
   {
+    "date": "2026-10-22",
+    "title": "Related songs next",
+    "items": [
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Related songs play next"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Newest and popular songs first"
+      }
+    ]
+  },
+  {
     "date": "2026-10-19",
     "title": "Safer updates",
     "items": [

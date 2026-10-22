@@ -48,6 +48,12 @@ class CatalogPool(context: Context, private val scope: CoroutineScope) {
         return cache[lang].orEmpty()
     }
 
+    /** Like [songs], but never starts a download: empty unless that file is already in memory. */
+    fun loaded(lang: String): List<Track> = cache[lang].orEmpty()
+
+    /** Does the catalog have a file for [lang]? (build-web-catalog.py's LANGS, plus Pahadi.) */
+    fun has(lang: String) = lang in FILES
+
     private fun ensureLoaded(lang: String) {
         if (cache.containsKey(lang) || !loading.add(lang)) return
         scope.launch(Dispatchers.IO) {
@@ -139,6 +145,9 @@ class CatalogPool(context: Context, private val scope: CoroutineScope) {
     private companion object {
         const val IMG = "https://c.saavncdn.com/"
         const val AAC = "https://aac.saavncdn.com/"
+        val FILES = setOf(
+            "hindi", "punjabi", "haryanvi", "english", "bhojpuri", "tamil", "telugu", "marathi", "bengali", "gujarati", "pahadi",
+        )
         /** Songs kept in memory per language, and how many of them are the most popular ones. */
         const val KEEP = 4000
         const val TOP = 2000

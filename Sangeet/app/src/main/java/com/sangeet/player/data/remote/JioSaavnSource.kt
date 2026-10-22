@@ -292,6 +292,7 @@ class JioSaavnSource : OnlineSource {
             streamUrl = media + if (has320) HAS_320 else "",
             language = (o.str("language") ?: info.str("language") ?: "").lowercase(),
             year = (o.str("year") ?: info.str("year"))?.toIntOrNull() ?: 0,
+            plays = (o.str("play_count") ?: info.str("play_count"))?.toLongOrNull() ?: 0L,
         )
     }
 

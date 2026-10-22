@@ -4,9 +4,11 @@ import android.content.Context
 import com.sangeet.player.data.LibraryRepository
 import com.sangeet.player.data.LocalMusicRepository
 import com.sangeet.player.data.OnlineRepository
+import com.sangeet.player.data.SameSong
 import com.sangeet.player.data.model.SourceType
 import com.sangeet.player.data.model.Track
 import com.sangeet.player.data.model.inLanguages
+import com.sangeet.player.data.remote.LanguageGuess
 import com.sangeet.player.data.settings.SettingsRepository
 import kotlin.math.ln
 import kotlin.random.Random
@@ -133,12 +135,31 @@ class RecommendationRepository(
         (fresh.ifEmpty { rank(p, pool, null, exclude + p.recentIds, preferNew = true) }).take(limit)
     }
 
-    /** Autoplay / radio: haal hi mein (12 ghante) suna gaana apne aap dobara nahi aata. */
+    /**
+     * Autoplay / radio: haal hi mein (12 ghante) suna gaana apne aap dobara nahi aata. Songs of the seed's own kind come
+     * first (report #63: "bollywood ya pahadi to uske related hi … latest and popular wale"): Pahadi after Pahadi,
+     * Hindi after Hindi; other songs only when those run out.
+     */
     suspend fun radio(seed: Track, exclude: Set<String>, limit: Int = 15): List<Track> = withContext(Dispatchers.Default) {
+        // A YouTube song's JioSaavn copy tells its year and language, and has JioSaavn's "similar" list.
+        val twinJob: Deferred<Track?>? = if (seed.source != SourceType.JIOSAAVN && online.canGoOnline && settings.current.jiosaavnEnabled) {
+            CoroutineScope(SupervisorJob() + Dispatchers.IO).async { saavnTwin(seed) }
+        } else null
         val p = profile()
-        val pool = candidates(p, seed)
-        val fresh = rank(p, pool, seed, exclude + p.recentIds + seenIds(), preferNew = false)
-        fresh.ifEmpty { rank(p, pool, seed, exclude + p.recentIds, preferNew = false) }.take(limit).map { it.track }
+        val twin = twinJob?.let { job -> withTimeoutOrNull(4_000) { job.await() } ?: run { job.cancel(); null } }
+        val known = if (twin == null) seed else seed.copy(
+            year = seed.year.takeIf { it > 0 } ?: twin.year,
+            language = seed.language.ifBlank { twin.language },
+        )
+        val pool = candidates(p, known, twin)
+        val fresh = rank(p, pool, known, exclude + p.recentIds + seenIds(), preferNew = false)
+        val ranked = fresh.ifEmpty { rank(p, pool, known, exclude + p.recentIds, preferNew = false) }
+        val pahadi = pahadiIds()
+        val kind = kindOf(known, pahadi)
+        val (same, other) = if (kind.isBlank()) ranked to emptyList() else ranked.partition { kindOf(it.track, pahadi) == kind }
+        val out = (spreadArtists(same) + spreadArtists(other)).take(limit).map { it.track }
+        android.util.Log.i("Sangeet", "radio: ${out.size} songs after '${seed.title}' (${kind.ifBlank { "?" }}): ${minOf(same.size, out.size)} the same kind")
+        out
     }
 
     /**
@@ -154,10 +175,7 @@ class RecommendationRepository(
         val ytOn = canOnline && settings.current.youtubeEnabled
         val bg = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         // A YouTube song's JioSaavn twin gives its year and JioSaavn's "similar" list.
-        val twin: Deferred<Track?>? = if (seed.source != SourceType.JIOSAAVN && saavnOn) bg.async {
-            runCatching { online.saavn.search("${seed.title} ${singer.orEmpty()}".trim(), settings.current) }.getOrDefault(emptyList())
-                .firstOrNull { norm(it.title) == norm(seed.title) && (singer == null || artistMatch(it.artist, singer)) }
-        } else null
+        val twin: Deferred<Track?>? = if (seed.source != SourceType.JIOSAAVN && saavnOn) bg.async { saavnTwin(seed) } else null
         val bySinger: Deferred<List<Track>>? = if (singer != null && canOnline) bg.async {
             runCatching { online.search(singer) }.getOrDefault(emptyList()).flatMap { it.tracks }.filter { artistMatch(it.artist, singer) }
         } else null
@@ -181,8 +199,10 @@ class RecommendationRepository(
         } else null
         val year = seed.year.takeIf { it > 0 } ?: saavnSeed?.year ?: 0
         val seedLang = seed.language.ifBlank { saavnSeed?.language.orEmpty() }
-            .ifBlank { com.sangeet.player.data.remote.LanguageGuess.guess(seed.title, seed.artist) }
-        val langs = (settings.current.languages + listOfNotNull(seedLang.takeIf { it.isNotBlank() })).distinct()
+            .ifBlank { LanguageGuess.guess(seed.title, seed.artist) }
+        val pahadi = pahadiIds()
+        val seedKind = kindOf(seed, pahadi).ifBlank { seedLang }
+        val langs = (settings.current.languages + listOf(seedLang, seedKind).filter { it.isNotBlank() }).distinct()
 
         val found = buildList {
             addAll(saavnSimilar?.orSkip().orEmpty())
@@ -191,23 +211,19 @@ class RecommendationRepository(
             addAll(bySingerDeep?.orSkip().orEmpty())
             if (singer != null) {
                 addAll(local.songs.value.filter { artistMatch(it.artist, singer) })
-                if (seedLang.isNotBlank()) addAll(catalog.songs(seedLang).filter { artistMatch(it.artist, singer) })
+                if (catalog.has(seedKind)) addAll(catalog.songs(seedKind).filter { artistMatch(it.artist, singer) })
             }
         }
         val skip = exclude + seenIds() + dislikedIds() + seed.id
         val rnd = Random(System.nanoTime())
-        // Same years count most: a 90s song brings 90s songs, a new one new songs.
-        fun era(t: Track): Double {
-            if (year == 0 || t.year == 0) return 0.0
-            val d = kotlin.math.abs(t.year - year)
-            return when { d <= 4 -> 2.0; d <= 8 -> 1.0; d <= 14 -> 0.0; else -> -2.5 }
-        }
+        // Same years count most: a 90s song brings 90s songs, a new one new songs. Its kind (Pahadi, Hindi…) and
+        // popular songs count too (report #63).
+        val popular = catalogRanks(seedKind)
         val ranked = found
             .filter { it.id !in skip && it.inLanguages(langs) && norm(it.title) != norm(seed.title) }
             .distinctBy { norm(it.title) }
             .map { t ->
-                var score = era(t) + rnd.nextDouble() * 1.2
-                if (seedLang.isNotBlank() && t.language == seedLang) score += 0.8
+                var score = era(year, t) + popularity(t, popular) + kindScore(seedKind, kindOf(t, pahadi)) + rnd.nextDouble() * 1.2
                 score -= minOf(artistDislikes(t.artist), 4) * 0.8
                 t to score
             }
@@ -304,7 +320,8 @@ class RecommendationRepository(
 
     // ------------------------------------------------------------ candidates + ranking
 
-    private suspend fun candidates(p: Profile, seed: Track?): List<Suggestion> = coroutineScope {
+    /** [twin]: a YouTube seed's JioSaavn copy, for JioSaavn's "similar" list. */
+    private suspend fun candidates(p: Profile, seed: Track?, twin: Track? = null): List<Suggestion> = coroutineScope {
         val out = ArrayList<Suggestion>()
         // Sources run outside this scope, so one that hangs (blocking network call) can't hold the feed.
         val bg = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -330,9 +347,11 @@ class RecommendationRepository(
         } else emptyList()
         // Lakhon gaano se variety: JioSaavn ki "similar" (users ke data se), random playlists, search ke aage ke pages
         val saavnOn = canOnline && settings.current.jiosaavnEnabled
+        // A radio asks about its own song first; the feed about songs from the listener's history.
         val recoSeeds = buildList {
             seed?.takeIf { it.source == SourceType.JIOSAAVN }?.let(::add)
-            addAll((p.liked + p.played.map { it.track }).filter { it.source == SourceType.JIOSAAVN }.shuffled().take(2))
+            twin?.let(::add)
+            addAll((p.liked + p.played.map { it.track }).filter { it.source == SourceType.JIOSAAVN }.shuffled().take(if (seed != null) 1 else 2))
         }.distinctBy { it.id }.take(2)
         val byReco = if (saavnOn) recoSeeds.map { s ->
             bg.async { s to runCatching { online.saavn.similar(s.sourceId) }.getOrDefault(emptyList()) }
@@ -341,7 +360,7 @@ class RecommendationRepository(
         val ytOn = canOnline && settings.current.youtubeEnabled
         val ytSeeds = buildList {
             seed?.let(::add)
-            addAll((p.liked + p.played.map { it.track }).shuffled().take(5))
+            addAll((p.liked + p.played.map { it.track }).shuffled().take(if (seed != null) 2 else 5))
         }.distinctBy { it.id }.take(5)
         val byYtMix = if (ytOn) ytSeeds.map { s ->
             bg.async {
@@ -352,7 +371,25 @@ class RecommendationRepository(
             }
         } else emptyList()
         val byPlaylists: Deferred<List<Pair<String, Track>>>? =
-            if (saavnOn) bg.async { runCatching { randomPlaylistTracks() }.getOrDefault(emptyList()) } else null
+            if (saavnOn && seed == null) bg.async { runCatching { randomPlaylistTracks() }.getOrDefault(emptyList()) } else null
+        // A radio stays with its song's kind (report #63): what's trending in its language now (new and most played),
+        // or after a Pahadi song (JioSaavn has no such language) Pahadi searches, kept when names or singers say Pahadi.
+        val seedKind = seed?.let { kindOf(it, pahadiIds()) }.orEmpty()
+        val byKind: Deferred<List<Track>>? = when {
+            seedKind.isBlank() || !canOnline -> null
+            seedKind == "pahadi" -> if (saavnOn) bg.async {
+                PAHADI_SEARCHES.map { q -> async { runCatching { online.saavn.searchPage(q, 1) }.getOrDefault(emptyList()) } }
+                    .awaitAll().flatten()
+                    .filter { LanguageGuess.isPahadi(it.title, "${it.artist} ${it.album}") }
+            } else null
+            seedKind in p.languages.take(2) -> null // byLanguage has it
+            else -> bg.async { runCatching { online.byLanguage(seedKind) }.getOrDefault(emptyList()) }
+        }
+        // The catalog's most played songs of that kind, and some more of them at random.
+        val kindCatalog = if (!catalog.has(seedKind)) emptyList() else catalog.songs(seedKind).let { all ->
+            val seen = seenIds()
+            all.take(150) + all.drop(150).filter { it.id !in seen }.shuffled().take(100)
+        }
         val byArtistDeep = if (saavnOn) artists.take(3).map { a ->
             bg.async { a to runCatching { online.saavn.searchPage(a, Random.nextInt(2, 5)) }.getOrDefault(emptyList()).filter { artistMatch(it.artist, a) } }
         } else emptyList()
@@ -385,6 +422,9 @@ class RecommendationRepository(
         byArtistDeep.ready().forEach { (a, list) -> list.forEach { out += Suggestion(it, reasonFor(a, seed)) } }
         byPlaylists?.orSkip()?.forEach { (name, t) -> out += Suggestion(t, "From $name") }
         trending?.orSkip()?.forEach { out += Suggestion(it, "Trending now") }
+        val kindName = seedKind.replaceFirstChar(Char::uppercase)
+        byKind?.orSkip()?.forEach { out += Suggestion(it, "More $kindName songs") }
+        kindCatalog.forEach { out += Suggestion(it, "Popular $kindName songs") }
         fromCatalog.forEach { out += Suggestion(it, "New for you") }
         // Other Sangeet listeners: songs played and liked together with yours, and what most of them play.
         com.sangeet.player.data.community.Community.current(context)?.let { shared ->
@@ -426,11 +466,17 @@ class RecommendationRepository(
         val disliked = dislikedIds()
         // Strict bhasha: Hindi chuna hai to sirf Hindi (phone ke gaane chhod ke). A radio also keeps its song's own
         // language: a searched Pahadi or Tamil song is followed by more like it, chosen or not.
-        val seedLang = seed?.let { it.language.ifBlank { com.sangeet.player.data.remote.LanguageGuess.guess(it.title, it.artist) } }.orEmpty()
-        val langs = (settings.current.languages + listOfNotNull(seedLang.takeIf { it.isNotBlank() })).distinct()
+        val seedLang = seed?.let { it.language.ifBlank { LanguageGuess.guess(it.title, it.artist) } }.orEmpty()
+        // A radio keeps its song's kind (Pahadi, Hindi…), its time, and plays popular songs first (reports #51, #63).
+        val pahadi = if (seed != null) pahadiIds() else emptySet()
+        val seedKind = seed?.let { kindOf(it, pahadi) }.orEmpty()
+        val langs = (settings.current.languages + listOf(seedLang, seedKind).filter { it.isNotBlank() }).distinct()
+        val popular = catalogRanks(seedKind)
+        val seedKey = seed?.let(SameSong::key)
         return list
             .filter { it.track.id !in exclude && it.track.id != seed?.id && it.track.id !in disliked }
             .filter { it.track.inLanguages(langs) }
+            .filter { seedKey == null || !SameSong.key(it.track).sameAs(seedKey) }
             .map { s ->
                 val a = norm(s.track.artist)
                 var score = ln(1.0 + (p.artistScore[a] ?: 0.0))
@@ -440,13 +486,12 @@ class RecommendationRepository(
                 // Pasandida bhasha = bonus, doosri bhasha = thoda kam
                 val lang = s.track.language
                 if (lang.isNotBlank()) score += if (lang in topLangs) 1.2 else -0.6
-                if (seed != null && lang.isNotBlank() && lang == seed.language) score += 0.8
-                // Radio keeps the song's time too (report #51), when both years are known.
-                if (seed != null && seed.year > 0 && s.track.year > 0) {
-                    val d = kotlin.math.abs(s.track.year - seed.year)
-                    score += if (d <= 5) 0.8 else if (d > 15) -0.8 else 0.0
+                if (seed != null) {
+                    score += kindScore(seedKind, kindOf(s.track, pahadi)) + popularity(s.track, popular) + era(seed.year, s.track)
+                    score += rnd.nextDouble() * 1.5
+                } else {
+                    score += rnd.nextDouble() * 2.5
                 }
-                score += rnd.nextDouble() * 2.5
                 s to score
             }
             .sortedByDescending { it.second }
@@ -542,6 +587,63 @@ class RecommendationRepository(
 
     // ------------------------------------------------------------ helpers
 
+    /**
+     * What kind of song it is, so a radio stays with it (report #63): Pahadi (JioSaavn lists those songs as Hindi;
+     * their names, singers or film tell, or the catalog's Pahadi list has them), else its language.
+     */
+    private fun kindOf(t: Track, pahadi: Set<String>): String = when {
+        t.id in pahadi || LanguageGuess.isPahadi(t.title, "${t.artist} ${t.album}") -> "pahadi"
+        else -> t.language.ifBlank { LanguageGuess.guess(t.title, t.artist) }
+    }
+
+    /** The catalog's Pahadi songs (downloaded only for Pahadi listeners; otherwise used once it is on the phone). */
+    private fun pahadiIds(): Set<String> =
+        (if ("pahadi" in settings.current.languages) catalog.songs("pahadi") else catalog.loaded("pahadi")).mapTo(HashSet()) { it.id }
+
+    /** The catalog's most played songs of a kind: id -> place (the file lists the most played first). */
+    private fun catalogRanks(kind: String): Map<String, Int> =
+        if (kind.isBlank()) emptyMap()
+        else catalog.loaded(kind).take(2_000).withIndex().associate { (i, t) -> t.id to i }
+
+    /** Popular songs first (report #63): JioSaavn's play count, else the song's place among the catalog's most played. */
+    private fun popularity(t: Track, ranks: Map<String, Int>): Double {
+        val n = t.plays
+        if (n > 0) return when { n >= 50_000_000 -> 1.5; n >= 10_000_000 -> 1.1; n >= 1_000_000 -> 0.7; n >= 100_000 -> 0.3; else -> 0.0 }
+        val r = ranks[t.id] ?: return 0.0
+        return if (r < 200) 1.2 else if (r < 1_000) 0.6 else 0.2
+    }
+
+    /** Same kind as the seed: well ahead; another kind: behind (far behind after a Pahadi song). */
+    private fun kindScore(seedKind: String, kind: String): Double = when {
+        seedKind.isBlank() || kind.isBlank() -> 0.0
+        kind == seedKind -> 2.5
+        seedKind == "pahadi" -> -3.0
+        else -> -1.2
+    }
+
+    /**
+     * A song's time: an old song brings songs of its years (report #51); a new one, or one whose year isn't known,
+     * brings the newest songs first (report #63).
+     */
+    private fun era(seedYear: Int, t: Track): Double {
+        if (t.year == 0) return 0.0
+        val now = (1970 + System.currentTimeMillis() / 31_556_952_000L).toInt()
+        val age = now - t.year
+        val fresh = when { age <= 1 -> 1.0; age <= 3 -> 0.6; age <= 6 -> 0.2; else -> 0.0 }
+        if (seedYear == 0) return fresh - if (age > 15) 0.5 else 0.0
+        val d = kotlin.math.abs(t.year - seedYear)
+        val near = when { d <= 4 -> 2.0; d <= 8 -> 1.0; d <= 14 -> 0.0; else -> -2.5 }
+        return near + if (seedYear >= now - 6) fresh else 0.0
+    }
+
+    /** The same song on JioSaavn (for a YouTube song): its year, play count and JioSaavn's "similar" list. */
+    private suspend fun saavnTwin(seed: Track): Track? {
+        val singer = mainSinger(seed.artist)
+        val title = SameSong.cleanTitle(seed.title).ifBlank { return null }
+        return runCatching { online.saavn.search("$title ${singer.orEmpty()}".trim(), settings.current) }.getOrDefault(emptyList())
+            .firstOrNull { SameSong.cleanTitle(it.title) == title && (singer == null || artistMatch(it.artist, singer)) }
+    }
+
     private fun reasonFor(artist: String, seed: Track?): String =
         if (seed != null && norm(artist) == norm(seed.artist)) "Similar to \"${seed.title}\""
         else "Because you listen to $artist"
@@ -562,6 +664,8 @@ class RecommendationRepository(
         private const val KEY_LAST_SYNC = "last_sync"
         private const val MAX_SEEN = 20_000
         /** YouTube channels of music labels: their name is not a singer. */
-        private val LABELS = com.sangeet.player.data.SameSong.LABELS
+        private val LABELS = SameSong.LABELS
+        /** JioSaavn searches for a Pahadi radio. */
+        private val PAHADI_SEARCHES = listOf("pahadi songs", "garhwali songs", "kumaoni songs", "himachali songs")
     }
 }

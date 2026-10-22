@@ -46,6 +46,8 @@ data class Track(
     val language: String = "",
     /** Release year when the source gives it (JioSaavn, the catalog); 0 = unknown. For You follows a song's era. */
     val year: Int = 0,
+    /** How often it was played on JioSaavn (its `play_count`); 0 = unknown. Radio plays popular songs first. */
+    val plays: Long = 0L,
 ) {
     companion object {
         fun makeId(source: SourceType, sourceId: String) = "${source.name.lowercase()}:$sourceId"
