@@ -616,7 +616,7 @@ request the owner made, in order.
     catalog place (the files list the most played first: < 200 +1.2, < 1000 +0.6). `era`: an old seed keeps its
     years (±4 +2, > 14 years −2.5); a seed from the last 6 years or with no year also gets the newest songs (≤ 1 year
     +1, ≤ 3 +0.6). Another copy of the seed itself (`SameSong`) is left out. For You's `likeThis` uses the same.
-  - Log "radio: N songs after '…' (kind): M the same kind". UI walk: "Search: a Bollywood song brings Hindi songs
+  - Log "radio: N songs after '…' by … (kind): M the same kind". UI walk: "Search: a Bollywood song brings Hindi songs
     next" (kesariya arijit) and "Search: a Pahadi song brings Pahadi songs next" (Narendra Singh Negi), each needs
     ≥ 8 of the same kind.
 - **YouTube Shorts channel** (Oct 20, owner sent reels about "faceless" AI YouTube channels: "saare viral video dekh

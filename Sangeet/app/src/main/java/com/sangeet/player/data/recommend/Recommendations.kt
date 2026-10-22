@@ -146,7 +146,7 @@ class RecommendationRepository(
             CoroutineScope(SupervisorJob() + Dispatchers.IO).async { saavnTwin(seed) }
         } else null
         val p = profile()
-        val twin = twinJob?.let { job -> withTimeoutOrNull(4_000) { job.await() } ?: run { job.cancel(); null } }
+        val twin = twinJob?.let { job -> withTimeoutOrNull(6_000) { job.await() } ?: run { job.cancel(); null } }
         val known = if (twin == null) seed else seed.copy(
             year = seed.year.takeIf { it > 0 } ?: twin.year,
             language = seed.language.ifBlank { twin.language },
@@ -158,7 +158,7 @@ class RecommendationRepository(
         val kind = kindOf(known, pahadi)
         val (same, other) = if (kind.isBlank()) ranked to emptyList() else ranked.partition { kindOf(it.track, pahadi) == kind }
         val out = (spreadArtists(same) + spreadArtists(other)).take(limit).map { it.track }
-        android.util.Log.i("Sangeet", "radio: ${out.size} songs after '${seed.title}' (${kind.ifBlank { "?" }}): ${minOf(same.size, out.size)} the same kind")
+        android.util.Log.i("Sangeet", "radio: ${out.size} songs after '${seed.title}' by ${seed.artist} (${kind.ifBlank { "?" }}): ${minOf(same.size, out.size)} the same kind")
         out
     }
 

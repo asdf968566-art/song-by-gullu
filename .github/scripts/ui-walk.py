@@ -322,39 +322,45 @@ def main():
             for _ in range(7):
                 time.sleep(2)
                 all_nodes = list(nodes(dump()))
-                box = next((r for r in all_nodes if query.split()[0] in (r["text"] + r["desc"]).lower()), None)
-                # Album cards ("Movies & albums") sit above the songs: then only rows below the JioSaavn header.
-                albums = next((r for r in all_nodes if "Movies & albums" in r["text"]), None)
+                # A JioSaavn song (its language is known): rows under the "JioSaavn" header, above the next section
+                # ("YouTube"…) and the mini player. Phone files and album cards sit above that header.
                 head = next((r for r in all_nodes if r["text"] == "JioSaavn"), None)
-                if albums and not head and swipes < 2:
-                    swipe_up()
-                    swipes += 1
+                if not head:
+                    if swipes < 3 and any(r["text"] in ("On this phone", "💿 Movies & albums", "🎤 Songs with these lyrics") for r in all_nodes):
+                        swipe_up()
+                        swipes += 1
                     continue
-                top = head["y"] + 40 if albums and head else (box["y"] + 150 if box and not albums else None)
-                if top is None:
-                    continue
-                # Song rows only: not the search box, not the mini player at the bottom.
-                rows = [r for r in all_nodes if word in (r["text"] + r["desc"]).lower() and top < r["y"] < h * 0.78]
+                below = [r["y"] for r in all_nodes if r["text"] in ("YouTube", "Audius", "Jamendo") and r["y"] > head["y"]]
+                end = min(below + [h * 0.78])
+                rows = [r for r in all_nodes if word in (r["text"] + r["desc"]).lower() and head["y"] + 30 < r["y"] < end]
                 if rows:
+                    print(f"  [{query}] tapped: {(rows[0]['text'] or rows[0]['desc'])[:60]}")
                     sh(f"input tap {rows[0]['x']} {rows[0]['y']}")
                     return True
+                if swipes < 3:
+                    swipe_up()
+                    swipes += 1
             print(f"  [{query}] no song row; on screen: " + " | ".join(
                 (r["text"] or r["desc"])[:30] for r in nodes(dump()) if (r["text"] or r["desc"]))[:900])
             return False
         return go
-    def radio_kind(kind):
+    def radio_kind(kind, word):
+        # The radio of the tapped song: its log line names the song and its singers.
         def check():
+            seen = []
             for _ in range(14):
-                lines = [l for l in adb("logcat", "-d").splitlines() if re.search(r"\sSangeet\s*:\s*radio:", l)]
-                m = re.search(r"radio: (\d+) songs after '(.*)' \((\S+)\): (\d+) the same kind", lines[-1]) if lines else None
-                if m:
-                    n, title, got, same = int(m.group(1)), m.group(2), m.group(3), int(m.group(4))
-                    return got == kind and n >= 5 and same >= min(8, n), f"after '{title}' ({got}): {same} of {n} the same kind"
+                seen = [l.split("radio:", 1)[1].strip() for l in adb("logcat", "-d").splitlines()
+                        if re.search(r"\sSangeet\s*:\s*radio:", l)]
+                for line in reversed(seen):
+                    m = re.search(r"(\d+) songs after '(.*)' by (.*) \((\S+)\): (\d+) the same kind", line)
+                    if m and word in (m.group(2) + " " + m.group(3)).lower():
+                        n, got, same = int(m.group(1)), m.group(4), int(m.group(5))
+                        return got == kind and n >= 5 and same >= min(8, n), f"after '{m.group(2)}' ({got}): {same} of {n} the same kind"
                 time.sleep(3)
-            return False, f"no 'radio:' line after 42 s; now={now_title()}"
+            return False, f"no radio for '{word}' after 42 s; radio lines: {seen[-3:]}; now={now_title()}"
         return check
-    step("Search: a Bollywood song brings Hindi songs next", search_and_play("kesariya arijit", "kesariya"), radio_kind("hindi"))
-    step("Search: a Pahadi song brings Pahadi songs next", search_and_play("narendra singh negi", "negi"), radio_kind("pahadi"))
+    step("Search: a Bollywood song brings Hindi songs next", search_and_play("kesariya arijit", "kesariya"), radio_kind("hindi", "kesariya"))
+    step("Search: a Pahadi song brings Pahadi songs next", search_and_play("narendra singh negi", "negi"), radio_kind("pahadi", "negi"))
 
     def lyric_line():
         # A line from the middle of "Tujhe Dekha To" (not its name).
