@@ -20,7 +20,7 @@
   "views": 1,
   "likes": 0,
   "comments": 0,
-  "score": 1.0
+  "score": 0.3
  },
  {
   "date": "20261020-1452",
@@ -71,5 +71,18 @@
   "voice": "edge",
   "youtube": null,
   "file": "long-20261021-1046.mp4"
+ },
+ {
+  "date": "20261023-1746",
+  "kind": "short",
+  "format": "motivational story of an ordinary person who never gave up (fictional, not a real person)",
+  "title": "टूटे पैरों से जीता मैराथन! 🏆 हिम्मत की जीत #shorts",
+  "seconds": 68.6,
+  "pictures": {
+   "pollinations": 8
+  },
+  "voice": "edge",
+  "youtube": null,
+  "file": "short-20261023-1746.mp4"
  }
 ]
