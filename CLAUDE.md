@@ -632,7 +632,14 @@ request the owner made, in order.
     memory, killed by the phone, battery / CPU, other) or a native crash / freeze (ANR, with the main thread's stack)
     in the last 3 days, MainActivity sends a report by itself ("Android stopped the app: …", like crash reports;
     `markSent` after it went; never on the emulator). A one-off probe (`.github/workflows/probe-longplay.yml`,
-    `longplay.sh`, not merged) played 28 min on an Android 15 emulator and logged memory every minute.
+    `longplay.sh`, not merged) played 28 min on an Android 15 emulator (10 on screen, 10 in the background, 8 with
+    the screen off): same process all along, memory flat at ~92 MB PSS (Java heap ~42 MB). So no leak; the phone
+    ends the app. (That fresh install also ran Smart downloads at once: the emulator is "on Wi-Fi and charging".)
+  - **Keep playing** (`playback/KeepPlaying.kt`): some phones' battery savers end music apps in the background.
+    Once, 4 s after music first plays, a dialog "Keep music playing" → Allow opens Android's "always run in the
+    background" dialog (`ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`, permission REQUEST_IGNORE_BATTERY_OPTIMIZATIONS;
+    removed in the Play manifest and hidden in the Play version). Settings → Playback → "Keep playing in the
+    background" shows "Allowed" or asks again. Not on the emulator.
   - **Singers:** a tile on Home opens `ui/library/SingerScreen.kt` (route `singer/{name}`): `CollectionHeader`
     ("Singer • N songs", Play starts at a random song, Shuffle, Download all) and all `Singers.songs(name)`; log
     "singer page: N songs by X". The header action is now "See all" → `AllSingersScreen` (route `singers`): a grid

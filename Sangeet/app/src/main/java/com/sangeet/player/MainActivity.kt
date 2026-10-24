@@ -2,6 +2,8 @@ package com.sangeet.player
 
 import com.sangeet.player.data.AppExits
 import com.sangeet.player.data.CrashReporter
+import com.sangeet.player.playback.KeepPlaying
+import kotlinx.coroutines.flow.first
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.material3.TextButton
@@ -70,6 +72,25 @@ class MainActivity : ComponentActivity() {
                             CrashReporter.submit(this@MainActivity, "$stopped\n(sent automatically)", includeLogs = false)
                         }.onFailure { android.util.Log.w("Sangeet", "auto stop report: ${it.message}") }.isSuccess
                         if (sent) AppExits.markSent(this@MainActivity)
+                    }
+                    // Report #69: some phones stop the music in the background to save battery. Ask once, when
+                    // music first plays, to be let run (Android shows its own dialog after "Allow").
+                    var keepAsk by remember { mutableStateOf(false) }
+                    androidx.compose.runtime.LaunchedEffect(Unit) {
+                        if (!KeepPlaying.shouldAsk(this@MainActivity)) return@LaunchedEffect
+                        container.player.state.first { it.isPlaying }
+                        kotlinx.coroutines.delay(4_000)
+                        keepAsk = KeepPlaying.shouldAsk(this@MainActivity)
+                    }
+                    if (keepAsk && crash == null) {
+                        val done = { KeepPlaying.markAsked(this@MainActivity); keepAsk = false }
+                        AlertDialog(
+                            onDismissRequest = done,
+                            title = { Text("Keep music playing") },
+                            text = { Text("Some phones stop music apps in the background to save battery. Allow Sangeet to keep playing?") },
+                            confirmButton = { TextButton(onClick = { done(); KeepPlaying.ask(this@MainActivity) }) { Text("Allow") } },
+                            dismissButton = { TextButton(onClick = done) { Text("Not now") } },
+                        )
                     }
                     if (crash != null) {
                         AlertDialog(

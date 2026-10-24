@@ -12,6 +12,11 @@
         "on": "android",
         "type": "new",
         "text": "See all your singers"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Keep playing in the background"
       }
     ]
   },

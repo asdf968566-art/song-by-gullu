@@ -12,6 +12,8 @@
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <!-- App ke andar se naya version install karne ke liye -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Report #69: ask once to keep the phone's battery saver from stopping the music (KeepPlaying). -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <!-- Song alarm (SongAlarm): ring on time, and set it again after a restart. -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />

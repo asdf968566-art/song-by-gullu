@@ -1,6 +1,7 @@
 package com.sangeet.player.ui.settings
 
 import androidx.compose.material.icons.rounded.Alarm
+import androidx.compose.material.icons.rounded.BatteryChargingFull
 import androidx.compose.material.icons.rounded.Autorenew
 import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material.icons.rounded.CloudSync
@@ -60,6 +61,7 @@ import androidx.navigation.NavController
 import com.sangeet.player.data.model.AudioQuality
 import com.sangeet.player.ui.LocalAppContainer
 import com.sangeet.player.ui.Routes
+import com.sangeet.player.playback.KeepPlaying
 import kotlinx.coroutines.launch
 import com.sangeet.player.ui.theme.LocalBottomBarSpace
 
@@ -114,6 +116,7 @@ fun SettingsScreen(nav: NavController) {
         SettingsGroup("Playback") {
             SettingsItem(Icons.Rounded.Equalizer, "Equalizer & Bass boost", "Fine-tune your sound", onClick = { nav.navigate(Routes.EQUALIZER) })
             SettingsItem(Icons.Rounded.Alarm, "Alarm", "Wake up to your songs", onClick = { nav.navigate(Routes.ALARM) })
+            if (KeepPlaying.offered) KeepPlayingRow()
             SettingsSwitch(Icons.Rounded.VolumeUp, "Normalize volume", "Every song plays at the same loudness", eq.normalize) {
                 c.equalizer.setNormalize(it)
             }
@@ -340,4 +343,22 @@ fun SettingsScreen(nav: NavController) {
         }
         Spacer(Modifier.height(32.dp))
     }
+}
+
+/** Report #69: the phone's battery saver can stop the music; this lets it keep playing (Android's own dialog). */
+@Composable
+private fun KeepPlayingRow() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var allowed by remember { mutableStateOf(KeepPlaying.allowed(context)) }
+    // Read it again when the user comes back from Android's dialog.
+    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) {
+        allowed = KeepPlaying.allowed(context)
+        onPauseOrDispose { }
+    }
+    SettingsItem(
+        Icons.Rounded.BatteryChargingFull,
+        "Keep playing in the background",
+        if (allowed) "Allowed" else "Some phones stop the music to save battery. Tap to allow",
+        onClick = if (allowed) null else ({ KeepPlaying.ask(context) }),
+    )
 }
