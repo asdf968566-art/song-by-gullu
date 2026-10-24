@@ -1,0 +1,469 @@
+[
+  {
+    "date": "2026-10-24",
+    "title": "Singer pages",
+    "items": [
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Singer pages with all their songs"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "See all your singers"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Keep playing in the background"
+      }
+    ]
+  },
+  {
+    "date": "2026-10-22",
+    "title": "Related songs next",
+    "items": [
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Related songs play next"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Newest and popular songs first"
+      }
+    ]
+  },
+  {
+    "date": "2026-10-19",
+    "title": "Safer updates",
+    "items": [
+      {
+        "on": "android",
+        "type": "fix",
+        "text": "Safer app updates"
+      }
+    ]
+  },
+  {
+    "date": "2026-10-17",
+    "title": "Liquid Glass everywhere, smarter For You",
+    "items": [
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Liquid Glass on every page"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "For You in your theme"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "For You follows the song you play"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Liquid Glass is the default theme"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Glass play controls"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Add to playlist next to the song name"
+      },
+      {
+        "on": "android",
+        "type": "fix",
+        "text": "Overlapping glass buttons"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Lyrics on screen without scrolling"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "New seek bar that shows loading"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Sort your playlists"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Hold and drag songs in the queue"
+      },
+      {
+        "on": "android",
+        "type": "fix",
+        "text": "Same song added twice to a playlist"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "More songs with lyrics"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Your singers on Home"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Pick your favourite singers"
+      }
+    ]
+  },
+  {
+    "date": "2026-10-14",
+    "title": "Smoother playback",
+    "items": [
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Whole song loads ahead"
+      },
+      {
+        "on": "android",
+        "type": "fix",
+        "text": "Offline error with the internet on"
+      }
+    ]
+  },
+  {
+    "date": "2026-10-13",
+    "title": "Neon Glass, more Haryanvi and Pahadi",
+    "items": [
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Neon Glass theme"
+      },
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Neon Glass in any accent color"
+      },
+      {
+        "on": "both",
+        "type": "new",
+        "text": "More Haryanvi and Pahadi songs"
+      },
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Haryanvi DJ, Haryanvi Folk, Garhwali, Kumaoni and Himachali"
+      },
+      {
+        "on": "iphone",
+        "type": "new",
+        "text": "Pahadi song language"
+      }
+    ]
+  },
+  {
+    "date": "2026-10-12",
+    "title": "Smoother playback",
+    "items": [
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Smooth pause and play"
+      },
+      {
+        "on": "android",
+        "type": "fix",
+        "text": "Songs no longer skip when the internet drops"
+      },
+      {
+        "on": "android",
+        "type": "fix",
+        "text": "Songs that wouldn't play now play"
+      }
+    ]
+  },
+  {
+    "date": "2026-10-11",
+    "title": "Sangeet Top 50 and ringtones",
+    "items": [
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Sangeet Top 50"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Set a song as ringtone"
+      },
+      {
+        "on": "iphone",
+        "type": "new",
+        "text": "Songs you can't find get added"
+      }
+    ]
+  },
+  {
+    "date": "2026-10-10",
+    "title": "Live radio and listening together",
+    "items": [
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Live FM radio"
+      },
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Listen together with friends"
+      },
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Sing-along mode"
+      },
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Meaning of a lyrics line"
+      },
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Song of the day"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Crash reports sent automatically"
+      },
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Song videos, like YouTube Music"
+      },
+      {
+        "on": "iphone",
+        "type": "new",
+        "text": "New Settings design"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Themes on every tile"
+      },
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Your playlists at the top of Library"
+      },
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Add to playlist next to Like"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Library as tiles"
+      },
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Crystal theme: everything see-through"
+      },
+      {
+        "on": "both",
+        "type": "fix",
+        "text": "AI DJ plays right away"
+      },
+      {
+        "on": "android",
+        "type": "fix",
+        "text": "Home refresh button"
+      },
+      {
+        "on": "both",
+        "type": "fix",
+        "text": "Play and Shuffle start at a random song"
+      },
+      {
+        "on": "android",
+        "type": "fix",
+        "text": "Status bar icons on For You"
+      }
+    ]
+  },
+  {
+    "date": "2026-10-09",
+    "title": "Sync, alarm, movies and a smarter AI DJ",
+    "items": [
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Sync your library between phones, Android and iPhone"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Wake-up alarm with your songs"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Alerts for new songs from your favourite singers"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Automatic app updates"
+      },
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Movies: browse films and play full albums"
+      },
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Smarter AI DJ, powered by Google Gemini"
+      },
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Search in Hindi and Punjabi script"
+      },
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Share songs as links"
+      },
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Pahadi songs"
+      },
+      {
+        "on": "both",
+        "type": "fix",
+        "text": "Moods now play the right songs"
+      },
+      {
+        "on": "both",
+        "type": "fix",
+        "text": "YouTube playlist import works again"
+      },
+      {
+        "on": "android",
+        "type": "fix",
+        "text": "More reliable YouTube playback"
+      },
+      {
+        "on": "android",
+        "type": "fix",
+        "text": "Searched songs play in any language"
+      },
+      {
+        "on": "android",
+        "type": "fix",
+        "text": "Report a problem works again"
+      }
+    ]
+  },
+  {
+    "date": "2026-10-06",
+    "title": "Wrapped, Blend and Car mode",
+    "items": [
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Wrapped: your year in music"
+      },
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Blend: a shared playlist with a friend"
+      },
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Share lyrics as a picture"
+      },
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Car mode"
+      },
+      {
+        "on": "both",
+        "type": "new",
+        "text": "New songs from your singers on Home"
+      },
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Over 12 lakh songs"
+      },
+      {
+        "on": "iphone",
+        "type": "new",
+        "text": "Offline downloads"
+      },
+      {
+        "on": "iphone",
+        "type": "new",
+        "text": "Liquid Glass look"
+      }
+    ]
+  },
+  {
+    "date": "2026-10-05",
+    "title": "Voice search and Liquid Glass",
+    "items": [
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Voice search and lyrics search"
+      },
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Recent searches"
+      },
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Haryanvi Badmashi category"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Liquid Glass theme"
+      },
+      {
+        "on": "iphone",
+        "type": "new",
+        "text": "Lock screen controls"
+      },
+      {
+        "on": "android",
+        "type": "fix",
+        "text": "Status bar icons readable in every theme"
+      }
+    ]
+  }
+]
