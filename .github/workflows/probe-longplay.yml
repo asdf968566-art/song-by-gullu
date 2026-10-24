@@ -1,0 +1,33 @@
+name: Probe long play
+
+# One-off (report #69): does the app keep playing for 28 minutes, and does its memory grow? Not part of the app's CI.
+on:
+  push:
+    branches: ["claude/**"]
+    paths: [".github/workflows/probe-longplay.yml", ".github/scripts/longplay.sh"]
+  workflow_dispatch:
+
+jobs:
+  longplay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Latest APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: mkdir -p apk && gh release download latest -p Sangeet.apk -D apk && ls -la apk
+      - run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          ram-size: 3072M
+          heap-size: 256M
+          emulator-options: -no-window -gpu swiftshader_indirect -no-boot-anim -camera-back none
+          script: bash .github/scripts/longplay.sh
