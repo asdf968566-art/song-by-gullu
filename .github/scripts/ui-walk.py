@@ -317,7 +317,13 @@ def main():
             time.sleep(1)
             sh("input text '" + query.replace(" ", "%s") + "'")
             sh("input keyevent KEYCODE_ENTER")
+            time.sleep(1)
+            # The keyboard can stay up and take the tap (last run: "tapped: Kesariya", nothing played).
+            if "mInputShown=true" in sh("dumpsys input_method"):
+                sh("input keyevent KEYCODE_BACK")
+                time.sleep(1)
             _, h = screen()
+            before = now_title()
             swipes = 0
             for _ in range(7):
                 time.sleep(2)
@@ -333,8 +339,15 @@ def main():
                 end = h * 0.78
                 rows = [r for r in all_nodes if word in (r["text"] + r["desc"]).lower() and head["y"] + 30 < r["y"] < end]
                 if rows:
-                    print(f"  [{query}] tapped: {(rows[0]['text'] or rows[0]['desc'])[:60]}")
-                    sh(f"input tap {rows[0]['x']} {rows[0]['y']}")
+                    # The first rows that start a song (the playing song changes); a second try on the next row.
+                    for row in rows[:2]:
+                        print(f"  [{query}] tapped: {(row['text'] or row['desc'])[:60]}")
+                        sh(f"input tap {row['x']} {row['y']}")
+                        for _ in range(8):
+                            time.sleep(1)
+                            if now_title() and now_title() != before:
+                                return True
+                    print(f"  [{query}] nothing started; now={now_title()}")
                     return True
                 if swipes < 3:
                     swipe_up()
