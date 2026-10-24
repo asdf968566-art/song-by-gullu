@@ -622,6 +622,30 @@ request the owner made, in order.
     next" (kesariya arijit) and "Search: a Pahadi song brings Pahadi songs next" (Narendra Singh Negi) tap the first
     row under the first source header and need ≥ 8 of the same kind. The emulator test now has 60 min (the walk
     alone takes ~40) and runs the walk with `python3 -u`, so its lines show in the log as they happen.
+- **App report #69 of Oct 22** (LAVA LXX525 tester, Android 16, build 283, Liquid Glass): "15-20 minute chalne ke baad
+  app apne aap band ho jata hai songs bhi ruk jate hain", a singer tile should open a page first ("pahle playlist
+  khule fir play button pe click ho"), and "See all" should show every picked singer. Android only. (#70, same day:
+  "related song nhi arhe" = #63.)
+  - **Why the app stopped:** no crash report came, so it wasn't a Java crash. `data/AppExits.kt` reads Android's own
+    exit reasons (`ApplicationExitInfo`, Android 11+): every report gets "Last app exits" (time, reason, on screen /
+    playing / background, MB used, Android's note). After an exit nobody asked for while on screen or playing (low
+    memory, killed by the phone, battery / CPU, other) or a native crash / freeze (ANR, with the main thread's stack)
+    in the last 3 days, MainActivity sends a report by itself ("Android stopped the app: …", like crash reports;
+    `markSent` after it went; never on the emulator). A one-off probe (`.github/workflows/probe-longplay.yml`,
+    `longplay.sh`, not merged) played 28 min on an Android 15 emulator (10 on screen, 10 in the background, 8 with
+    the screen off): same process all along, memory flat at ~92 MB PSS (Java heap ~42 MB). So no leak; the phone
+    ends the app. (That fresh install also ran Smart downloads at once: the emulator is "on Wi-Fi and charging".)
+  - **Keep playing** (`playback/KeepPlaying.kt`): some phones' battery savers end music apps in the background.
+    Once, 4 s after music first plays, a dialog "Keep music playing" → Allow opens Android's "always run in the
+    background" dialog (`ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`, permission REQUEST_IGNORE_BATTERY_OPTIMIZATIONS;
+    removed in the Play manifest and hidden in the Play version). Settings → Playback → "Keep playing in the
+    background" shows "Allowed" or asks again. Not on the emulator.
+  - **Singers:** a tile on Home opens `ui/library/SingerScreen.kt` (route `singer/{name}`): `CollectionHeader`
+    ("Singer • N songs", Play starts at a random song, Shuffle, Download all) and all `Singers.songs(name)`; log
+    "singer page: N songs by X". The header action is now "See all" → `AllSingersScreen` (route `singers`): a grid
+    of `Singers.yours(100)` (picked first, then most played) with an Edit button → Settings → Favourite singers.
+  - UI walk: "Home: Your singers → the singer's page", "Singer page: Play plays their songs", "Home: Your singers →
+    See all".
 - **YouTube Shorts channel** (Oct 20, owner sent reels about "faceless" AI YouTube channels: "saare viral video dekh
   … cartoon, motion video, ai made movie … bna aur upload kar … monotize krwa"; "upload bhi tu kr, permission de
   dunga"; then "sirf shorts nhi, full movie, cartoon, ramayan, mahabharat"). Not part of the apps:

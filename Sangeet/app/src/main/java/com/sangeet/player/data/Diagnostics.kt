@@ -73,5 +73,7 @@ object Diagnostics {
             )
         }
         if (screens.isNotEmpty()) appendLine("- Screens, last one open: ${screens.joinToString(" → ")}")
+        // Why Android ended the app before (report #69): memory, battery saver, a native crash…
+        runCatching { AppExits.text(context) }.getOrNull()?.let { appendLine(it) }
     }
 }
