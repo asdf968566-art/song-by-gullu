@@ -305,6 +305,62 @@ def main():
     step("Search: remove one recent search", lambda: tap("Remove from recent", wait=2),
          lambda: (alive(), "removed"))
 
+    # Report #63: a searched song plays, and songs of its own kind (Bollywood -> Hindi, Pahadi -> Pahadi) come next.
+    def search_and_play(query, word):
+        def go():
+            tap("Clear", wait=1)
+            n = find("What do you want to listen to?", contains=True) or find("Search", contains=True)
+            if not n:
+                print(f"  [{query}] no search box")
+                return False
+            sh(f"input tap {n['x']} {n['y']}")
+            time.sleep(1)
+            sh("input text '" + query.replace(" ", "%s") + "'")
+            sh("input keyevent KEYCODE_ENTER")
+            _, h = screen()
+            swipes = 0
+            for _ in range(7):
+                time.sleep(2)
+                all_nodes = list(nodes(dump()))
+                # An online song: rows under the first source header ("YouTube" / "JioSaavn"), above the mini player.
+                # Phone files, album cards and suggestion chips sit above it.
+                head = next((r for r in all_nodes if r["text"] in ("YouTube", "JioSaavn")), None)
+                if not head:
+                    if swipes < 3 and any(r["text"] in ("On this phone", "💿 Movies & albums", "🎤 Songs with these lyrics") for r in all_nodes):
+                        swipe_up()
+                        swipes += 1
+                    continue
+                end = h * 0.78
+                rows = [r for r in all_nodes if word in (r["text"] + r["desc"]).lower() and head["y"] + 30 < r["y"] < end]
+                if rows:
+                    print(f"  [{query}] tapped: {(rows[0]['text'] or rows[0]['desc'])[:60]}")
+                    sh(f"input tap {rows[0]['x']} {rows[0]['y']}")
+                    return True
+                if swipes < 3:
+                    swipe_up()
+                    swipes += 1
+            print(f"  [{query}] no song row; on screen: " + " | ".join(
+                (r["text"] or r["desc"])[:30] for r in nodes(dump()) if (r["text"] or r["desc"]))[:900])
+            return False
+        return go
+    def radio_kind(kind, word):
+        # The radio of the tapped song: its log line names the song and its singers.
+        def check():
+            seen = []
+            for _ in range(14):
+                seen = [l.split("radio:", 1)[1].strip() for l in adb("logcat", "-d").splitlines()
+                        if re.search(r"\sSangeet\s*:\s*radio:", l)]
+                for line in reversed(seen):
+                    m = re.search(r"(\d+) songs after '(.*)' by (.*) \((\S+)\): (\d+) the same kind", line)
+                    if m and word in (m.group(2) + " " + m.group(3)).lower():
+                        n, got, same = int(m.group(1)), m.group(4), int(m.group(5))
+                        return got == kind and n >= 5 and same >= min(8, n), f"after '{m.group(2)}' ({got}): {same} of {n} the same kind"
+                time.sleep(3)
+            return False, f"no radio for '{word}' after 42 s; radio lines: {seen[-3:]}; now={now_title()}"
+        return check
+    step("Search: a Bollywood song brings Hindi songs next", search_and_play("kesariya arijit", "kesariya"), radio_kind("hindi", "kesariya"))
+    step("Search: a Pahadi song brings Pahadi songs next", search_and_play("narendra singh negi", "negi"), radio_kind("pahadi", "negi"))
+
     def lyric_line():
         # A line from the middle of "Tujhe Dekha To" (not its name).
         tap("Clear", wait=1)
