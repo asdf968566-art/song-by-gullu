@@ -130,6 +130,8 @@ object Routes {
     const val OWNER = "settings/owner"
     const val ALARM = "settings/alarm"
     const val SINGERS = "settings/singers"
+    const val SINGER = "singer/{name}"
+    const val ALL_SINGERS = "singers"
     const val RADIO = "radio"
     const val TOGETHER = "together?code={code}"
     fun together(code: String? = null) = "together" + (code?.let { "?code=" + android.net.Uri.encode(it) } ?: "")
@@ -143,6 +145,7 @@ object Routes {
     fun playlist(id: Long) = "playlist/$id"
     fun mix(id: String) = "mix/$id"
     fun artist(name: String) = "artist/${android.net.Uri.encode(name.substringBefore(",").trim())}"
+    fun singer(name: String) = "singer/${android.net.Uri.encode(name)}"
     fun onlinePlaylist(id: String, title: String) = "online/$id?title=${android.net.Uri.encode(title)}"
     fun list(kind: ListKind, arg: String = "") = "list/${kind.name}?arg=${android.net.Uri.encode(arg)}"
     fun movies(q: String = "") = "movies?q=${android.net.Uri.encode(q)}"
@@ -334,6 +337,10 @@ fun SangeetRoot() {
                 composable(Routes.OWNER) { com.sangeet.player.ui.settings.OwnerDashboard(nav) }
                 composable(Routes.ALARM) { com.sangeet.player.ui.settings.AlarmScreen(nav) }
                 composable(Routes.SINGERS) { com.sangeet.player.ui.settings.SingersScreen(nav) }
+                composable(Routes.ALL_SINGERS) { com.sangeet.player.ui.library.AllSingersScreen(nav) }
+                composable(Routes.SINGER, arguments = listOf(navArgument("name") { type = NavType.StringType })) { entry ->
+                    com.sangeet.player.ui.library.SingerScreen(nav, entry.arguments?.getString("name") ?: "")
+                }
                 composable(Routes.RADIO) { com.sangeet.player.ui.library.RadioScreen(nav) }
                 composable(
                     Routes.TOGETHER,

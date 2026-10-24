@@ -1,5 +1,21 @@
 [
   {
+    "date": "2026-10-24",
+    "title": "Singer pages",
+    "items": [
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Singer pages with all their songs"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "See all your singers"
+      }
+    ]
+  },
+  {
     "date": "2026-10-22",
     "title": "Related songs next",
     "items": [

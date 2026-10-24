@@ -1,5 +1,6 @@
 package com.sangeet.player
 
+import com.sangeet.player.data.AppExits
 import com.sangeet.player.data.CrashReporter
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
@@ -52,11 +53,23 @@ class MainActivity : ComponentActivity() {
                     // Crashed last time: the report goes by itself (owner, Oct 10); only if that fails, ask.
                     var crash by remember { mutableStateOf<String?>(null) }
                     androidx.compose.runtime.LaunchedEffect(Unit) {
-                        val pending = CrashReporter.pendingCrash(this@MainActivity) ?: return@LaunchedEffect
+                        val pending = CrashReporter.pendingCrash(this@MainActivity)
+                        if (pending != null) {
+                            val sent = CrashReporter.canSendDirectly && container.online.canGoOnline && runCatching {
+                                CrashReporter.submit(this@MainActivity, "(sent automatically after a crash)", includeLogs = true)
+                            }.onFailure { android.util.Log.w("Sangeet", "auto crash report: ${it.message}") }.isSuccess
+                            if (!sent) crash = pending
+                            AppExits.markSent(this@MainActivity) // that crash's exit is in the report
+                            return@LaunchedEffect
+                        }
+                        // Android stopped the app last time without a Java crash (memory, battery saver, a native
+                        // crash or a freeze; report #69): that report goes by itself too.
+                        val stopped = AppExits.unexpected(this@MainActivity) ?: return@LaunchedEffect
+                        android.util.Log.i("Sangeet", "last run: ${stopped.lineSequence().first()}")
                         val sent = CrashReporter.canSendDirectly && container.online.canGoOnline && runCatching {
-                            CrashReporter.submit(this@MainActivity, "(sent automatically after a crash)", includeLogs = true)
-                        }.onFailure { android.util.Log.w("Sangeet", "auto crash report: ${it.message}") }.isSuccess
-                        if (!sent) crash = pending
+                            CrashReporter.submit(this@MainActivity, "$stopped\n(sent automatically)", includeLogs = false)
+                        }.onFailure { android.util.Log.w("Sangeet", "auto stop report: ${it.message}") }.isSuccess
+                        if (sent) AppExits.markSent(this@MainActivity)
                     }
                     if (crash != null) {
                         AlertDialog(

@@ -777,33 +777,55 @@ def main():
         return True
     step("Settings: pick a favourite singer", pick_singer,
          lambda: (find("Arijit Singh", contains=True, scroll=3) is not None, "Settings lists Arijit Singh"))
-    def play_singer():
-        back()
+    def singers_row():
         go_tab("Home")
         head = find("Your singers", scroll=4)
         if not head:
-            return False
+            return None
         w, h = screen()
         if head["y"] > h * 0.5:  # keep the row above the floating tab bar
             sh(f"input swipe {w // 2} {int(h * 0.6)} {w // 2} {int(h * 0.3)} 500")
             time.sleep(2)
             head = find("Your singers") or head
+        return head
+    # Report #69: a singer opens their page (all their songs, like a playlist); Play starts them.
+    def open_singer():
+        back()
+        head = singers_row()
+        if not head:
+            return False
         tiles = [n for n in nodes(dump()) if n["text"] == "Arijit Singh" and head["y"] < n["y"] < head["y"] + 700]
         if not tiles:
             return False
         sh(f"input tap {tiles[0]['x']} {tiles[0]['y']}")
         for _ in range(30):
-            if "singer:" in adb("logcat", "-d"):
+            if "singer page:" in adb("logcat", "-d"):
                 break
             time.sleep(2)
-        time.sleep(6)
+        time.sleep(3)
         return True
-    def singer_played():
-        log = [l for l in adb("logcat", "-d").splitlines() if "singer:" in l]
-        m = re.search(r"singer: (\d+) songs by", log[-1]) if log else None
+    def singer_page():
+        log = [l for l in adb("logcat", "-d").splitlines() if "singer page:" in l]
+        m = re.search(r"singer page: (\d+) songs by", log[-1]) if log else None
         n = int(m.group(1)) if m else 0
-        return n >= 40 and playing(), (log[-1].split(": ", 1)[-1] if log else "no log line") + f"; playing={playing()}"
-    step("Home: Your singers → plays all their songs", play_singer, singer_played)
+        header = find("Singer •", contains=True)
+        return n >= 40 and header is not None, (log[-1].split(": ", 1)[-1] if log else "no log line") + f"; header: {(header or {}).get('text')}"
+    step("Home: Your singers → the singer's page", open_singer, singer_page)
+    step("Singer page: Play plays their songs", lambda: tap("Play", wait=8), lambda: (playing(), f"playing: {now_title()}"))
+    def all_singers():
+        back()
+        head = singers_row()
+        if not head:
+            return False
+        more = [n for n in nodes(dump()) if n["text"] == "See all" and abs(n["y"] - head["y"]) < 80]
+        if not more:
+            return False
+        sh(f"input tap {more[0]['x']} {more[0]['y']}")
+        time.sleep(4)
+        return True
+    step("Home: Your singers → See all", all_singers,
+         lambda: (find("Edit singers") is not None and find("Arijit Singh") is not None, "the page lists Arijit Singh"))
+    back()
 
     # ---------------------------------------------------------------- themes: Liquid Glass on every page
     def shot(name):
