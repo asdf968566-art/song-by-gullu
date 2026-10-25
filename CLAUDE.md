@@ -674,6 +674,11 @@ request the owner made, in order.
     likes / comments of the uploaded videos (Data API, the channel login) into history (`score` = (views + 20 likes +
     40 comments) per day). `pick_format` weights formats by their average score (untried = average, 1 in 4 picks
     random, the last 2 Short / last 1 long formats skipped), and the prompts get the channel's best titles.
+  - Oct 21–24: the login gave `invalid_grant` ("Token has been expired or revoked") a day after linking, so 3 videos
+    were made but not uploaded, and two runs died on Gemini 503 (LLM7's models now 401/400). Fixes: `upload_pending`
+    uploads made-but-not-uploaded videos from the release copy (3 a run, ≤ 10 days old, 3 tries), `access_token`
+    logs "LOGIN EXPIRED", and `ask_json` tries 10 times over up to 6 Gemini text models (`gemini_models`). If the
+    login expires again, check that the OAuth app is "In production" (Testing tokens expire) and run the login.
   - Told the owner: no fake views; monetization (1000 subs + 4000 h or 10M Shorts views in 90 days) can't be promised;
     mass-produced repetitive AI videos are demonetized, so every video is a different format/story.
 - Other platforms checked Oct 9 from CI: Gaana's old open API is gone (404); Wynk, Hungama, Spotify have no open
