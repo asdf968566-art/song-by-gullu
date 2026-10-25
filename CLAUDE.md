@@ -674,6 +674,11 @@ request the owner made, in order.
     likes / comments of the uploaded videos (Data API, the channel login) into history (`score` = (views + 20 likes +
     40 comments) per day). `pick_format` weights formats by their average score (untried = average, 1 in 4 picks
     random, the last 2 Short / last 1 long formats skipped), and the prompts get the channel's best titles.
+  - Trends, Oct 25 (owner: "trend ke hisab se"): `google_trends` reads Google Trends' India feed
+    (`trends.google.com/trending/rss?geo=IN`, no key) into `TOPICS`, which both prompts get. A Short format
+    `TREND_SHORT` (and the long "trend" format) is picked ~1 in 3 when topics exist, and builds the video around the
+    best family-friendly topic (no politics, crimes, real people's deaths). YouTube chart / search calls use the
+    channel login when there is one (its own quota), else the app's key.
   - Oct 21–24: the login gave `invalid_grant` ("Token has been expired or revoked") a day after linking, so 3 videos
     were made but not uploaded, and two runs died on Gemini 503 (LLM7's models now 401/400). Fixes: `upload_pending`
     uploads made-but-not-uploaded videos from the release copy (3 a run, ≤ 10 days old, 3 tries), `access_token`

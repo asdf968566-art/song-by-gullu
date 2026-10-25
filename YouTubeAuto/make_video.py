@@ -41,6 +41,8 @@ SHORT_FORMATS = [
     ("motivational story of an ordinary person who never gave up (fictional, not a real person)", False),
     ("funny cartoon story with a desi family, clean comedy and a punchline", False),
     ("what if... video (what if the Earth stopped spinning, what if humans could fly...), scientific", False),
+    (TREND_SHORT := "today's trend: an original story, facts or what-if video about one of today's top searched topics "
+                    "in India (festival, cricket, film, viral topic)", False),
 ]
 LONG_FORMATS = [
     ("series:Ramayan", "Ramayan told as an episode series, faithful to Valmiki Ramayan, respectful, with dialogue", False),
@@ -79,20 +81,54 @@ def load_history():
 
 
 # ---------- 1. Trends ----------
-def trends():
-    """Titles of what India watches now: the trending charts and (when quota is left) the most viewed new videos."""
+TOPICS = []  # what India searches most today (Google Trends), filled by google_trends()
+
+
+def google_trends():
+    """Today's most searched topics in India from Google Trends' public feed (no key), with their search counts."""
+    try:
+        x = http("https://trends.google.com/trending/rss?geo=IN", timeout=30).decode("utf-8", "replace")
+    except Exception as e:
+        log("google trends failed:", e)
+        return []
     out = []
-    if not YT_KEY:
+    for item in re.findall(r"<item>(.*?)</item>", x, re.S):
+        title = re.search(r"<title>(.*?)</title>", item, re.S)
+        traffic = re.search(r"<ht:approx_traffic>(.*?)</ht:approx_traffic>", item, re.S)
+        news = re.findall(r"<ht:news_item_title>(.*?)</ht:news_item_title>", item, re.S)[:1]
+        if title:
+            t = html_text(title.group(1))
+            out.append(f"{t} ({html_text(traffic.group(1)) if traffic else '?'} searches)"
+                       + (f": {html_text(news[0])[:90]}" if news else ""))
+    log("google trends:", len(out), "topics, e.g.", out[:6])
+    return out[:25]
+
+
+def html_text(s):
+    import html
+    return html.unescape(re.sub(r"<!\[CDATA\[|\]\]>", "", s)).strip()
+
+
+def trends():
+    """Titles of what India watches now: the trending charts and the most viewed new videos. Searches use the
+    channel's own login when there is one (its own quota; the app's key is often used up), else the app's key."""
+    global TOPICS
+    TOPICS = google_trends()
+    out = []
+    token = access_token()
+    if not (YT_KEY or token):
         log("trends: no YouTube key")
         return out
     base = "https://www.googleapis.com/youtube/v3/"
+    auth = {"Authorization": "Bearer " + token} if token else None
     for cat in ["", "1", "24"]:  # all, Film & Animation, Entertainment
-        q = {"part": "snippet,statistics", "chart": "mostPopular", "regionCode": "IN", "maxResults": "30",
-             "key": YT_KEY}
+        q = {"part": "snippet,statistics", "chart": "mostPopular", "regionCode": "IN", "maxResults": "30"}
+        if not token:
+            q["key"] = YT_KEY
         if cat:
             q["videoCategoryId"] = cat
         try:
-            d = json.loads(http(base + "videos?" + urllib.parse.urlencode(q)))
+            d = json.loads(http(base + "videos?" + urllib.parse.urlencode(q), headers=auth))
             out += [(int(v.get("statistics", {}).get("viewCount", 0)), v["snippet"]["title"]) for v in d["items"]]
         except Exception as e:
             log("trends: chart", cat or "all", "failed", e)
@@ -101,10 +137,12 @@ def trends():
              ["kahani #shorts", "cartoon story #shorts", "ai video #shorts", "horror story #shorts"])
     for q in words:
         p = {"part": "snippet", "q": q, "type": "video", "order": "viewCount", "regionCode": "IN",
-             "relevanceLanguage": "hi", "publishedAfter": since, "maxResults": "10", "key": YT_KEY,
+             "relevanceLanguage": "hi", "publishedAfter": since, "maxResults": "10",
              "videoDuration": "long" if LONG else "short"}
+        if not token:
+            p["key"] = YT_KEY
         try:
-            d = json.loads(http(base + "search?" + urllib.parse.urlencode(p)))
+            d = json.loads(http(base + "search?" + urllib.parse.urlencode(p), headers=auth))
             out += [(0, v["snippet"]["title"]) for v in d.get("items", [])]
         except Exception as e:
             log("trends: search", q, "failed", e)
@@ -253,6 +291,10 @@ def pick_format(keys, history, kind, avoid):
         if "score" in h:
             scores.setdefault(h["format"], []).append(h["score"])
     avg = {k: sum(v) / len(v) for k, v in scores.items()}
+    trend = [k for k in keys if k in (TREND_SHORT, "trend")]
+    if trend and TOPICS and random.random() < 0.3:
+        log("format: today's trend")
+        return trend[0]
     if random.random() < 0.25 or not avg:
         pick = random.choice(keys)
         log("format: random pick", pick[:50])
@@ -281,6 +323,11 @@ Format: {fmt}
 Trending in India now (use it for the topic, mood and hook; never copy a video, never use real people, brands, film
 names or copyrighted characters):
 {chr(10).join('- ' + t for t in titles[:50]) or '- (no data)'}
+
+Searched most in India today (Google Trends; if the format is about a trend, build the whole video around the
+best of these for a family audience; skip politics, crimes and real people's deaths or illness, and don't state
+news as fact):
+{chr(10).join('- ' + x for x in TOPICS[:20]) or '- (no data)'}
 
 Already made, don't repeat: {'; '.join(recent) or '(nothing yet)'}
 
@@ -328,6 +375,11 @@ Format: {fmt}
 
 Trending in India now (for mood and topic ideas; never copy a video):
 {chr(10).join('- ' + t for t in titles[:40]) or '- (no data)'}
+
+Searched most in India today (Google Trends; if the format is about a trend, build the whole video around the
+best of these for a family audience; skip politics, crimes and real people's deaths or illness, and don't state
+news as fact):
+{chr(10).join('- ' + x for x in TOPICS[:20]) or '- (no data)'}
 
 Already made, don't repeat: {'; '.join(recent) or '(nothing yet)'}
 
@@ -662,7 +714,12 @@ def thumbnail(p, imgs, kinds, path):
 
 
 # ---------- 6. Upload (after the owner linked the channel with youtube_login.py) ----------
+_token = [None, 0.0]
+
+
 def access_token():
+    if _token[0] and time.time() < _token[1]:
+        return _token[0]
     tok = os.path.join(STATE, "token.enc")
     cid, secret = os.environ.get("YT_CLIENT_ID", ""), os.environ.get("YT_CLIENT_SECRET", "")
     if not (os.path.exists(tok) and cid and secret):
@@ -679,6 +736,7 @@ def access_token():
     except urllib.error.HTTPError as e:
         log("LOGIN EXPIRED: run this workflow by hand with 'login' ticked", e.code, e.read().decode(errors="replace")[:200])
         return None
+    _token[:] = [d["access_token"], time.time() + int(d.get("expires_in", 3600)) - 120]
     return d["access_token"]
 
 
