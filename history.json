@@ -17,10 +17,10 @@
   "voice": "edge",
   "youtube": "FWX2mz5Nbps",
   "file": "short-20261020-1259.mp4",
-  "views": 3,
+  "views": 4,
   "likes": 0,
   "comments": 0,
-  "score": 0.6
+  "score": 0.8
  },
  {
   "date": "20261020-1452",
@@ -96,8 +96,13 @@
    "pollinations": 6
   },
   "voice": "edge",
-  "youtube": null,
-  "file": "short-20261024-1627.mp4"
+  "youtube": "lpq4McQIg3k",
+  "file": "short-20261024-1627.mp4",
+  "tries": 1,
+  "views": 0,
+  "likes": 0,
+  "comments": 0,
+  "score": 0.0
  },
  {
   "date": "20261025-1013",
@@ -110,8 +115,13 @@
    "reused": 14
   },
   "voice": "edge",
-  "youtube": null,
-  "file": "long-20261025-1013.mp4"
+  "youtube": "r0jA6G8Pxts",
+  "file": "long-20261025-1013.mp4",
+  "tries": 1,
+  "views": 0,
+  "likes": 0,
+  "comments": 0,
+  "score": 0.0
  },
  {
   "date": "20261025-1700",
@@ -124,7 +134,26 @@
    "reused": 1
   },
   "voice": "edge",
-  "youtube": null,
-  "file": "short-20261025-1700.mp4"
+  "youtube": "al-07QRHzQc",
+  "file": "short-20261025-1700.mp4",
+  "tries": 1,
+  "views": 0,
+  "likes": 0,
+  "comments": 0,
+  "score": 0.0
+ },
+ {
+  "date": "20261025-1855",
+  "kind": "short",
+  "format": "cartoon moral story for kids (panchatantra-style animals, a twist and a clear lesson at the end)",
+  "title": "जादुई कलम का लालच! 🖊️ 🐒 Panchatantra Moral Story #shorts",
+  "seconds": 68.8,
+  "pictures": {
+   "reused": 1,
+   "pollinations": 7
+  },
+  "voice": "edge",
+  "youtube": "gWUs-_9XEE8",
+  "file": "short-20261025-1855.mp4"
  }
 ]
