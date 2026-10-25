@@ -69,8 +69,13 @@
    "pollinations": 50
   },
   "voice": "edge",
-  "youtube": null,
-  "file": "long-20261021-1046.mp4"
+  "youtube": "-YWtL7dig5Q",
+  "file": "long-20261021-1046.mp4",
+  "tries": 1,
+  "views": 0,
+  "likes": 0,
+  "comments": 0,
+  "score": 0.0
  },
  {
   "date": "20261023-1746",
@@ -82,8 +87,13 @@
    "pollinations": 8
   },
   "voice": "edge",
-  "youtube": null,
-  "file": "short-20261023-1746.mp4"
+  "youtube": "LzhYSNftnVA",
+  "file": "short-20261023-1746.mp4",
+  "tries": 1,
+  "views": 0,
+  "likes": 0,
+  "comments": 0,
+  "score": 0.0
  },
  {
   "date": "20261024-1627",
@@ -154,6 +164,24 @@
   },
   "voice": "edge",
   "youtube": "gWUs-_9XEE8",
-  "file": "short-20261025-1855.mp4"
+  "file": "short-20261025-1855.mp4",
+  "views": 0,
+  "likes": 0,
+  "comments": 0,
+  "score": 0.0
+ },
+ {
+  "date": "20261025-1934",
+  "kind": "short",
+  "format": "today's trend: an original story, facts or what-if video about one of today's top searched topics in India (festival, cricket, film, viral topic)",
+  "title": "100 कैमरों के बीच वो 11वां कौन था? 😱 #shorts",
+  "seconds": 82.7,
+  "pictures": {
+   "pollinations": 7,
+   "reused": 1
+  },
+  "voice": "edge",
+  "youtube": "Xt7CYT1iIRg",
+  "file": "short-20261025-1934.mp4"
  }
 ]
