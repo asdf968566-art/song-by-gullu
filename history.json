@@ -20,7 +20,7 @@
   "views": 3,
   "likes": 0,
   "comments": 0,
-  "score": 0.7
+  "score": 0.6
  },
  {
   "date": "20261020-1452",
@@ -56,7 +56,7 @@
   "views": 1,
   "likes": 0,
   "comments": 0,
-  "score": 0.3
+  "score": 0.2
  },
  {
   "date": "20261021-1046",
@@ -98,5 +98,19 @@
   "voice": "edge",
   "youtube": null,
   "file": "short-20261024-1627.mp4"
+ },
+ {
+  "date": "20261025-1013",
+  "kind": "long",
+  "format": "emotional",
+  "title": "बाबूजी का पुराना रेडियो: एक बेटे का सच्चा पछतावा 💔 | Emotional Family Drama",
+  "seconds": 687.3,
+  "pictures": {
+   "pollinations": 49,
+   "reused": 14
+  },
+  "voice": "edge",
+  "youtube": null,
+  "file": "long-20261025-1013.mp4"
  }
 ]
