@@ -119,27 +119,34 @@ def trends():
 
 
 # ---------- 2. Plan ----------
-_model = None
+_models = None
 
 
-def gemini_model():
-    global _model
-    if _model:
-        return _model
-    d = json.loads(http("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key=" + GEMINI_KEY))
-    names = [m["name"] for m in d.get("models", []) if "generateContent" in m.get("supportedGenerationMethods", [])]
+def gemini_models():
+    """Text models to try, best first: the newest plain Flash, then the other Flash / Flash-Lite / Pro ones
+    (when one is busy, 503, another often isn't)."""
+    global _models
+    if _models is None:
+        d = json.loads(http("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key=" + GEMINI_KEY))
+        names = [m["name"] for m in d.get("models", []) if "generateContent" in m.get("supportedGenerationMethods", [])
+                 and re.match(r"^models/gemini-\d", m["name"])
+                 and not re.search(r"image|tts|audio|live|embed|vision|computer|robotics", m["name"])]
 
-    def ver(n):
-        m = re.search(r"gemini-(\d+(?:\.\d+)?)", n)
-        return float(m.group(1)) if m else 0
+        def rank(n):
+            m = re.search(r"gemini-(\d+(?:\.\d+)?)", n)
+            v = float(m.group(1)) if m else 0
+            plain = bool(re.match(r"^models/gemini-\d+(\.\d+)?-flash(-latest)?$", n))
+            kind = 0 if plain else 1 if "flash" in n and "lite" not in n else 2 if "lite" in n else 3
+            return (kind, "preview" in n or "exp" in n, -v)
 
-    plain = [n for n in names if re.match(r"^models/gemini-\d+(\.\d+)?-flash(-latest)?$", n)]
-    _model = max(plain or [n for n in names if "flash" in n and "image" not in n and "tts" not in n] or names, key=ver)
-    return _model
+        _models = sorted(names, key=rank)[:6] or ["models/gemini-flash-latest"]
+        log("plan: gemini models", [m.split("/")[-1] for m in _models])
+    return _models
 
 
-def ask_gemini(prompt):
-    model = gemini_model()
+def ask_gemini(prompt, n=0):
+    models = gemini_models()
+    model = models[n % len(models)]
     log("plan: asking", model)
     body = {"contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {"responseMimeType": "application/json", "temperature": 1.0}}
@@ -170,17 +177,19 @@ def parse_json(text):
 
 
 def ask_json(prompt, ok):
-    """Gemini (4 tries, its free tier is often busy for a minute), then LLM7; `ok` checks the answer."""
-    asks = ([ask_gemini] * 4 if GEMINI_KEY else []) + [ask_llm7]
-    for n, ask in enumerate(asks):
+    """Gemini, 10 tries over its models for up to ~15 minutes (its free tier is often busy, 503), then LLM7;
+    `ok` checks the answer."""
+    tries = 10 if GEMINI_KEY else 0
+    for n in range(tries + 1):
         try:
-            p = parse_json(ask(prompt))
+            p = parse_json(ask_gemini(prompt, n) if n < tries else ask_llm7(prompt))
             if ok(p):
                 return p
             log("plan: answer not complete, again")
         except Exception as e:
             log("plan failed:", type(e).__name__, str(e)[:300])
-        time.sleep(15 + 20 * n)
+        if n < tries:
+            time.sleep(min(20 + 15 * n, 120))
     raise RuntimeError("no plan")
 
 
@@ -663,9 +672,13 @@ def access_token():
     if not refresh:
         log("upload: the saved login can't be read; run the YouTube login again")
         return None
-    d = json.loads(http("https://oauth2.googleapis.com/token", urllib.parse.urlencode(
-        {"client_id": cid, "client_secret": secret, "refresh_token": refresh,
-         "grant_type": "refresh_token"}).encode(), headers={"Content-Type": "application/x-www-form-urlencoded"}))
+    try:
+        d = json.loads(http("https://oauth2.googleapis.com/token", urllib.parse.urlencode(
+            {"client_id": cid, "client_secret": secret, "refresh_token": refresh,
+             "grant_type": "refresh_token"}).encode(), headers={"Content-Type": "application/x-www-form-urlencoded"}))
+    except urllib.error.HTTPError as e:
+        log("LOGIN EXPIRED: run this workflow by hand with 'login' ticked", e.code, e.read().decode(errors="replace")[:200])
+        return None
     return d["access_token"]
 
 
@@ -718,8 +731,43 @@ def upload(p, path, thumb):
     return v["id"]
 
 
+def upload_pending(history):
+    """Videos that were made but not uploaded (the login had expired, YouTube was down…) go up now, from their copy
+    in the release youtube-videos: at most 3 a run, made in the last 10 days, 3 tries each."""
+    now = datetime.now(timezone.utc)
+    todo = [h for h in history if not h.get("youtube") and h.get("file") and h.get("tries", 0) < 3
+            and (now - datetime.strptime(h["date"], "%Y%m%d-%H%M").replace(tzinfo=timezone.utc)).days <= 10][-3:]
+    if not todo or not access_token():
+        return
+    global LONG
+    for h in todo:
+        base = h["file"][:-4]
+        d = os.path.join(WORK, "pending")
+        os.makedirs(d, exist_ok=True)
+        r = subprocess.run(["gh", "release", "download", "youtube-videos", "-D", d, "--clobber",
+                            "-p", base + ".mp4", "-p", base + ".json", "-p", base + ".jpg"], capture_output=True,
+                           text=True)
+        if not os.path.exists(os.path.join(d, base + ".json")):
+            log("pending:", base, "has no copy in the release", r.stderr[-200:])
+            h["tries"] = 3
+            continue
+        p = json.load(open(os.path.join(d, base + ".json"), encoding="utf-8"))
+        h["tries"] = h.get("tries", 0) + 1
+        was, LONG = LONG, h.get("kind") == "long"
+        try:
+            h["youtube"] = upload(p, os.path.join(d, base + ".mp4"), os.path.join(d, base + ".jpg") if LONG else None)
+            log("pending: uploaded", base, h["youtube"])
+        except urllib.error.HTTPError as e:
+            log("pending: upload failed", base, e.code, e.read().decode(errors="replace")[:500])
+        except Exception as e:
+            log("pending: upload failed", base, e)
+        LONG = was
+
+
 def main():
     history = load_history()
+    if "--upload" in sys.argv:
+        upload_pending(history)
     channel_stats(history)
     titles = trends()
     p = plan_long(titles, history) if LONG else plan_short(titles, history)
