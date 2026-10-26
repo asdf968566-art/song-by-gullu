@@ -718,26 +718,32 @@ _token = [None, 0.0]
 
 
 def access_token():
+    """A fresh access token: the browser login (token2.enc, may also reply to comments) first, else the TV login."""
     if _token[0] and time.time() < _token[1]:
         return _token[0]
-    tok = os.path.join(STATE, "token.enc")
-    cid, secret = os.environ.get("YT_CLIENT_ID", ""), os.environ.get("YT_CLIENT_SECRET", "")
-    if not (os.path.exists(tok) and cid and secret):
-        return None
-    refresh = subprocess.run(["openssl", "enc", "-d", "-aes-256-cbc", "-pbkdf2", "-a", "-A", "-in", tok,
-                              "-pass", "env:YT_CLIENT_SECRET"], capture_output=True, text=True).stdout.strip()
-    if not refresh:
-        log("upload: the saved login can't be read; run the YouTube login again")
-        return None
-    try:
-        d = json.loads(http("https://oauth2.googleapis.com/token", urllib.parse.urlencode(
-            {"client_id": cid, "client_secret": secret, "refresh_token": refresh,
-             "grant_type": "refresh_token"}).encode(), headers={"Content-Type": "application/x-www-form-urlencoded"}))
-    except urllib.error.HTTPError as e:
-        log("LOGIN EXPIRED: run this workflow by hand with 'login' ticked", e.code, e.read().decode(errors="replace")[:200])
-        return None
-    _token[:] = [d["access_token"], time.time() + int(d.get("expires_in", 3600)) - 120]
-    return d["access_token"]
+    for name, id_env, secret_env in (("token2.enc", "YT_DESKTOP_ID", "YT_DESKTOP_SECRET"),
+                                     ("token.enc", "YT_CLIENT_ID", "YT_CLIENT_SECRET")):
+        tok = os.path.join(STATE, name)
+        cid, secret = os.environ.get(id_env, ""), os.environ.get(secret_env, "")
+        if not (os.path.exists(tok) and cid and secret):
+            continue
+        refresh = subprocess.run(["openssl", "enc", "-d", "-aes-256-cbc", "-pbkdf2", "-a", "-A", "-in", tok,
+                                  "-pass", "env:" + secret_env], capture_output=True, text=True).stdout.strip()
+        if not refresh:
+            log(f"upload: the saved login {name} can't be read; run the YouTube login again")
+            continue
+        try:
+            d = json.loads(http("https://oauth2.googleapis.com/token", urllib.parse.urlencode(
+                {"client_id": cid, "client_secret": secret, "refresh_token": refresh,
+                 "grant_type": "refresh_token"}).encode(),
+                headers={"Content-Type": "application/x-www-form-urlencoded"}))
+        except urllib.error.HTTPError as e:
+            log(f"LOGIN EXPIRED ({name}): run this workflow by hand with 'login' ticked", e.code,
+                e.read().decode(errors="replace")[:200])
+            continue
+        _token[:] = [d["access_token"], time.time() + int(d.get("expires_in", 3600)) - 120]
+        return d["access_token"]
+    return None
 
 
 def upload(p, path, thumb):

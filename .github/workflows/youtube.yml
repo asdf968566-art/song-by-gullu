@@ -18,9 +18,13 @@ on:
         options: [short, long, comments]
         default: short
       login:
-        description: "Link the YouTube channel (the log shows a code)"
+        description: "Link the YouTube channel (the sign-in link / code goes to the branch youtube-login)"
         type: boolean
         default: false
+      code:
+        description: "With login: the address the browser ended on after Allow (http://localhost/?code=...)"
+        type: string
+        default: ""
       upload:
         description: "Upload the new video"
         type: boolean
@@ -46,6 +50,8 @@ jobs:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
       YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+      YT_DESKTOP_ID: ${{ secrets.YT_DESKTOP_ID }}
+      YT_DESKTOP_SECRET: ${{ secrets.YT_DESKTOP_SECRET }}
     steps:
       - uses: actions/checkout@v4
       - name: Tools
@@ -59,8 +65,10 @@ jobs:
             || { mkdir -p state && cd state && git init -q -b youtube-channel; }
       - name: Link the channel
         if: ${{ inputs.login }}
+        env:
+          LOGIN_CODE: ${{ inputs.code }}
         run: |
-          python3 YouTubeAuto/youtube_login.py state & pid=$!
+          python3 YouTubeAuto/youtube_login.py state "$LOGIN_CODE" & pid=$!
           for i in $(seq 30); do [ -s login-code.txt ] && break; sleep 1; done
           # The code also goes to the branch youtube-login, since a running job's log can't be read.
           if [ -s login-code.txt ]; then
