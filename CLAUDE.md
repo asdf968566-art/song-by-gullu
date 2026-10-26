@@ -679,6 +679,11 @@ request the owner made, in order.
     `TREND_SHORT` (and the long "trend" format) is picked ~1 in 3 when topics exist, and builds the video around the
     best family-friendly topic (no politics, crimes, real people's deaths). YouTube chart / search calls use the
     channel login when there is one (its own quota), else the app's key.
+  - Comment replies (Oct 26, owner: "comment ka reply kr tu"): `reply_comments` (`--comments`, cron "17 */3 * * *",
+    or by hand with kind "comments") reads the channel's newest 100 comment threads (`allThreadsRelatedToChannelId`),
+    and answers top-level comments with no channel reply yet: Gemini writes 1–2 short sentences in the commenter's
+    language (`reply_text`; "SKIP" for spam / abuse / links), at most 20 a run. Answered ids go to `replied.json` in
+    the state. Comment runs have their own concurrency group (`youtube-comments`); the state push rebases first.
   - Oct 21–24: the login gave `invalid_grant` ("Token has been expired or revoked") a day after linking, so 3 videos
     were made but not uploaded, and two runs died on Gemini 503 (LLM7's models now 401/400). Fixes: `upload_pending`
     uploads made-but-not-uploaded videos from the release copy (3 a run, ≤ 10 days old, 3 tries), `access_token`

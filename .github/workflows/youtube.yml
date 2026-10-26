@@ -9,12 +9,13 @@ on:
   schedule:
     - cron: "41 12 * * *"   # Short: 6:11 PM India time, when Shorts get the most views
     - cron: "41 3 */2 * *"  # long video: 9:11 AM India time, so it is up by the evening
+    - cron: "17 */3 * * *"  # replies to new comments every 3 hours
   workflow_dispatch:
     inputs:
       kind:
-        description: "short or long"
+        description: "short, long, or comments (only reply to new comments)"
         type: choice
-        options: [short, long]
+        options: [short, long, comments]
         default: short
       login:
         description: "Link the YouTube channel (the log shows a code)"
@@ -32,7 +33,8 @@ permissions:
   contents: write
 
 concurrency:
-  group: youtube
+  # Comment replies run on their own, so a waiting comment run never replaces a waiting video run.
+  group: youtube-${{ (github.event.schedule == '17 */3 * * *' || inputs.kind == 'comments') && 'comments' || 'video' }}
   cancel-in-progress: false
 
 jobs:
@@ -53,7 +55,7 @@ jobs:
           pip install -q --break-system-packages edge-tts gTTS pillow
       - name: Channel state (branch youtube-channel)
         run: |
-          git clone -q --depth 1 -b youtube-channel "https://github.com/${{ github.repository }}.git" state \
+          git clone -q -b youtube-channel "https://github.com/${{ github.repository }}.git" state \
             || { mkdir -p state && cd state && git init -q -b youtube-channel; }
       - name: Link the channel
         if: ${{ inputs.login }}
@@ -76,9 +78,10 @@ jobs:
           ARGS=""
           if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ inputs.upload }}" = "true" ]; then ARGS="--upload"; fi
           if [ "${{ github.event.schedule }}" = "41 3 */2 * *" ] || [ "${{ inputs.kind }}" = "long" ]; then ARGS="$ARGS --long"; fi
+          if [ "${{ github.event.schedule }}" = "17 */3 * * *" ] || [ "${{ inputs.kind }}" = "comments" ]; then ARGS="--comments"; fi
           python3 YouTubeAuto/make_video.py state out $ARGS
       - name: Preview frames (branch youtube-preview)
-        if: ${{ !inputs.login }}
+        if: ${{ !inputs.login && hashFiles('out/*.mp4') != '' }}
         run: |
           mkdir -p preview
           for f in out/*.mp4; do
@@ -92,7 +95,7 @@ jobs:
           git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Preview"
           git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" HEAD:youtube-preview
       - name: Keep a copy in the release youtube-videos
-        if: ${{ !inputs.login }}
+        if: ${{ !inputs.login && hashFiles('out/*.mp4') != '' }}
         run: |
           gh release view youtube-videos >/dev/null 2>&1 || gh release create youtube-videos --prerelease \
             --title "YouTube Shorts" --notes "Videos made by the YouTube Shorts workflow (newest 20 kept)."
@@ -108,4 +111,6 @@ jobs:
           cd state
           git config user.name "github-actions"; git config user.email "github-actions@users.noreply.github.com"
           git add -A && git commit -q -m "YouTube channel state" || exit 0
+          # A comment run and a video run may both have saved; they change different files.
+          git pull -q --rebase "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" youtube-channel || true
           git push -q "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" HEAD:youtube-channel
