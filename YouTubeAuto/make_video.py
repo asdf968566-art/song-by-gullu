@@ -846,7 +846,7 @@ Answer with only this JSON: {{"reply": "..."}}"""
     return r
 
 
-def reply_comments(history, limit=20):
+def reply_comments(history, limit=60):
     """Answers new top-level comments on the channel's videos that have no reply from the channel yet."""
     token = access_token()
     if not token:

@@ -9,7 +9,7 @@ on:
   schedule:
     - cron: "41 12 * * *"   # Short: 6:11 PM India time, when Shorts get the most views
     - cron: "41 3 */2 * *"  # long video: 9:11 AM India time, so it is up by the evening
-    - cron: "*/30 * * * *"  # replies to new comments every 30 minutes
+    - cron: "23 14 * * *"   # replies to new comments once a day, 7:53 PM India time
   workflow_dispatch:
     inputs:
       kind:
@@ -38,7 +38,7 @@ permissions:
 
 concurrency:
   # Comment replies run on their own, so a waiting comment run never replaces a waiting video run.
-  group: youtube-${{ (github.event.schedule == '*/30 * * * *' || inputs.kind == 'comments') && 'comments' || 'video' }}
+  group: youtube-${{ (github.event.schedule == '23 14 * * *' || inputs.kind == 'comments') && 'comments' || 'video' }}
   cancel-in-progress: false
 
 jobs:
@@ -55,7 +55,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Tools
-        if: ${{ !inputs.login && inputs.kind != 'comments' && github.event.schedule != '*/30 * * * *' }}
+        if: ${{ !inputs.login && inputs.kind != 'comments' && github.event.schedule != '23 14 * * *' }}
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-noto-core >/dev/null
           pip install -q --break-system-packages edge-tts gTTS pillow
@@ -86,7 +86,7 @@ jobs:
           ARGS=""
           if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ inputs.upload }}" = "true" ]; then ARGS="--upload"; fi
           if [ "${{ github.event.schedule }}" = "41 3 */2 * *" ] || [ "${{ inputs.kind }}" = "long" ]; then ARGS="$ARGS --long"; fi
-          if [ "${{ github.event.schedule }}" = "*/30 * * * *" ] || [ "${{ inputs.kind }}" = "comments" ]; then ARGS="--comments"; fi
+          if [ "${{ github.event.schedule }}" = "23 14 * * *" ] || [ "${{ inputs.kind }}" = "comments" ]; then ARGS="--comments"; fi
           python3 YouTubeAuto/make_video.py state out $ARGS
       - name: Preview frames (branch youtube-preview)
         if: ${{ !inputs.login && hashFiles('out/*.mp4') != '' }}
