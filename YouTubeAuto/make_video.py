@@ -718,26 +718,32 @@ _token = [None, 0.0]
 
 
 def access_token():
+    """A fresh access token: the browser login (token2.enc, may also reply to comments) first, else the TV login."""
     if _token[0] and time.time() < _token[1]:
         return _token[0]
-    tok = os.path.join(STATE, "token.enc")
-    cid, secret = os.environ.get("YT_CLIENT_ID", ""), os.environ.get("YT_CLIENT_SECRET", "")
-    if not (os.path.exists(tok) and cid and secret):
-        return None
-    refresh = subprocess.run(["openssl", "enc", "-d", "-aes-256-cbc", "-pbkdf2", "-a", "-A", "-in", tok,
-                              "-pass", "env:YT_CLIENT_SECRET"], capture_output=True, text=True).stdout.strip()
-    if not refresh:
-        log("upload: the saved login can't be read; run the YouTube login again")
-        return None
-    try:
-        d = json.loads(http("https://oauth2.googleapis.com/token", urllib.parse.urlencode(
-            {"client_id": cid, "client_secret": secret, "refresh_token": refresh,
-             "grant_type": "refresh_token"}).encode(), headers={"Content-Type": "application/x-www-form-urlencoded"}))
-    except urllib.error.HTTPError as e:
-        log("LOGIN EXPIRED: run this workflow by hand with 'login' ticked", e.code, e.read().decode(errors="replace")[:200])
-        return None
-    _token[:] = [d["access_token"], time.time() + int(d.get("expires_in", 3600)) - 120]
-    return d["access_token"]
+    for name, id_env, secret_env in (("token2.enc", "YT_DESKTOP_ID", "YT_DESKTOP_SECRET"),
+                                     ("token.enc", "YT_CLIENT_ID", "YT_CLIENT_SECRET")):
+        tok = os.path.join(STATE, name)
+        cid, secret = os.environ.get(id_env, ""), os.environ.get(secret_env, "")
+        if not (os.path.exists(tok) and cid and secret):
+            continue
+        refresh = subprocess.run(["openssl", "enc", "-d", "-aes-256-cbc", "-pbkdf2", "-a", "-A", "-in", tok,
+                                  "-pass", "env:" + secret_env], capture_output=True, text=True).stdout.strip()
+        if not refresh:
+            log(f"upload: the saved login {name} can't be read; run the YouTube login again")
+            continue
+        try:
+            d = json.loads(http("https://oauth2.googleapis.com/token", urllib.parse.urlencode(
+                {"client_id": cid, "client_secret": secret, "refresh_token": refresh,
+                 "grant_type": "refresh_token"}).encode(),
+                headers={"Content-Type": "application/x-www-form-urlencoded"}))
+        except urllib.error.HTTPError as e:
+            log(f"LOGIN EXPIRED ({name}): run this workflow by hand with 'login' ticked", e.code,
+                e.read().decode(errors="replace")[:200])
+            continue
+        _token[:] = [d["access_token"], time.time() + int(d.get("expires_in", 3600)) - 120]
+        return d["access_token"]
+    return None
 
 
 def upload(p, path, thumb):
@@ -822,8 +828,85 @@ def upload_pending(history):
         LONG = was
 
 
+# ---------- 7. Replies to comments ----------
+def reply_text(title, comment):
+    """A short friendly reply in the commenter's own language, or None for spam / abuse / links."""
+    prompt = f"""You run the Hindi YouTube channel of AI-made stories. A viewer commented on the video "{title}".
+Comment: {comment[:600]}
+
+Write the channel's reply: warm, natural, 1-2 short sentences (max 25 words), in the same language and script as
+the comment (Hindi, Hinglish or English). Thank them or answer their question; if they ask for a part 2 or a topic,
+say it is coming soon. No links, no hashtags, at most one emoji, don't ask for likes or subscriptions.
+If the comment is spam, abuse, a link, an ad or makes no sense, the reply is "SKIP".
+Answer with only this JSON: {{"reply": "..."}}"""
+    p = ask_json(prompt, lambda o: isinstance(o.get("reply"), str) and o["reply"].strip())
+    r = p["reply"].strip()
+    if r.upper().startswith("SKIP") or "http" in r.lower() or len(r) > 300:
+        return None
+    return r
+
+
+def reply_comments(history, limit=20):
+    """Answers new top-level comments on the channel's videos that have no reply from the channel yet."""
+    token = access_token()
+    if not token:
+        return
+    auth = {"Authorization": "Bearer " + token}
+    path = os.path.join(STATE, "replied.json")
+    try:
+        replied = set(json.load(open(path)))
+    except Exception:
+        replied = set()
+    try:
+        me = json.loads(http("https://www.googleapis.com/youtube/v3/channels?part=id&mine=true", headers=auth))
+        mine = me["items"][0]["id"]
+        d = json.loads(http("https://www.googleapis.com/youtube/v3/commentThreads?part=snippet,replies&maxResults=100"
+                            "&order=time&allThreadsRelatedToChannelId=" + mine, headers=auth))
+    except Exception as e:
+        log("comments: can't read", getattr(e, "code", ""), e.read().decode(errors="replace")[:300]
+            if hasattr(e, "read") else e)
+        return
+    titles = {h.get("youtube"): h.get("title", "") for h in history}
+    done = 0
+    for th in d.get("items", []):
+        top = th["snippet"]["topLevelComment"]["snippet"]
+        if th["id"] in replied or top.get("authorChannelId", {}).get("value") == mine:
+            continue
+        if any(c["snippet"].get("authorChannelId", {}).get("value") == mine
+               for c in th.get("replies", {}).get("comments", [])):
+            replied.add(th["id"])
+            continue
+        if done >= limit:
+            break
+        text = top.get("textOriginal") or top.get("textDisplay") or ""
+        try:
+            r = reply_text(titles.get(th["snippet"].get("videoId"), ""), text)
+        except Exception as e:
+            log("comments: no reply text", e)
+            break
+        replied.add(th["id"])
+        if not r:
+            log("comments: skipped", text[:80])
+            continue
+        try:
+            http("https://www.googleapis.com/youtube/v3/comments?part=snippet",
+                 {"snippet": {"parentId": th["id"], "textOriginal": r}}, headers=auth)
+            done += 1
+            log(f"comments: replied  {text[:70]!r}  ->  {r!r}")
+        except urllib.error.HTTPError as e:
+            log("comments: reply failed", e.code, e.read().decode(errors="replace")[:400])
+            replied.discard(th["id"])
+            break
+        time.sleep(3)
+    json.dump(sorted(replied)[-3000:], open(path, "w"))
+    log(f"comments: {done} replies, {len(d.get('items', []))} threads read")
+
+
 def main():
     history = load_history()
+    if "--comments" in sys.argv:
+        reply_comments(history)
+        return
     if "--upload" in sys.argv:
         upload_pending(history)
     channel_stats(history)
