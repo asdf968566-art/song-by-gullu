@@ -679,10 +679,10 @@ request the owner made, in order.
     `TREND_SHORT` (and the long "trend" format) is picked ~1 in 3 when topics exist, and builds the video around the
     best family-friendly topic (no politics, crimes, real people's deaths). YouTube chart / search calls use the
     channel login when there is one (its own quota), else the app's key.
-  - Comment replies (Oct 26, owner: "comment ka reply kr tu"): `reply_comments` (`--comments`, cron "*/30 * * * *",
+  - Comment replies (Oct 26, owner: "comment ka reply kr tu"): `reply_comments` (`--comments`, cron "23 14 * * *" (once a day, owner: "24 ghante me ek baar"),
     or by hand with kind "comments") reads the channel's newest 100 comment threads (`allThreadsRelatedToChannelId`),
     and answers top-level comments with no channel reply yet: Gemini writes 1–2 short sentences in the commenter's
-    language (`reply_text`; "SKIP" for spam / abuse / links), at most 20 a run. Answered ids go to `replied.json` in
+    language (`reply_text`; "SKIP" for spam / abuse / links), at most 60 a run. Answered ids go to `replied.json` in
     the state. Comment runs have their own concurrency group (`youtube-comments`); the state push rebases first.
     Replies need the scope `youtube.force-ssl`, which the TV (device) login can't ask for (403 "insufficient
     authentication scopes" on Oct 26). So there is a browser login too: a "Desktop app" OAuth client in the secrets
