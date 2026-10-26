@@ -679,7 +679,7 @@ request the owner made, in order.
     `TREND_SHORT` (and the long "trend" format) is picked ~1 in 3 when topics exist, and builds the video around the
     best family-friendly topic (no politics, crimes, real people's deaths). YouTube chart / search calls use the
     channel login when there is one (its own quota), else the app's key.
-  - Comment replies (Oct 26, owner: "comment ka reply kr tu"): `reply_comments` (`--comments`, cron "17 */3 * * *",
+  - Comment replies (Oct 26, owner: "comment ka reply kr tu"): `reply_comments` (`--comments`, cron "*/30 * * * *",
     or by hand with kind "comments") reads the channel's newest 100 comment threads (`allThreadsRelatedToChannelId`),
     and answers top-level comments with no channel reply yet: Gemini writes 1–2 short sentences in the commenter's
     language (`reply_text`; "SKIP" for spam / abuse / links), at most 20 a run. Answered ids go to `replied.json` in
