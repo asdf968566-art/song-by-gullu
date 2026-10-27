@@ -169,8 +169,15 @@ def play_song(q="kesariya", source="jiosaavn"):
 
 
 def toggle_twice(label, scroll=8):
-    """Flip a switch and flip it back (settings stay as they were)."""
-    return lambda: tap(label, scroll=scroll, wait=1.5) and tap(label, scroll=0, wait=1.5)
+    """Flip a switch and flip it back (settings stay as they were). find() only scrolls down, so when the page is
+    already past the switch (main run of Oct 27: five switches missed), start again from the top."""
+    def go():
+        if not find(label, scroll=scroll):
+            for _ in range(10):
+                swipe_down()
+            time.sleep(1)
+        return tap(label, scroll=scroll, wait=1.5) and tap(label, scroll=0, wait=1.5)
+    return go
 
 
 def open_and_back(label, contains=False, scroll=0, wait=3):
@@ -666,16 +673,27 @@ def main():
         if m and int(m.group(1)) > 0:
             return True, top["text"]
         return find("Saved on this phone", contains=True) is not None, (top or {}).get("text") or "no saved count"
-    # Main's run of Oct 27 12:38 found no saved line right after the tap: wait for the screen, and say what was there.
+    # Main's runs of Oct 27 found no saved line: the Downloads tile was the last row on screen, under the floating
+    # tab bar and mini player, so the tap hit those and Library stayed. Bring the tile up first; tap again if needed.
     def open_downloads():
-        if not tap("Downloads", scroll=3, wait=4):
-            return False
-        for _ in range(6):
-            if find(" saved", contains=True) or find("Saved on this phone", contains=True):
-                return True
-            time.sleep(2)
-        seen = sorted({n["text"] or n["desc"] for n in nodes(dump()) if n["text"] or n["desc"]})
-        print("downloads: no saved line; on screen: " + ", ".join(seen[:40]))
+        _, h = screen()
+        for attempt in range(2):
+            tile = find("Downloads", scroll=3)
+            if tile and tile["y"] > h * 0.7:
+                w, _ = screen()
+                sh(f"input swipe {w // 2} {int(h * 0.6)} {w // 2} {int(h * 0.35)} 500")
+                time.sleep(2)
+                tile = find("Downloads")
+            if not tile:
+                return False
+            sh(f"input tap {tile['x']} {tile['y']}")
+            time.sleep(4)
+            for _ in range(6):
+                if find(" saved", contains=True) or find("Saved on this phone", contains=True):
+                    return True
+                time.sleep(2)
+            seen = sorted({n["text"] or n["desc"] for n in nodes(dump()) if n["text"] or n["desc"]})
+            print(f"downloads: no saved line (try {attempt + 1}, tile at y={tile['y']} of {h}); on screen: " + ", ".join(seen[:40]))
         return True
     step("Downloads screen: open", open_downloads, saved_listed)
     step("Downloads screen: play downloads", lambda: tap("Play downloads", wait=6), lambda: (playing(), f"playing: {now_title()}"))
