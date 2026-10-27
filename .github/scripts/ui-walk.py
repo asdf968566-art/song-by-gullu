@@ -78,6 +78,15 @@ def tap(label, contains=False, scroll=0, wait=2.0):
     n = find(label, contains, scroll)
     if not n:
         return False
+    w, h = screen()
+    if scroll and n["y"] > h * 0.75 and any(t["text"] == "Your Library" and t["y"] > h * 0.85 for t in nodes(dump())):
+        # A row in a list, under the floating tab bar / mini player: bring it up first, or the tap lands on those.
+        # (Only where the tab bar shows: not in Now Playing or sheets.)
+        sh(f"input swipe {w // 2} {int(h * 0.6)} {w // 2} {int(h * 0.35)} 500")
+        time.sleep(1.5)
+        n = find(label, contains, 1)
+        if not n:
+            return False
     sh(f"input tap {n['x']} {n['y']}")
     time.sleep(wait)
     return True
@@ -450,14 +459,15 @@ def main():
         tap("Cancel", wait=1)
         return ok
     step("Library: Blend with a friend", blend_dialog)
+    # Up to 7 ✨ mixes (Oct 27) sit before Recently played, Live radio and Listen together: room to scroll.
     for label in ["Online Library", "Live radio", "Your Stats", "Liked Songs", "Downloads", "On this phone"]:
         fresh()
         go_tab("Your Library")
-        step(f"Library: {label}", open_and_back(label, scroll=3, wait=5))
+        step(f"Library: {label}", open_and_back(label, scroll=6, wait=5))
     def together_room():
         fresh()
         go_tab("Your Library")
-        if not tap("Listen together", scroll=3, wait=2) or not tap("Start a room", wait=2):
+        if not tap("Listen together", scroll=6, wait=2) or not tap("Start a room", wait=2):
             return False
         ok = find("Room code") is not None and find("Invite friends") is not None
         tap("Leave", wait=1)
