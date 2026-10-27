@@ -717,6 +717,12 @@ request the owner made, in order.
     uploads made-but-not-uploaded videos from the release copy (3 a run, ≤ 10 days old, 3 tries), `access_token`
     logs "LOGIN EXPIRED", and `ask_json` tries 10 times over up to 6 Gemini text models (`gemini_models`). If the
     login expires again, check that the OAuth app is "In production" (Testing tokens expire) and run the login.
+  - **Horror / suspense only** (Oct 27). After a week: 12 videos, 12 views in all (best: the suspense Short, 5).
+    Told the owner the mixed formats were the likely cause (YouTube can't tell whom to show the channel to); they
+    chose "A" = horror / suspense only. `SHORT_FORMATS` are now 8 horror / suspense kinds (the two old ones keep
+    their keys, `TREND_SHORT` turns the day's trend into a horror story), `LONG_FORMATS` = the series "Bhootiya
+    Haveli", horror, mystery, city-horror, folk-horror, trend. Ramayan / Mahabharat / cartoon / facts are gone from
+    the rotation (old history entries stay). Trend searches use horror words.
   - Told the owner: no fake views; monetization (1000 subs + 4000 h or 10M Shorts views in 90 days) can't be promised;
     mass-produced repetitive AI videos are demonetized, so every video is a different format/story.
 - Other platforms checked Oct 9 from CI: Gaana's old open API is gone (404); Wynk, Hungama, Spotify have no open
