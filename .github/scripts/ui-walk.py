@@ -843,6 +843,9 @@ def main():
     # Oct 27: Spotify / YouTube Music style mixes. Home's refresh builds them; the log lists each mix and its songs.
     def refresh_mixes():
         go_tab("Home")
+        for _ in range(6):  # the singer steps left Home scrolled down; Refresh is in the top bar
+            swipe_down()
+            time.sleep(0.5)
         adb("logcat", "-c")
         if not tap("Refresh", wait=2):
             return False
