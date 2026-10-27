@@ -261,6 +261,10 @@ function recordPlay(t) {
   const r = S.history[t.id] || { t: slim(t), c: 0, last: 0 };
   r.c++;
   r.last = Date.now();
+  // Plays per part of the day (morning, afternoon, evening, night): Made for you's time of day mix.
+  const part = partOf(new Date().getHours());
+  r.p = r.p || [0, 0, 0, 0];
+  r.p[part]++;
   S.history[t.id] = r;
   markSeen([t.id]);
 }
@@ -2006,6 +2010,7 @@ function libraryPage() {
       save();
       showPage();
     }),
+    madeForYou(),
     h('div', { class: 'section' }, 'More'),
     link('globe', 'Online Library', Catalog.playlists.length || null, () => pushPage(onlineLibraryPage)),
     link('film', 'Movies', null, () => pushPage(() => moviesPage())),
@@ -2019,51 +2024,333 @@ function libraryPage() {
     link('radio', 'Live radio', null, () => pushPage(radioPage)),
     link('people', 'Listen together', Together.room ? Together.room.code : null, () => pushPage(togetherPage)),
     link('plus', 'Import playlist', null, () => pushPage(importPage)),
-    madeForYou(),
     charts.length ? h('div', { class: 'section' }, 'Top charts') : null,
     charts.length ? h('div', { class: 'grid' }, charts.slice(0, 12).map(playlistCard)) : null);
 }
 
-/* ------------------------------------------------------------------ "Made for you" mixes, rebuilt once a day */
-let mixCache = null;
+/* ------------------------------------------------------------------ "Made for you", like Spotify / YouTube Music
+ * (owner, Oct 27: "playlist banane me kaphi kachha h, user ke use ke hisab se … jaise Spotify banata h … ya yt music
+ * ki tarah"). Same mixes as Android's MadeForYou: My Supermix, Daily Mix 1–6 (your singers, 3 to a mix, per
+ * language), Discover Weekly (Mondays), Release Radar (Fridays), your time of day's mix, On Repeat, Repeat Rewind, Your
+ * Top Songs, and "Your top mixes" (decades, moods, singers, languages). Each mix keeps its songs (ids in S.mfy) for its
+ * day, week or part of the day, so it doesn't change every time the Library opens. */
+const MIX_PARTS = [['Morning', 5, 11], ['Afternoon', 12, 16], ['Evening', 17, 20], ['Night', 21, 4]];
+const partOf = (h) => { const i = MIX_PARTS.findIndex(([, a, b]) => (a <= b ? h >= a && h <= b : h >= a || h <= b)); return i < 0 ? 3 : i; };
+function seeded(seed) {
+  let a = seed >>> 0;
+  return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+const hashStr = (s) => { let x = 0; for (let i = 0; i < s.length; i++) x = (Math.imul(31, x) + s.charCodeAt(i)) | 0; return x; };
+function seededShuffle(a, rnd) {
+  a = a.slice();
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+// A function: MOODS is declared further down the file.
+const mixMoods = () => [['Romantic', 'romantic'], ['Party', 'party'], ['Sad', 'sad'], ['Chill', 'chill'], ['Happy', 'happy'],
+  ['Workout', 'gym'], ['Road Trip', 'drive'], ['Devotional', 'bhakti']].map(([name, key]) => [name, MOODS.find((m) => m[0].includes(key))]).filter((x) => x[1]);
+
+// Music directors, lyricists and producers JioSaavn credits next to the singers ("Pritam, Arijit Singh"): passed over
+// when a mix picks a song's singer, unless nobody else is named. Same list as Android's SameSong.CREDITS.
+const CREDITS = new Set(['pritam', 'r d burman', 'laxmikant pyarelal', 'shankar jaikishan', 'kalyanji anandji', 'nadeem shravan',
+  'jatin lalit', 'anu malik', 'vishal shekhar', 'shankar ehsaan loy', 'salim sulaiman', 'sajid wajid', 'sachin jigar',
+  'mithoon', 'tanishk bagchi', 'rochak kohli', 'madan mohan', 'naushad', 'o p nayyar', 'rajesh roshan', 'roshan',
+  'chitragupta', 'usha khanna', 'anand milind', 'raamlaxman', 'viju shah', 'uttam singh', 'amaal mallik',
+  'gourov roshin', 'lijo george', 'dj chetas', 'jam8', 'ilaiyaraaja',
+  'gulzar', 'javed akhtar', 'anand bakshi', 'sameer', 'sameer anjaan', 'irshad kamil', 'kumaar', 'manoj muntashir',
+  'amitabh bhattacharya', 'majrooh sultanpuri', 'sahir ludhianvi', 'shailendra', 'hasrat jaipuri', 'indeevar',
+  'rajendra krishan', 'prasoon joshi', 'kausar munir', 'rashmi virag', 'sayeed quadri', 'neelesh misra',
+  'shabbir ahmed', 'kunwar juneja', 'a m turaz', 'rakesh kumar', 'anvita dutt',
+  'desi crew', 'the kidd', 'mxrci', 'jay trak', 'ikky', 'snappy', 'proof', 'yeah proof', 'intense', 'mista baaz',
+  'sanjoy', 'gold boy', 'laddi gill', 'western penduz', 'preet hundal', 'jassi x', 'mix singh', 'bunty bains',
+  'veet baljit', 'babbu', 'raj fatehpur', 'jaani']);
+const singersOf = (artist) => {
+  const all = splitArtists(artist), sing = all.filter((a) => !CREDITS.has(norm(a)));
+  return sing.length ? sing : all.slice(0, 1);
+};
+
+const MadeForYou = {
+  keys() {
+    const d = new Date();
+    const back = (wd) => { const x = new Date(d); while (x.getDay() !== wd) x.setDate(x.getDate() - 1); return dayKey(x); };
+    return { day: dayKey(d), monday: back(1), friday: back(5), part: dayKey(d) + '-' + partOf(d.getHours()) };
+  },
+  /** What the listener plays and likes: their songs (most and lately played first) and singers. */
+  taste() {
+    const now = Date.now(), score = new Map(), own = new Map();
+    for (const r of Object.values(S.history)) {
+      if (r.t.src === 'radio') continue;
+      score.set(r.t.id, r.c * (0.5 + 1 / (1 + (now - r.last) / 864e5 / 14)));
+      own.set(r.t.id, r.t);
+    }
+    for (const t of S.liked) { score.set(t.id, (score.get(t.id) || 0) + 3); own.set(t.id, t); }
+    const favs = [...score.entries()].sort((a, b) => b[1] - a[1]).map(([id]) => Catalog.byId.get(id) || own.get(id));
+    // Every credited singer counts (not the music director or lyricist), so the singer on most of your songs wins.
+    const sing = new Map();
+    for (const t of favs) for (const a of singersOf(t.artist)) {
+      const k = norm(a), old = sing.get(k);
+      sing.set(k, [old ? old[0] : a, (old ? old[1] : 0) + (score.get(t.id) || 0)]);
+    }
+    const singers = [...sing.values()].sort((a, b) => b[1] - a[1]).slice(0, 40);
+    const pos = new Map();
+    for (const d of Object.values(Catalog.data)) d?.tracks?.forEach((t, i) => { if (!pos.has(t.id)) pos.set(t.id, i); });
+    return { favs, own, singers, weight: new Map(singers.map(([n, w]) => [norm(n), w])), known: new Set(score.keys()), pos, seed: hashStr(dayKey(new Date())), by: new Map(), old: new Map() };
+  },
+  sings: (t, name) => splitArtists(t.artist).some((a) => norm(a) === norm(name)) || norm(t.artist).includes(norm(name)),
+  /** The catalog's songs by this singer (once per build: the quick check on the song's search words comes first). */
+  songsBy(T, name) {
+    const k = norm(name);
+    let a = T.by.get(k);
+    if (!a) T.by.set(k, (a = k ? Catalog.tracks.filter((t) => (t._k || '').includes(k) && this.sings(t, name)) : []));
+    return a;
+  },
+  /** Is most of what you play by this singer from before 2000? */
+  isOld(T, name) {
+    const k = norm(name);
+    if (!T.old.has(k)) {
+      const years = T.favs.filter((t) => this.sings(t, name)).map((t) => t.year || Catalog.byId.get(t.id)?.year || 0).filter(Boolean).sort((a, b) => a - b);
+      T.old.set(k, years.length > 0 && years[years.length >> 1] < 2000);
+    }
+    return T.old.get(k);
+  },
+  weightOf: (T, t) => Math.max(0, ...splitArtists(t.artist).map((a) => T.weight.get(norm(a)) || 0)),
+  langOf: (t) => t.lang || Catalog.byId.get(t.id)?.lang || '',
+  /** New songs ranked for you: your singers, popular and new ones, a little chance. No song twice by name. */
+  rank(T, list, rnd) {
+    const year = new Date().getFullYear(), seen = new Set();
+    return list.filter((t) => !JUNK.test(t.title)).map((t) => {
+      const p = T.pos.get(t.id);
+      let s = p == null ? 0 : p < 200 ? 1.2 : p < 1000 ? 0.6 : p < 3000 ? 0.2 : 0;
+      if (t.year) s += t.year >= year - 1 ? 1 : t.year >= year - 3 ? 0.6 : 0;
+      s += Math.log1p(this.weightOf(T, t)) * 0.6 + rnd() * 1.5;
+      return [t, s];
+    }).sort((a, b) => b[1] - a[1]).map((x) => x[0]).filter((t) => {
+      const k = norm(t.title).replace(/\b(from|official|video|audio|lyrical|full|song)\b.*$/, '').trim();
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+  },
+  /** Your songs taking turns with new ones ([mineEach] of yours, then [each] new; 1 and 2 unless said); never the same
+   * singer twice in a row if it can help. */
+  mix(mine, fresh, size = 30, each = 2, mineEach = 1) {
+    const out = [], ids = new Set();
+    const add = (t) => { if (t && !ids.has(t.id)) { ids.add(t.id); out.push(t); } };
+    for (let i = 0, j = 0; out.length < size && (i < mine.length || j < fresh.length);) {
+      for (let k = 0; k < mineEach; k++) add(mine[i++]);
+      for (let k = 0; k < each; k++) add(fresh[j++]);
+    }
+    const top = out.slice(0, size), spread = [];
+    while (top.length) {
+      const last = spread.length ? norm(spread[spread.length - 1].artist) : '';
+      const i = top.findIndex((t) => norm(t.artist) !== last);
+      spread.push(top.splice(i < 0 ? 0 : i, 1)[0]);
+    }
+    return spread;
+  },
+  /** Songs sharing catalog playlists with these ("listeners who like these also have…"), in the same language. */
+  near(T, seeds, lang) {
+    const pl = new Map();
+    for (const s of seeds) for (const pi of Catalog.trackPl.get(s.id) || []) pl.set(pi, (pl.get(pi) || 0) + 1);
+    const score = new Map();
+    for (const [pi, n] of pl) for (const t of Catalog.playlists[pi].tracks) {
+      if (T.known.has(t.id) || (lang && t.lang !== lang)) continue;
+      score.set(t, (score.get(t) || 0) + n);
+    }
+    return [...score.entries()].sort((a, b) => b[1] - a[1]).slice(0, 200).map((x) => x[0]);
+  },
+
+  daily(T) {
+    if (T.favs.length < 3) return [];
+    // Singers are grouped by language and by old (before 2000) or new, so Kishore Kumar and Arijit Singh get their own mixes.
+    const byLang = new Map();
+    for (const [name] of T.singers) {
+      const theirs = T.favs.filter((t) => this.sings(t, name));
+      const langs = theirs.map(this.langOf).filter(Boolean);
+      const lang = langs.sort((a, b) => langs.filter((x) => x === b).length - langs.filter((x) => x === a).length)[0] || S.langs[0];
+      const key = lang + (this.isOld(T, name) ? ' old' : '');
+      if (!byLang.has(key)) byLang.set(key, []);
+      byLang.get(key).push(name);
+    }
+    const weightOfLang = (names) => names.reduce((s, n) => s + (T.weight.get(norm(n)) || 0), 0);
+    const groups = [...byLang.entries()].sort((a, b) => weightOfLang(b[1]) - weightOfLang(a[1]))
+      .flatMap(([key, names]) => [names.slice(0, 3), names.slice(3, 6)].filter((g) => g.length).map((g) => [key, g]))
+      .filter(([, g]) => T.favs.filter((t) => g.some((n) => this.sings(t, n))).length >= 2).slice(0, 6);
+    return groups.map(([key, names], i) => {
+      const [lang, era] = key.split(' '), old = era === 'old';
+      const rnd = seeded(T.seed + i + 1);
+      const mine = seededShuffle(T.favs.filter((t) => names.some((n) => this.sings(t, n))).slice(0, 16), rnd);
+      const theirs = names.flatMap((n) => this.songsBy(T, n)).filter((t) => !T.known.has(t.id));
+      const fresh = this.rank(T, [...theirs, ...this.near(T, mine, lang)].filter((t) => !t.year || (t.year < 2000) === old), rnd);
+      return { title: `Daily Mix ${i + 1}`, sub: names.join(', ') + ' and more', tracks: this.mix(mine, fresh) };
+    }).filter((m) => m.tracks.length >= 10).map((m, i) => ({ ...m, title: `Daily Mix ${i + 1}` }));
+  },
+  discover(T) {
+    if (!T.favs.length) return [];
+    const rnd = seeded(hashStr(this.keys().monday));
+    const comm = Community.scores(T.favs.slice(0, 60).map((t) => t.id));
+    const pool = new Map();
+    for (const t of this.near(T, T.favs.slice(0, 60), '')) pool.set(t, (pool.get(t) || 0) + 1);
+    for (const [id, n] of comm) { const t = Catalog.byId.get(id); if (t && !T.known.has(id)) pool.set(t, (pool.get(t) || 0) + Math.log1p(n)); }
+    const ranked = [...pool.entries()].filter(([t]) => S.langs.includes(this.langOf(t)) && !JUNK.test(t.title))
+      .map(([t, n]) => [t, n + rnd() * 2]).sort((a, b) => b[1] - a[1]).map((x) => x[0]);
+    const out = [], per = new Map();
+    for (const newOnly of [true, false]) for (const t of ranked) {
+      if (out.length >= 30) break;
+      const a = norm(singersOf(t.artist)[0] || t.artist), yours = T.weight.has(a);
+      if (newOnly === yours || (per.get(a) || 0) >= (yours ? 1 : 2) || out.includes(t)) continue;
+      per.set(a, (per.get(a) || 0) + 1);
+      out.push(t);
+    }
+    return out.length >= 10 ? [{ title: 'Discover Weekly', sub: 'New songs for you, picked every Monday', tracks: this.mix([], out) }] : [];
+  },
+  radar(T) {
+    // A 2026 song by a singer you play from before 2000 is a re-release ("Kishore Kumar Hits"), not new.
+    const list = newFromYourSingers(120).filter((t) => !JUNK.test(t.title) && !singersOf(t.artist).some((a) => this.isOld(T, a)));
+    // Singers take turns, newest first for each.
+    const by = new Map();
+    for (const t of list) { const k = norm(singersOf(t.artist)[0] || ''); if (!by.has(k)) by.set(k, []); by.get(k).push(t); }
+    const fresh = [];
+    for (let i = 0; fresh.length < 30 && [...by.values()].some((a) => a.length > i); i++) for (const a of by.values()) if (a[i] && fresh.length < 30) fresh.push(a[i]);
+    return fresh.length >= 5 ? [{ title: 'Release Radar', sub: 'New songs from your singers, every Friday', tracks: fresh }] : [];
+  },
+  daylist(T) {
+    const part = partOf(new Date().getHours()), [name] = MIX_PARTS[part], rnd = seeded(T.seed + part);
+    const at = Object.values(S.history).filter((r) => r.t.src !== 'radio' && (r.p?.[part] || 0) > 0)
+      .sort((a, b) => b.p[part] - a.p[part]).map((r) => Catalog.byId.get(r.t.id) || r.t);
+    if (at.length >= 4) {
+      const like = radio(at[0], 30, T.known);
+      const tracks = this.mix(seededShuffle(at.slice(0, 15), rnd), like);
+      if (tracks.length >= 8) return [{ title: `Your ${name} Mix`, sub: `What you play in the ${name.toLowerCase()}, and more like it`, tracks }];
+    }
+    const moodName = ['Happy', 'Road Trip', 'Romantic', 'Chill'][part];
+    const mood = mixMoods().find((m) => m[0] === moodName);
+    const tracks = mood ? this.moodSongs(T, mood[1], rnd) : [];
+    return tracks.length >= 10 ? [{ title: `Your ${name} Mix`, sub: `${moodName} songs for your ${name.toLowerCase()}`, tracks }] : [];
+  },
+  repeat() {
+    const month = Date.now() - 30 * 864e5;
+    const tracks = Object.values(S.history).filter((r) => r.c >= 2 && r.last >= month && r.t.src !== 'radio')
+      .sort((a, b) => b.c - a.c).slice(0, 30).map((r) => Catalog.byId.get(r.t.id) || r.t);
+    return tracks.length >= 5 ? [{ title: 'On Repeat', sub: "Songs you can't stop playing this month", tracks }] : [];
+  },
+  rewind() {
+    const month = Date.now() - 30 * 864e5;
+    const tracks = Object.values(S.history).filter((r) => r.c >= 3 && r.last < month && r.t.src !== 'radio')
+      .sort((a, b) => b.c - a.c).slice(0, 30).map((r) => Catalog.byId.get(r.t.id) || r.t);
+    return tracks.length >= 5 ? [{ title: 'Repeat Rewind', sub: "Old favourites you haven't played lately", tracks }] : [];
+  },
+  topYear() {
+    const y = new Date().getFullYear(), start = new Date(y, 0, 1).getTime();
+    const tracks = Object.values(S.history).filter((r) => r.c >= 2 && r.last >= start && r.t.src !== 'radio')
+      .sort((a, b) => b.c - a.c).slice(0, 50).map((r) => Catalog.byId.get(r.t.id) || r.t);
+    return tracks.length >= 15 ? [{ title: `Your Top Songs ${y}`, sub: 'Your most played songs this year', tracks }] : [];
+  },
+  era(T) {
+    const yearOf = (t) => t.year || Catalog.byId.get(t.id)?.year || 0;
+    const thisDecade = Math.floor(new Date().getFullYear() / 10) * 10;
+    const count = new Map();
+    for (const t of T.favs.slice(0, 200)) { const y = yearOf(t); if (y >= 1950 && y < thisDecade) count.set(Math.floor(y / 10) * 10, (count.get(Math.floor(y / 10) * 10) || 0) + 1); }
+    return [...count.entries()].filter((x) => x[1] >= 4).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([d]) => {
+      const rnd = seeded(T.seed + d), label = d >= 2000 ? `${d}s` : `${d % 100}s`;
+      const mine = seededShuffle(T.favs.filter((t) => Math.floor(yearOf(t) / 10) * 10 === d).slice(0, 12), rnd);
+      const theirs = Catalog.tracks.filter((t) => t.year && Math.floor(t.year / 10) * 10 === d && !T.known.has(t.id) && S.langs.includes(t.lang));
+      return { title: `Your ${label} Mix`, sub: `Songs from the ${label} you love, and more from those years`, tracks: this.mix(mine, this.rank(T, theirs, rnd)), top: true };
+    }).filter((m) => m.tracks.length >= 10);
+  },
+  moodSongs(T, mood, rnd) {
+    const has = (text, k) => (' ' + norm(text) + ' ').includes(' ' + k + ' ');
+    const ids = new Set();
+    for (const p of Catalog.playlists) if (S.langs.includes(p.lang) && mood[1].some((k) => has(p.title, k))) p.tracks.forEach((t) => ids.add(t.id));
+    if (mood[2] && ids.size < 30) for (const p of Catalog.playlists) if (S.langs.includes(p.lang) && mood[2].some((k) => has(p.title, k))) p.tracks.forEach((t) => ids.add(t.id));
+    const pool = [...ids].map((id) => Catalog.byId.get(id)).filter(Boolean);
+    return this.mix([], this.rank(T, pool, rnd).slice(0, 60)).slice(0, 30);
+  },
+  moods(T) {
+    const names = S.playlists.map((p) => p.name).join(' ');
+    const has = (k) => (' ' + norm(names) + ' ').includes(' ' + k + ' ');
+    const week = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 1)) / (7 * 864e5));
+    const all = mixMoods(), yours = all.filter(([, m]) => m[0].some(has));
+    const turn = [...all.slice(week % all.length), ...all.slice(0, week % all.length)];
+    const picked = [...new Set([...yours, ...turn])].slice(0, 3);
+    return picked.map(([name, m]) => ({ title: `${name} Mix`, sub: `${name} songs from your languages and singers`, tracks: this.moodSongs(T, m, seeded(T.seed + hashStr(name))), top: true }))
+      .filter((m) => m.tracks.length >= 10);
+  },
+  singerMixes(T) {
+    return T.singers.slice(0, 3).map(([name]) => {
+      const rnd = seeded(T.seed + hashStr(name));
+      const mine = T.favs.filter((t) => this.sings(t, name)).slice(0, 10);
+      const theirs = this.songsBy(T, name).filter((t) => !T.known.has(t.id));
+      const lang = this.langOf(mine[0] || theirs[0] || {});
+      const others = this.near(T, [...mine, ...theirs.slice(0, 20)], lang).filter((t) => !this.sings(t, name));
+      // Mostly the singer, like YouTube Music's: 2 of theirs (yours and new ones in turn), then 1 by a similar singer.
+      const own = this.mix(seededShuffle(mine, rnd), this.rank(T, theirs, rnd), 40, 1);
+      return { title: `${name} Mix`, sub: `${name} and similar singers`, tracks: this.mix(own, this.rank(T, others, rnd), 30, 1, 2), top: true };
+    }).filter((m) => m.tracks.length >= 10);
+  },
+  languages(T) {
+    return S.langs.slice(0, 3).map((l) => {
+      const rnd = seeded(T.seed + hashStr(l));
+      // JioSaavn lists Pahadi songs as Hindi: they belong in the Pahadi Mix.
+      const pool = (Catalog.data[l]?.tracks || []).slice(0, 3000).filter((t) => !T.known.has(t.id) && !JUNK.test(t.title) &&
+        !(l === 'hindi' && PAHADI.test(`${t.title} ${t.artist} ${t.album}`)));
+      const yours = pool.filter((t) => this.weightOf(T, t) > 0);
+      const tracks = this.mix(seededShuffle(yours, rnd).slice(0, 10), seededShuffle(pool, rnd).slice(0, 60));
+      return { title: `${l[0].toUpperCase() + l.slice(1)} Mix`, sub: `Popular ${l} songs picked for you`, tracks, top: true };
+    }).filter((m) => m.tracks.length >= 10);
+  },
+
+  /** The mixes for now: kept ones whose period hasn't ended (ids in S.mfy), the rest built again. */
+  all() {
+    if (!Catalog.total) return [];
+    const keys = this.keys();
+    const groups = [
+      ['daily', 'day', (T) => this.daily(T)], ['discover', 'monday', (T) => this.discover(T)], ['radar', 'friday', (T) => this.radar(T)],
+      ['daylist', 'part', (T) => this.daylist(T)], ['repeat', 'day', () => this.repeat()], ['rewind', 'monday', () => this.rewind()],
+      ['topyear', 'day', () => this.topYear()], ['era', 'monday', (T) => this.era(T)], ['mood', 'monday', (T) => this.moods(T)],
+      ['singers', 'day', (T) => this.singerMixes(T)], ['languages', 'day', (T) => this.languages(T)],
+    ];
+    const store = S.mfy || (S.mfy = {});
+    let T = null, changed = false;
+    const lookup = (id) => Catalog.byId.get(id) || (S.history[id] && S.history[id].t) || S.liked.find((t) => t.id === id);
+    const out = {};
+    for (const [name, period, make] of groups) {
+      const old = store[name];
+      if (old && old.key === keys[period] && (old.mixes.length || Date.now() - (old.at || 0) < 6 * 3600e3)) {
+        out[name] = old.mixes.map((m) => ({ ...m, tracks: m.ids.map(lookup).filter(Boolean) }));
+        continue;
+      }
+      T = T || this.taste();
+      out[name] = make(T);
+      store[name] = { key: keys[period], at: Date.now(), mixes: out[name].map(({ tracks, ...m }) => ({ ...m, ids: tracks.map((t) => t.id) })) };
+      changed = true;
+    }
+    // My Supermix (YouTube Music): the Daily Mixes taking turns, Discover Weekly's new songs in between.
+    const lists = [...(out.daily || []), ...(out.discover || [])].map((m) => m.tracks);
+    const sup = [], ids = new Set();
+    for (let i = 0; i < Math.max(0, ...lists.map((l) => l.length)); i++) for (const l of lists) { const t = l[i]; if (t && !ids.has(t.id)) { ids.add(t.id); sup.push(t); } }
+    const supermix = sup.length >= 10 ? [{ title: 'My Supermix', sub: 'All your favourites and new finds in one mix', tracks: sup.slice(0, 60) }] : [];
+    if (changed) save();
+    return [...supermix, ...['daily', 'discover', 'radar', 'daylist', 'repeat', 'rewind', 'topyear', 'era', 'mood', 'singers', 'languages'].flatMap((n) => out[n] || [])]
+      .filter((m) => m.tracks.length);
+  },
+};
+
 function madeForYou() {
-  const day = new Date().toDateString();
-  if (!mixCache || mixCache.day !== day || mixCache.total !== Catalog.total) {
-    const mixes = [];
-    const favs = new Map();
-    const add = (t, w) => splitArtists(t.artist).forEach((a) => favs.set(a, (favs.get(a) || 0) + w));
-    Object.values(S.history).forEach((r) => add(r.t, r.c));
-    S.liked.forEach((t) => add(t, 3));
-    const top = [...favs.entries()].sort((a, b) => b[1] - a[1]).map((x) => x[0]).slice(0, 3);
-    const fresh = newFromYourSingers(30);
-    if (fresh.length >= 5) mixes.push({ title: '🆕 New from your singers', tracks: fresh });
-    const daily = suggestions(30);
-    if (daily.length >= 10) mixes.push({ title: 'Daily Mix', tracks: daily });
-    for (const a of top) {
-      const n = norm(a);
-      const songs = shuffle(Catalog.tracks.filter((t) => norm(t.artist).includes(n))).slice(0, 30);
-      if (songs.length >= 8) mixes.push({ title: `${a} Mix`, tracks: songs });
-    }
-    for (const l of S.langs.slice(0, 3)) {
-      const pool = Catalog.data[l]?.tracks || [];
-      const songs = shuffle(pool.slice(0, 3000)).slice(0, 30);
-      if (songs.length >= 10) mixes.push({ title: `${l[0].toUpperCase() + l.slice(1)} Mix`, tracks: songs });
-    }
-    // A different cover on every mix.
-    const used = new Set();
-    for (const m of mixes) {
-      const i = m.tracks.findIndex((t) => t.img && !used.has(t.img));
-      if (i > 0) m.tracks.unshift(m.tracks.splice(i, 1)[0]);
-      if (m.tracks[0]?.img) used.add(m.tracks[0].img);
-    }
-    mixCache = { day, total: Catalog.total, mixes };
-  }
-  const mixes = mixCache.mixes;
+  let mixes = [];
+  try { mixes = MadeForYou.all(); } catch (e) { console.warn('mixes', e); }
   if (!mixes.length) return null;
-  return [h('div', { class: 'section' }, 'Made for you'),
-    h('div', { class: 'grid' }, mixes.map((m) => h('div', { class: 'card', onclick: () => pushPage(() => songsPage(m.title, m.tracks, null, m)) },
-      coverBox(art(m.tracks[0], true)),
-      h('div', { class: 't' }, m.title))))];
+  // A different cover on every mix (one of its first songs; the order stays).
+  const used = new Set();
+  for (const m of mixes) {
+    m.cover = m.tracks.slice(0, 8).find((t) => t.img && !used.has(t.img)) || m.tracks[0];
+    if (m.cover?.img) used.add(m.cover.img);
+  }
+  const card = (m) => h('div', { class: 'card', onclick: () => pushPage(() => songsPage(m.title, m.tracks, null, m)) },
+    coverBox(art(m.cover, true)), h('div', { class: 't' }, m.title), h('div', { class: 's' }, m.sub));
+  const made = mixes.filter((m) => !m.top), top = mixes.filter((m) => m.top);
+  return [made.length ? h('div', { class: 'section' }, 'Made for you') : null, made.length ? h('div', { class: 'grid' }, made.map(card)) : null,
+    top.length ? h('div', { class: 'section' }, 'Your top mixes') : null, top.length ? h('div', { class: 'grid' }, top.map(card)) : null];
 }
 
 /* ------------------------------------------------------------------ move the library between phones (same link format as Android) */

@@ -840,6 +840,36 @@ def main():
          lambda: (find("Edit singers") is not None and find("Arijit Singh") is not None, "the page lists Arijit Singh"))
     back()
 
+    # Oct 27: Spotify / YouTube Music style mixes. Home's refresh builds them; the log lists each mix and its songs.
+    def refresh_mixes():
+        go_tab("Home")
+        adb("logcat", "-c")
+        if not tap("Refresh", wait=2):
+            return False
+        for _ in range(45):
+            if re.search(r"Sangeet\s*:\s*mixes:", adb("logcat", "-d")):
+                break
+            time.sleep(2)
+        return True
+    def mixes_built():
+        lines = [l.split("mixes:", 1)[1].strip() for l in adb("logcat", "-d").splitlines() if re.search(r"Sangeet\s*:\s*mixes:", l)]
+        if not lines:
+            return False, "no 'mixes:' line after 90 s"
+        ids = dict(re.findall(r"(\w+):(\d+)", lines[-1].split(";")[0]))
+        ok = len(ids) >= 3 and "supermix" in ids and any(k.startswith(("daily", "discover")) for k in ids)
+        return ok, lines[-1][:400]
+    step("Home: Made for you mixes (Supermix, Daily Mix…)", refresh_mixes, mixes_built)
+    def open_supermix():
+        if not tap("My Supermix", scroll=4, wait=4):
+            return False
+        return True
+    def supermix_page():
+        head = find(" songs", contains=True)
+        m = re.search(r"(\d+) songs", (head or {}).get("text", ""))
+        return bool(m) and int(m.group(1)) >= 10, (head or {}).get("text", "no header")
+    step("Home: open My Supermix", open_supermix, supermix_page)
+    back()
+
     # ---------------------------------------------------------------- themes: Liquid Glass on every page
     def shot(name):
         path = f"out/theme-{name}.png"

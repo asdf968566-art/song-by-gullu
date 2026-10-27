@@ -646,6 +646,29 @@ request the owner made, in order.
     of `Singers.yours(100)` (picked first, then most played) with an Edit button → Settings → Favourite singers.
   - UI walk: "Home: Your singers → the singer's page", "Singer page: Play plays their songs", "Home: Your singers →
     See all".
+- **Made for you, like Spotify / YouTube Music** (Oct 27, owner: "playlist banane me kaphi kachha h, user ke use ke
+  hisab se … jaise Spotify banata h … ya yt music ki tarah"). Both apps, same mixes:
+  - "Made for you": My Supermix (the Daily Mixes in turn + Discover Weekly), Daily Mix 1–6 (3 singers a mix, grouped
+    by kind / language and old (median year < 2000) or new; your songs 1 : 2 new), Discover Weekly (Mondays; songs
+    you never played, new singers first, ≤ 1 per singer you play), Release Radar (Fridays; this year's songs by your
+    singers, taking turns; old singers skipped, their "new" songs are re-releases), "Your Morning/Afternoon/Evening/
+    Night Mix" (what you play at that time + radio, else a mood), On Repeat (30 days), Repeat Rewind, Your Top Songs
+    <year>; a Starter Mix for a new Android listener.
+  - "Your top mixes": decades (2 with ≥ 4 of your songs), 3 moods (ones your playlist names mention first, then a
+    weekly turn; JioSaavn / catalog mood playlists), top 3 singer mixes (2 of theirs : 1 similar), language mixes.
+  - Each group keeps its songs for its period (day, Monday week, Friday week, part of the day), so opening or Home's
+    refresh doesn't reshuffle it; an empty group is tried again after 6 h. New songs skip remixes / mashups / lofi
+    (`JUNK`), and songs mostly skipped (< 30 s, Android `listen_log`) stay out.
+  - Singer of a song = first credit not in `SameSong.CREDITS` (web `CREDITS`, the same list of music directors,
+    lyricists and Punjabi producers that JioSaavn credits next to the singers, e.g. "Pritam, Arijit Singh").
+  - Android: `data/recommend/MadeForYou.kt` (kept in `filesDir/mixes.json`; log `mixes: N (id:size …); built [...]`),
+    `ListenDao.stats` / `statsAt` (`ListenStat`), DB v4 (`tracks.year`, `tracks.plays`). Home shows "Made for you" and
+    "Your top mixes" (`Mix.top`). `syncAutoPlaylists` keeps only `SYNCED` (supermix, daily1–3, discover, radar,
+    repeat) as ✨ playlists. UI walk: Home refresh → `mixes:` line with supermix and a daily/discover mix, then
+    "Home: open My Supermix" (≥ 10 songs).
+  - Web: `MadeForYou` in app.js (ids in `S.mfy[group] = {key, at, mixes}`; `recordPlay` counts plays per part of the
+    day in `history[id].p`), shown in Library right after your playlists. Built in ~0.9 s on a desktop with 93 played
+    songs (`songsBy` uses each song's `_k` first), then 1 ms from `S.mfy`. Pahadi songs stay out of the Hindi Mix.
 - **YouTube Shorts channel** (Oct 20, owner sent reels about "faceless" AI YouTube channels: "saare viral video dekh
   … cartoon, motion video, ai made movie … bna aur upload kar … monotize krwa"; "upload bhi tu kr, permission de
   dunga"; then "sirf shorts nhi, full movie, cartoon, ramayan, mahabharat"). Not part of the apps:

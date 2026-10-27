@@ -62,6 +62,19 @@ object SameSong {
             .map { norm(it) }
             .filter { n -> n.length > 2 && n != "unknown" && n != "unknown artist" && LABELS.none { n.contains(it) } }
 
+    /**
+     * The first credited name that sings, as written (null for a label's channel). JioSaavn lists music directors and
+     * lyricists with the singers ("Pritam, Arijit Singh"), so the best-known ones ([CREDITS]) are passed over; when
+     * nobody else is named, the first name is kept.
+     */
+    fun singerOf(artist: String): String? {
+        val names = artist.replace(Regex("(?i)\\s*-\\s*topic$|vevo$|\\s+official$"), "")
+            .split(',', '&', '/', '|', ';')
+            .map { it.trim() }
+            .filter { n -> norm(n).let { it.length > 2 && it != "unknown" && it != "unknown artist" && LABELS.none { l -> it.contains(l) } } }
+        return names.firstOrNull { norm(it) !in CREDITS } ?: names.firstOrNull()
+    }
+
     private fun norm(s: String) = s.lowercase().replace(Regex("[^\\p{L}\\p{N}]+"), " ").trim()
 
     private val VERSIONS = listOf(
@@ -75,5 +88,21 @@ object SameSong {
         "white hill", "yrf", "eros", "venus", "shemaroo", "times music", "geet mp3", "vyrl", "jjust music",
         "panj aab", "lokdhun", "aditya music", "lahari", "think music", "ultra", "worldwide records", "records",
         "music company", "music india",
+    )
+
+    /** Music directors, lyricists and producers JioSaavn credits next to the singers (the web app has the same list). */
+    val CREDITS = setOf(
+        "pritam", "r d burman", "laxmikant pyarelal", "shankar jaikishan", "kalyanji anandji", "nadeem shravan",
+        "jatin lalit", "anu malik", "vishal shekhar", "shankar ehsaan loy", "salim sulaiman", "sajid wajid", "sachin jigar",
+        "mithoon", "tanishk bagchi", "rochak kohli", "madan mohan", "naushad", "o p nayyar", "rajesh roshan", "roshan",
+        "chitragupta", "usha khanna", "anand milind", "raamlaxman", "viju shah", "uttam singh", "amaal mallik",
+        "gourov roshin", "lijo george", "dj chetas", "jam8", "ilaiyaraaja",
+        "gulzar", "javed akhtar", "anand bakshi", "sameer", "sameer anjaan", "irshad kamil", "kumaar", "manoj muntashir",
+        "amitabh bhattacharya", "majrooh sultanpuri", "sahir ludhianvi", "shailendra", "hasrat jaipuri", "indeevar",
+        "rajendra krishan", "prasoon joshi", "kausar munir", "rashmi virag", "sayeed quadri", "neelesh misra",
+        "shabbir ahmed", "kunwar juneja", "a m turaz", "rakesh kumar", "anvita dutt",
+        "desi crew", "the kidd", "mxrci", "jay trak", "ikky", "snappy", "proof", "yeah proof", "intense", "mista baaz",
+        "sanjoy", "gold boy", "laddi gill", "western penduz", "preet hundal", "jassi x", "mix singh", "bunty bains",
+        "veet baljit", "babbu", "raj fatehpur", "jaani",
     )
 }

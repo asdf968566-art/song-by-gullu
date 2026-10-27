@@ -216,6 +216,16 @@ data class ArtistTime(val artist: String, val ms: Long)
 data class TrackTime(val trackId: String, val title: String, val artist: String, val ms: Long, val plays: Int)
 data class HourTime(val hour: Int, val ms: Long)
 
+/** A song's listens in a time window: how often, how long, when last, and how often it was skipped (< 30 s). */
+data class ListenStat(
+    @Embedded val track: TrackEntity,
+    /** How many times it was listened to (the track's own `plays` column is JioSaavn's count). */
+    val listens: Int,
+    val ms: Long,
+    val lastAt: Long,
+    val skips: Int,
+)
+
 @Dao
 interface ListenDao {
     @Insert
@@ -250,4 +260,31 @@ interface ListenDao {
 
     @Query("SELECT DISTINCT date(startedAt / 1000, 'unixepoch', 'localtime') FROM listen_log WHERE startedAt >= :since ORDER BY 1 DESC")
     suspend fun activeDays(since: Long): List<String>
+
+    /** Each song listened to since [since] (Made for you: On Repeat, Top songs, skipped songs). */
+    @Query(
+        """
+        SELECT t.*, COUNT(*) AS listens, SUM(l.playedMs) AS ms, MAX(l.startedAt) AS lastAt,
+            SUM(CASE WHEN l.playedMs < 30000 THEN 1 ELSE 0 END) AS skips
+        FROM listen_log l JOIN tracks t ON t.id = l.trackId
+        WHERE l.startedAt >= :since GROUP BY l.trackId ORDER BY ms DESC LIMIT :limit
+        """
+    )
+    suspend fun stats(since: Long, limit: Int): List<ListenStat>
+
+    /** The same, only listens that started between the hours [fromHour] and [toHour] (wrapping past midnight): Daylist. */
+    @Query(
+        """
+        SELECT t.*, COUNT(*) AS listens, SUM(l.playedMs) AS ms, MAX(l.startedAt) AS lastAt,
+            SUM(CASE WHEN l.playedMs < 30000 THEN 1 ELSE 0 END) AS skips
+        FROM listen_log l JOIN tracks t ON t.id = l.trackId
+        WHERE l.startedAt >= :since AND (
+            (:fromHour <= :toHour AND CAST(strftime('%H', l.startedAt / 1000, 'unixepoch', 'localtime') AS INTEGER) BETWEEN :fromHour AND :toHour) OR
+            (:fromHour > :toHour AND (CAST(strftime('%H', l.startedAt / 1000, 'unixepoch', 'localtime') AS INTEGER) >= :fromHour OR
+                CAST(strftime('%H', l.startedAt / 1000, 'unixepoch', 'localtime') AS INTEGER) <= :toHour))
+        )
+        GROUP BY l.trackId ORDER BY ms DESC LIMIT :limit
+        """
+    )
+    suspend fun statsAt(since: Long, fromHour: Int, toHour: Int, limit: Int): List<ListenStat>
 }

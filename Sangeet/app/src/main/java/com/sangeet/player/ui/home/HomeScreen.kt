@@ -197,8 +197,9 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
             }
             launch {
                 runCatching {
-                    if (c.settings.current.autoPlaylists) c.recommendations.syncAutoPlaylists(force = force)
+                    // Mixes first; the Library's auto playlists then use those (no second build).
                     c.recommendations.refreshMixes(force = force)
+                    if (c.settings.current.autoPlaylists) c.recommendations.syncAutoPlaylists(force = force)
                 }
             }
             val langs = c.settings.current.languages
@@ -337,12 +338,16 @@ fun HomeScreen(nav: NavController) {
             }
         }
 
-        if (mixes.isNotEmpty()) {
-            item { SectionHeader("Made for you") }
-            item {
-                LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    items(mixes.distinctBy { it.id }, key = { it.id }) { m ->
-                        ShelfCard(m.title, m.subtitle, m.artworkUrl, onClick = { nav.navigate(Routes.mix(m.id)) })
+        // Spotify's "Made for you" (Supermix, Daily Mixes, Discover Weekly, Release Radar…) and YouTube Music's
+        // "Your top mixes" (decades, moods, singers, languages).
+        listOf("Made for you" to mixes.filter { !it.top }, "Your top mixes" to mixes.filter { it.top }).forEach { (title, row) ->
+            if (row.isNotEmpty()) {
+                item(key = "mix_h_$title") { SectionHeader(title) }
+                item(key = "mix_row_$title") {
+                    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        items(row.distinctBy { it.id }, key = { it.id }) { m ->
+                            ShelfCard(m.title, m.subtitle, m.artworkUrl, onClick = { nav.navigate(Routes.mix(m.id)) })
+                        }
                     }
                 }
             }

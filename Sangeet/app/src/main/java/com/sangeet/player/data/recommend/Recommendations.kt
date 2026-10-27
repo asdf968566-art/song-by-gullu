@@ -5,6 +5,7 @@ import com.sangeet.player.data.LibraryRepository
 import com.sangeet.player.data.LocalMusicRepository
 import com.sangeet.player.data.OnlineRepository
 import com.sangeet.player.data.SameSong
+import com.sangeet.player.data.db.ListenDao
 import com.sangeet.player.data.model.SourceType
 import com.sangeet.player.data.model.Track
 import com.sangeet.player.data.model.inLanguages
@@ -32,8 +33,8 @@ data class PlayedTrack(val track: Track, val playCount: Int, val playedAt: Long)
 /** Suggest kiya gaana + kyun suggest hua. */
 data class Suggestion(val track: Track, val reason: String)
 
-/** Track record se bani auto playlist. */
-data class Mix(val id: String, val title: String, val subtitle: String, val tracks: List<Track>) {
+/** Track record se bani auto playlist. [top]: Home's "Your top mixes" row (eras, moods, singers, languages). */
+data class Mix(val id: String, val title: String, val subtitle: String, val tracks: List<Track>, val top: Boolean = false) {
     val artworkUrl: String? get() = tracks.firstNotNullOfOrNull { it.artworkUrl }
 }
 
@@ -50,6 +51,7 @@ class RecommendationRepository(
     private val online: OnlineRepository,
     private val settings: SettingsRepository,
     private val catalog: CatalogPool,
+    listens: ListenDao,
 ) {
     private val prefs = context.getSharedPreferences("auto_playlists", Context.MODE_PRIVATE)
     private val mixLock = Mutex()
@@ -60,6 +62,9 @@ class RecommendationRepository(
     val mixes: StateFlow<List<Mix>> = _mixes.asStateFlow()
 
     fun mix(id: String): Mix? = _mixes.value.firstOrNull { it.id == id }
+
+    /** Spotify / YouTube Music style mixes, kept on the phone for their day or week (MadeForYou). */
+    private val madeForYou = MadeForYou(this, library, online, settings, catalog, listens, java.io.File(context.filesDir, "mixes.json"))
 
     // ------------------------------------------------------------ dislike ("aisa gaana mat dikhao")
 
@@ -100,12 +105,12 @@ class RecommendationRepository(
 
     val seenCount: Int get() = synchronized(seen) { seen.size }
 
-    private fun seenIds(): Set<String> = synchronized(seen) { HashSet(seen) }
+    internal fun seenIds(): Set<String> = synchronized(seen) { HashSet(seen) }
 
-    private fun dislikedIds(): Set<String> = taste.getStringSet("disliked_ids", emptySet()).orEmpty()
+    internal fun dislikedIds(): Set<String> = taste.getStringSet("disliked_ids", emptySet()).orEmpty()
     private fun artistDislikes(artist: String): Int = taste.getInt("artist_" + norm(artist), 0)
 
-    private class Profile(
+    internal class Profile(
         val played: List<PlayedTrack>,
         val liked: List<Track>,
         val artistScore: Map<String, Double>,
@@ -242,7 +247,7 @@ class RecommendationRepository(
     }
 
     /** The singer to follow: the first name of the song's singers, not a music label's channel. */
-    private fun mainSinger(artist: String): String? {
+    internal fun mainSinger(artist: String): String? {
         val first = artist.replace(Regex("(?i)\\s*-\\s*topic$|vevo$|\\s+official$"), "")
             .split(',', '&', '/', '|').map { it.trim() }.firstOrNull { it.isNotBlank() } ?: return null
         val n = norm(first)
@@ -253,7 +258,7 @@ class RecommendationRepository(
     suspend fun refreshMixes(force: Boolean = false): List<Mix> = mixLock.withLock {
         val fresh = System.currentTimeMillis() - mixesAt < 30 * 60_000L
         if (!force && fresh && _mixes.value.isNotEmpty()) return@withLock _mixes.value
-        val built = withContext(Dispatchers.Default) { buildMixes() }
+        val built = withContext(Dispatchers.Default) { withDistinctCovers(madeForYou.build(force)) }
         _mixes.value = built
         mixesAt = System.currentTimeMillis()
         built
@@ -263,7 +268,15 @@ class RecommendationRepository(
     suspend fun syncAutoPlaylists(force: Boolean = false) = syncLock.withLock {
         val last = prefs.getLong(KEY_LAST_SYNC, 0L)
         if (!force && System.currentTimeMillis() - last < 12 * 3_600_000L) return@withLock
-        val mixes = refreshMixes(force = true)
+        // Not forced: the mixes just built (Home's refresh) are used, else only those whose day / week ended are built.
+        val mixes = refreshMixes().filter { it.id in SYNCED }
+        // Mixes that aren't kept in the Library any more (Fresh Finds, Rediscover, the old single Daily Mix…): their
+        // playlist goes, unless the listener renamed it (then it's theirs).
+        prefs.all.keys.filter { it.startsWith("pl_") && it.removePrefix("pl_") !in SYNCED }.forEach { key ->
+            val id = prefs.getLong(key, -1L)
+            if (id > 0 && library.playlistExists(id) && library.playlistName(id)?.startsWith("✨") == true) library.deletePlaylist(id)
+            prefs.edit().remove(key).apply()
+        }
         for (m in mixes) {
             val key = "pl_${m.id}"
             val name = "✨ ${m.title}"
@@ -280,7 +293,7 @@ class RecommendationRepository(
 
     // ------------------------------------------------------------ profile
 
-    private suspend fun profile(): Profile {
+    internal suspend fun profile(): Profile {
         val played = library.playedHistory(500)
         val liked = library.favoritesOnce()
         val now = System.currentTimeMillis()
@@ -321,7 +334,7 @@ class RecommendationRepository(
     // ------------------------------------------------------------ candidates + ranking
 
     /** [twin]: a YouTube seed's JioSaavn copy, for JioSaavn's "similar" list. */
-    private suspend fun candidates(p: Profile, seed: Track?, twin: Track? = null): List<Suggestion> = coroutineScope {
+    internal suspend fun candidates(p: Profile, seed: Track?, twin: Track? = null): List<Suggestion> = coroutineScope {
         val out = ArrayList<Suggestion>()
         // Sources run outside this scope, so one that hangs (blocking network call) can't hold the feed.
         val bg = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -452,7 +465,7 @@ class RecommendationRepository(
             .awaitAll().flatten()
     }
 
-    private fun rank(
+    internal fun rank(
         p: Profile,
         list: List<Suggestion>,
         seed: Track?,
@@ -499,8 +512,11 @@ class RecommendationRepository(
             .let(::spreadArtists)
     }
 
+    /** The same for plain songs (mixes). */
+    internal fun spreadTracks(list: List<Track>): List<Track> = spreadArtists(list.map { Suggestion(it, "") }).map { it.track }
+
     /** Ek hi artist ke gaane lagatar na aayein. */
-    private fun spreadArtists(list: List<Suggestion>): List<Suggestion> {
+    internal fun spreadArtists(list: List<Suggestion>): List<Suggestion> {
         val pending = list.toMutableList()
         val out = ArrayList<Suggestion>(list.size)
         while (pending.isNotEmpty()) {
@@ -513,55 +529,6 @@ class RecommendationRepository(
 
     // ------------------------------------------------------------ mixes
 
-    private suspend fun buildMixes(): List<Mix> {
-        val p = profile()
-        val ranked = rank(p, candidates(p, null), null, emptySet(), preferNew = true).map { it.track }
-        val out = ArrayList<Mix>()
-
-        if (p.isEmpty) {
-            val starter = ranked.take(30)
-            if (starter.size >= 5) {
-                out += Mix("starter", "Starter Mix", "Trending songs and music on your phone. Gets better the more you listen", starter)
-            }
-            return out
-        }
-
-        val newOnes = ranked.filter { it.id !in p.playedIds }
-        val favs = (p.played.sortedByDescending { it.playCount }.map { it.track }.take(15) + p.liked.take(10))
-            .distinctBy { it.id }
-
-        val daily = interleave(favs.shuffled().take(12), newOnes.take(18))
-        if (daily.size >= 5) out += Mix("daily", "Daily Mix", "Your favorites plus new songs, updated daily", daily)
-
-        p.topArtists.take(3).forEachIndexed { i, artist ->
-            val mine = (p.played.map { it.track } + p.liked + local.songs.value).filter { artistMatch(it.artist, artist) }
-            val more = ranked.filter { artistMatch(it.artist, artist) }
-            val tracks = (mine.shuffled() + more).distinctBy { it.id }.take(30)
-            if (tracks.size >= 5) out += Mix("artist${i + 1}", "$artist Mix", "$artist and similar artists", tracks)
-        }
-
-        val discover = newOnes.take(30)
-        if (discover.size >= 5) out += Mix("fresh", "Fresh Finds", "New songs you haven't heard yet", discover)
-
-        // One mix per language you listen to, from the nightly catalog (lakhs of songs).
-        val favs2 = p.topArtists.take(8).map(::norm)
-        for (lang in p.languages.take(3)) {
-            val picks = catalog.sample(listOf(lang), 30, seenIds()) { a -> favs2.any { f -> norm(a).contains(f) } }
-            val name = lang.replaceFirstChar(Char::uppercase)
-            if (picks.size >= 10) out += Mix("lang_$lang", "$name Mix", "Popular $name songs picked for you", picks)
-        }
-
-        val onRepeat = p.played.filter { it.playCount >= 2 }.sortedByDescending { it.playCount }.map { it.track }.take(25)
-        if (onRepeat.size >= 5) out += Mix("repeat", "On Repeat", "Songs you can't stop playing", onRepeat)
-
-        val cutoff = System.currentTimeMillis() - 14 * 86_400_000L
-        val forgotten = p.played.filter { it.playCount >= 2 && it.playedAt < cutoff }
-            .sortedByDescending { it.playCount }.map { it.track }.take(25)
-        if (forgotten.size >= 5) out += Mix("forgotten", "Rediscover", "Songs you used to love", forgotten)
-
-        return withDistinctCovers(out)
-    }
-
     /** Each mix shows a different cover: move a song with an unused cover to the front. */
     private fun withDistinctCovers(mixes: List<Mix>): List<Mix> {
         val used = HashSet<String>()
@@ -573,40 +540,28 @@ class RecommendationRepository(
         }
     }
 
-    private fun interleave(a: List<Track>, b: List<Track>): List<Track> {
-        val out = ArrayList<Track>(a.size + b.size)
-        val ia = a.iterator()
-        val ib = b.iterator()
-        while (ia.hasNext() || ib.hasNext()) {
-            if (ia.hasNext()) out += ia.next()
-            if (ib.hasNext()) out += ib.next()
-            if (ib.hasNext()) out += ib.next()
-        }
-        return out.distinctBy { it.id }
-    }
-
     // ------------------------------------------------------------ helpers
 
     /**
      * What kind of song it is, so a radio stays with it (report #63): Pahadi (JioSaavn lists those songs as Hindi;
      * their names, singers or film tell, or the catalog's Pahadi list has them), else its language.
      */
-    private fun kindOf(t: Track, pahadi: Set<String>): String = when {
+    internal fun kindOf(t: Track, pahadi: Set<String>): String = when {
         t.id in pahadi || LanguageGuess.isPahadi(t.title, "${t.artist} ${t.album}") -> "pahadi"
         else -> t.language.ifBlank { LanguageGuess.guess(t.title, t.artist) }
     }
 
     /** The catalog's Pahadi songs (downloaded only for Pahadi listeners; otherwise used once it is on the phone). */
-    private fun pahadiIds(): Set<String> =
+    internal fun pahadiIds(): Set<String> =
         (if ("pahadi" in settings.current.languages) catalog.songs("pahadi") else catalog.loaded("pahadi")).mapTo(HashSet()) { it.id }
 
     /** The catalog's most played songs of a kind: id -> place (the file lists the most played first). */
-    private fun catalogRanks(kind: String): Map<String, Int> =
+    internal fun catalogRanks(kind: String): Map<String, Int> =
         if (kind.isBlank()) emptyMap()
         else catalog.loaded(kind).take(2_000).withIndex().associate { (i, t) -> t.id to i }
 
     /** Popular songs first (report #63): JioSaavn's play count, else the song's place among the catalog's most played. */
-    private fun popularity(t: Track, ranks: Map<String, Int>): Double {
+    internal fun popularity(t: Track, ranks: Map<String, Int>): Double {
         val n = t.plays
         if (n > 0) return when { n >= 50_000_000 -> 1.5; n >= 10_000_000 -> 1.1; n >= 1_000_000 -> 0.7; n >= 100_000 -> 0.3; else -> 0.0 }
         val r = ranks[t.id] ?: return 0.0
@@ -625,7 +580,7 @@ class RecommendationRepository(
      * A song's time: an old song brings songs of its years (report #51); a new one, or one whose year isn't known,
      * brings the newest songs first (report #63).
      */
-    private fun era(seedYear: Int, t: Track): Double {
+    internal fun era(seedYear: Int, t: Track): Double {
         if (t.year == 0) return 0.0
         val now = (1970 + System.currentTimeMillis() / 31_556_952_000L).toInt()
         val age = now - t.year
@@ -655,14 +610,14 @@ class RecommendationRepository(
         if (seed != null && norm(artist) == norm(seed.artist)) "Similar to \"${seed.title}\""
         else "Because you listen to $artist"
 
-    private fun artistMatch(candidate: String, artist: String): Boolean {
+    internal fun artistMatch(candidate: String, artist: String): Boolean {
         val c = norm(candidate)
         val a = norm(artist)
         if (c.isBlank() || a.isBlank()) return false
         return c == a || c.contains(a) || a.contains(c)
     }
 
-    private fun norm(s: String) = s.lowercase()
+    internal fun norm(s: String) = s.lowercase()
         .replace(Regex("""\(.*?\)|\[.*?]"""), "")
         .replace(Regex("[^\\p{L}\\p{N}]+"), " ")
         .trim()
@@ -670,6 +625,8 @@ class RecommendationRepository(
     companion object {
         private const val KEY_LAST_SYNC = "last_sync"
         private const val MAX_SEEN = 20_000
+        /** Mixes also kept as Library playlists ("✨ Daily Mix 1"…); the others are only on Home. */
+        private val SYNCED = setOf("supermix", "daily1", "daily2", "daily3", "discover", "radar", "repeat")
         /** YouTube channels of music labels: their name is not a singer. */
         private val LABELS = SameSong.LABELS
         /** JioSaavn searches for a Pahadi radio. */
