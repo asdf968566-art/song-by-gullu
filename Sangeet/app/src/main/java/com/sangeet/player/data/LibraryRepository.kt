@@ -11,6 +11,7 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -115,5 +116,8 @@ class LibraryRepository(private val db: SangeetDatabase, scope: CoroutineScope) 
 
     suspend fun removeFromPlaylist(playlistId: Long, trackId: String) = db.playlistDao().removeTrack(playlistId, trackId)
     suspend fun renamePlaylist(id: Long, name: String) = db.playlistDao().rename(id, name)
+    suspend fun playlistName(id: Long): String? = db.playlistDao().observePlaylist(id).first()?.name
+    /** Your playlists' names (Made for you reads moods from them: "gym", "sad songs"…). */
+    suspend fun playlistNames(): List<String> = db.playlistDao().observePlaylists().first().map { it.name }
     suspend fun deletePlaylist(id: Long) = db.playlistDao().delete(id)
 }

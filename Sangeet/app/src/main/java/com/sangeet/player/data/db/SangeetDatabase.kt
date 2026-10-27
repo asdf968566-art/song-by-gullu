@@ -18,7 +18,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         LyricsEntity::class,
         ListenEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = false,
 )
 abstract class SangeetDatabase : RoomDatabase() {
@@ -31,6 +31,14 @@ abstract class SangeetDatabase : RoomDatabase() {
     abstract fun listenDao(): ListenDao
 
     companion object {
+        /** v4: a song's year and play count (Made for you's era mixes, popular songs first). */
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE tracks ADD COLUMN year INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE tracks ADD COLUMN plays INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         /** v3: listen_log (Stats). */
         private val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -51,7 +59,7 @@ abstract class SangeetDatabase : RoomDatabase() {
 
         fun create(context: Context): SangeetDatabase =
             Room.databaseBuilder(context, SangeetDatabase::class.java, "sangeet.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .fallbackToDestructiveMigration()
                 .build()
     }

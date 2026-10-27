@@ -72,7 +72,7 @@ class AppContainer(private val app: Application) {
     val aiDj = com.sangeet.player.data.ai.AiDj(online, settings)
     /** The nightly catalog's popular songs per language (also Pahadi). */
     val catalog = com.sangeet.player.data.recommend.CatalogPool(app, scope)
-    val recommendations = RecommendationRepository(app, library, local, online, settings, catalog)
+    val recommendations = RecommendationRepository(app, library, local, online, settings, catalog, database.listenDao())
     /** The listener's singers: picked in Settings, then the most played (Home's "Your singers"). */
     val singers = com.sangeet.player.data.Singers(app, settings, online, database)
 

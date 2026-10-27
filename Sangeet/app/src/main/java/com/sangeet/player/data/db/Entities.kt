@@ -21,6 +21,9 @@ data class TrackEntity(
     val filePath: String?,
     val albumId: Long,
     @ColumnInfo(defaultValue = "") val language: String = "",
+    /** Release year and JioSaavn play count (v4): era mixes and "popular first" work for played songs too. */
+    @ColumnInfo(defaultValue = "0") val year: Int = 0,
+    @ColumnInfo(defaultValue = "0") val plays: Long = 0L,
 ) {
     fun toTrack() = Track(
         id = id,
@@ -35,6 +38,8 @@ data class TrackEntity(
         filePath = filePath,
         albumId = albumId,
         language = language,
+        year = year,
+        plays = plays,
     )
 
     companion object {
@@ -42,6 +47,7 @@ data class TrackEntity(
             id = t.id, source = t.source.name, sourceId = t.sourceId, title = t.title,
             artist = t.artist, album = t.album, durationMs = t.durationMs,
             artworkUrl = t.artworkUrl, streamUrl = t.streamUrl, filePath = t.filePath, albumId = t.albumId, language = t.language,
+            year = t.year, plays = t.plays,
         )
     }
 }

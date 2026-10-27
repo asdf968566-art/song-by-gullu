@@ -141,6 +141,15 @@ def playing():
     return re.search(r"state=PlaybackState \{state=(3|PLAYING)", media()) is not None
 
 
+def playing_soon(secs=20):
+    """Playing within [secs]: in CI a YouTube song is refused first and plays its JioSaavn copy a little later."""
+    for _ in range(secs // 2):
+        if playing():
+            return True
+        time.sleep(2)
+    return playing()
+
+
 def now_title():
     m = re.search(r"description=([^,\n]+)", media())
     return m.group(1).strip() if m else ""
@@ -210,7 +219,8 @@ def main():
     step("For You: All moods back", lambda: tap("For You", contains=True, wait=6))
     step("For You: New feed", lambda: tap("New feed", wait=8))
     step("For You: Like", lambda: tap("Like", wait=2) and tap("Like", wait=2))
-    step("For You: Play", lambda: tap("Play/Pause", wait=8), lambda: (playing(), f"playing: {now_title()}"))
+    # Main's run of Oct 27 08:22 checked once after 8 s, while the YouTube song was still moving to its JioSaavn copy.
+    step("For You: Play", lambda: tap("Play/Pause", wait=8), lambda: (playing_soon(), f"playing: {now_title()}"))
     # Report #51: after 25 s of a feed song, songs like it (same singer, same years) are put next.
     def followed():
         for _ in range(25):
@@ -656,7 +666,18 @@ def main():
         if m and int(m.group(1)) > 0:
             return True, top["text"]
         return find("Saved on this phone", contains=True) is not None, (top or {}).get("text") or "no saved count"
-    step("Downloads screen: open", lambda: tap("Downloads", scroll=3, wait=4), saved_listed)
+    # Main's run of Oct 27 12:38 found no saved line right after the tap: wait for the screen, and say what was there.
+    def open_downloads():
+        if not tap("Downloads", scroll=3, wait=4):
+            return False
+        for _ in range(6):
+            if find(" saved", contains=True) or find("Saved on this phone", contains=True):
+                return True
+            time.sleep(2)
+        seen = sorted({n["text"] or n["desc"] for n in nodes(dump()) if n["text"] or n["desc"]})
+        print("downloads: no saved line; on screen: " + ", ".join(seen[:40]))
+        return True
+    step("Downloads screen: open", open_downloads, saved_listed)
     step("Downloads screen: play downloads", lambda: tap("Play downloads", wait=6), lambda: (playing(), f"playing: {now_title()}"))
     back()
 
@@ -838,6 +859,39 @@ def main():
         return True
     step("Home: Your singers → See all", all_singers,
          lambda: (find("Edit singers") is not None and find("Arijit Singh") is not None, "the page lists Arijit Singh"))
+    back()
+
+    # Oct 27: Spotify / YouTube Music style mixes. Home's refresh builds them; the log lists each mix and its songs.
+    def refresh_mixes():
+        go_tab("Home")
+        for _ in range(6):  # the singer steps left Home scrolled down; Refresh is in the top bar
+            swipe_down()
+            time.sleep(0.5)
+        adb("logcat", "-c")
+        if not tap("Refresh", wait=2):
+            return False
+        for _ in range(45):
+            if re.search(r"Sangeet\s*:\s*mixes:", adb("logcat", "-d")):
+                break
+            time.sleep(2)
+        return True
+    def mixes_built():
+        lines = [l.split("mixes:", 1)[1].strip() for l in adb("logcat", "-d").splitlines() if re.search(r"Sangeet\s*:\s*mixes:", l)]
+        if not lines:
+            return False, "no 'mixes:' line after 90 s"
+        ids = dict(re.findall(r"(\w+):(\d+)", lines[-1].split(";")[0]))
+        ok = len(ids) >= 3 and "supermix" in ids and any(k.startswith(("daily", "discover")) for k in ids)
+        return ok, lines[-1][:400]
+    step("Home: Made for you mixes (Supermix, Daily Mix…)", refresh_mixes, mixes_built)
+    def open_supermix():
+        if not tap("My Supermix", scroll=4, wait=4):
+            return False
+        return True
+    def supermix_page():
+        head = find(" songs", contains=True)
+        m = re.search(r"(\d+) songs", (head or {}).get("text", ""))
+        return bool(m) and int(m.group(1)) >= 10, (head or {}).get("text", "no header")
+    step("Home: open My Supermix", open_supermix, supermix_page)
     back()
 
     # ---------------------------------------------------------------- themes: Liquid Glass on every page
