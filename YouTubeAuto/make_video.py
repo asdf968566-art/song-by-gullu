@@ -4,7 +4,8 @@
 Two kinds:
   short  a 9:16 Short of about 50-70 s (7-9 scenes).
   long   a 16:9 video of about 8-12 min: an outline first (characters, 8 chapters), then each chapter's scenes.
-         Ramayan and Mahabharat run as series (episode N continues from the recap of episode N-1).
+         "Bhootiya Haveli" runs as a series (episode N continues from the recap of episode N-1).
+The channel is horror / suspense only (SHORT_FORMATS / LONG_FORMATS).
 
 Steps: what India watches now (YouTube Data API) -> a Gemini plan in a format not used lately -> a picture per
 scene (Pollinations; a real picture re-cut when one fails) -> a Hindi voice per line, a different voice per kind of
@@ -31,30 +32,27 @@ UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chr
 W, H = (1920, 1080) if LONG else (1080, 1920)
 
 # Each format: what to make, and whether it is made for kids (YouTube's rule: say so truthfully).
+# The channel is horror / suspense only (owner, Oct 27: one niche, so YouTube knows whom to show it to). The first
+# two Short keys and "horror" / "mystery" / "trend" keep their old names so their view counts still count.
 SHORT_FORMATS = [
-    ("cartoon moral story for kids (panchatantra-style animals, a twist and a clear lesson at the end)", True),
     ("AI mini movie: suspense / mystery with a shocking last line", False),
     ("AI mini movie: horror story (spooky, not gory) set in an Indian village or old haveli", False),
-    ("AI mini movie: emotional story (mother, father, friendship, sacrifice) that makes people share it", False),
-    ("motion facts video: 6 amazing facts most Indians don't know (space, history, human body, animals)", False),
-    ("a short story from Indian mythology (Ramayan, Mahabharat, Puranas), respectful", False),
-    ("motivational story of an ordinary person who never gave up (fictional, not a real person)", False),
-    ("funny cartoon story with a desi family, clean comedy and a punchline", False),
-    ("what if... video (what if the Earth stopped spinning, what if humans could fly...), scientific", False),
-    (TREND_SHORT := "today's trend: an original story, facts or what-if video about one of today's top searched topics "
-                    "in India (festival, cricket, film, viral topic)", False),
+    ("horror story in a city: a lift, a flat, a hostel, a hospital night shift or a metro, with a twist", False),
+    ("highway / train / bus horror story at night, told like it really happened to the narrator", False),
+    ("Indian folk horror: chudail, bhoot, pishach, daayan or a cursed well / tree from village stories", False),
+    ("psychological thriller: something is wrong at home (a phone call, a CCTV clip, a mirror), last-line twist", False),
+    ("mystery puzzle: a strange case with clues, and the viewer must guess the answer in the comments", False),
+    (TREND_SHORT := "today's trend turned into an original horror or suspense story (use one of today's top searched "
+                    "topics in India as the setting, never real people)", False),
 ]
 LONG_FORMATS = [
-    ("series:Ramayan", "Ramayan told as an episode series, faithful to Valmiki Ramayan, respectful, with dialogue", False),
-    ("series:Mahabharat", "Mahabharat told as an episode series, faithful to Vyasa's Mahabharat, respectful, with "
-                          "dialogue", False),
-    ("cartoon", "animated cartoon movie for kids: animals or children, adventure, songs-like rhymes, a moral", True),
+    ("series:Bhootiya Haveli", "Bhootiya Haveli: an original Hindi horror series about one cursed haveli and the family "
+                               "that moved in; each episode a new chilling night, the mystery slowly opening", False),
     ("horror", "Hindi horror movie (spooky, not gory) in an Indian village, haveli or highway, with a twist", False),
     ("mystery", "suspense thriller movie with clues and a twist ending", False),
-    ("emotional", "emotional family drama movie that makes people cry and share", False),
-    ("mythology", "a story from the Puranas or Indian folk tales (Vikram Betaal, Shiv, Krishna leela...), "
-                  "respectful", False),
-    ("trend", "whatever kind of story is trending most in the list below, as an original movie", False),
+    ("city-horror", "Hindi horror movie in a city: a new flat, a hostel, a hospital or an office at night", False),
+    ("folk-horror", "Indian folk horror movie: chudail, daayan, pishach or a curse from village stories", False),
+    ("trend", "an original horror or suspense movie set around what is trending most in the list below", False),
 ]
 
 
@@ -133,8 +131,8 @@ def trends():
         except Exception as e:
             log("trends: chart", cat or "all", "failed", e)
     since = (datetime.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ")
-    words = (["ramayan", "mahabharat", "cartoon movie hindi", "horror story hindi", "ai movie hindi"] if LONG else
-             ["kahani #shorts", "cartoon story #shorts", "ai video #shorts", "horror story #shorts"])
+    words = (["horror story hindi", "bhootiya kahani", "suspense thriller hindi", "horror movie hindi"] if LONG else
+             ["horror story #shorts", "bhoot ki kahani #shorts", "suspense story #shorts", "darawni kahani #shorts"])
     for q in words:
         p = {"part": "snippet", "q": q, "type": "video", "order": "viewCount", "regionCode": "IN",
              "relevanceLanguage": "hi", "publishedAfter": since, "maxResults": "10",
@@ -389,8 +387,8 @@ Did best on this channel so far (learn what viewers liked):
 Make:
 - title: max 90 characters, Hindi in Devanagari (Hinglish is fine), gripping.
 - description: 5-6 lines in Hindi that make people watch, plus 6 hashtags. tags: 15 tags.
-- style: one art style for every picture (for example "Pixar-style 3D animation, warm colors" for cartoons,
-  "epic Indian mythological digital painting, Raja Ravi Varma inspired, golden light" for Ramayan/Mahabharat,
+- style: one art style for every picture (for example "dark cinematic realistic, foggy night, cold blue and amber
+  light" or "eerie Indian village at night, lantern light, film grain",
   "dark cinematic realistic, foggy, moody" for horror).
 - characters: everyone who appears, each with a fixed look in English (age, face, hair, clothes, colors).
 - chapters: exactly 8, each a short English summary of what happens; chapter 1 starts with a hook, the last one
