@@ -20,7 +20,7 @@
   "views": 5,
   "likes": 0,
   "comments": 0,
-  "score": 0.8
+  "score": 0.7
  },
  {
   "date": "20261020-1452",
@@ -38,7 +38,7 @@
   "views": 1,
   "likes": 0,
   "comments": 0,
-  "score": 0.2
+  "score": 0.1
  },
  {
   "date": "20261020-1746",
@@ -56,7 +56,7 @@
   "views": 1,
   "likes": 0,
   "comments": 0,
-  "score": 0.2
+  "score": 0.1
  },
  {
   "date": "20261021-1046",
@@ -90,10 +90,10 @@
   "youtube": "LzhYSNftnVA",
   "file": "short-20261023-1746.mp4",
   "tries": 1,
-  "views": 2,
+  "views": 4,
   "likes": 0,
   "comments": 0,
-  "score": 0.6
+  "score": 1.1
  },
  {
   "date": "20261024-1627",
@@ -112,7 +112,7 @@
   "views": 1,
   "likes": 0,
   "comments": 0,
-  "score": 0.5
+  "score": 0.4
  },
  {
   "date": "20261025-1013",
@@ -199,6 +199,24 @@
   },
   "voice": "edge",
   "youtube": "y1xv_kHkgKw",
-  "file": "short-20261026-2004.mp4"
+  "file": "short-20261026-2004.mp4",
+  "views": 0,
+  "likes": 0,
+  "comments": 0,
+  "score": 0.0
+ },
+ {
+  "date": "20261027-1208",
+  "kind": "long",
+  "format": "trend",
+  "title": "पिंकी और जादुई दीवाली रोबोट: क्या गाँव की दीवाली बच पाएगी? 🪔 | AI Movie",
+  "seconds": 639.2,
+  "pictures": {
+   "pollinations": 17,
+   "reused": 41
+  },
+  "voice": "edge",
+  "youtube": "hoNHMwkL9nM",
+  "file": "long-20261027-1208.mp4"
  }
 ]
