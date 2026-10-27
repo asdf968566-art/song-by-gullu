@@ -93,7 +93,7 @@
   "views": 4,
   "likes": 0,
   "comments": 0,
-  "score": 1.1
+  "score": 1.0
  },
  {
   "date": "20261024-1627",
@@ -112,7 +112,7 @@
   "views": 1,
   "likes": 0,
   "comments": 0,
-  "score": 0.4
+  "score": 0.3
  },
  {
   "date": "20261025-1013",
@@ -217,6 +217,24 @@
   },
   "voice": "edge",
   "youtube": "hoNHMwkL9nM",
-  "file": "long-20261027-1208.mp4"
+  "file": "long-20261027-1208.mp4",
+  "views": 0,
+  "likes": 0,
+  "comments": 0,
+  "score": 0.0
+ },
+ {
+  "date": "20261027-1832",
+  "kind": "short",
+  "format": "AI mini movie: suspense / mystery with a shocking last line",
+  "title": "रहस्यमयी दिवाली गिफ्ट: टीवी के अंदर कौन था? 😱 #shorts",
+  "seconds": 73.5,
+  "pictures": {
+   "reused": 1,
+   "pollinations": 7
+  },
+  "voice": "edge",
+  "youtube": "Ps4-Llw62rw",
+  "file": "short-20261027-1832.mp4"
  }
 ]
