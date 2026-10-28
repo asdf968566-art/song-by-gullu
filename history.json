@@ -20,7 +20,7 @@
   "views": 5,
   "likes": 0,
   "comments": 0,
-  "score": 0.7
+  "score": 0.6
  },
  {
   "date": "20261020-1452",
@@ -93,7 +93,7 @@
   "views": 4,
   "likes": 0,
   "comments": 0,
-  "score": 1.0
+  "score": 0.8
  },
  {
   "date": "20261024-1627",
@@ -112,7 +112,7 @@
   "views": 1,
   "likes": 0,
   "comments": 0,
-  "score": 0.3
+  "score": 0.2
  },
  {
   "date": "20261025-1013",
@@ -235,6 +235,23 @@
   },
   "voice": "edge",
   "youtube": "Ps4-Llw62rw",
-  "file": "short-20261027-1832.mp4"
+  "file": "short-20261027-1832.mp4",
+  "views": 0,
+  "likes": 0,
+  "comments": 0,
+  "score": 0.0
+ },
+ {
+  "date": "20261028-1846",
+  "kind": "short",
+  "format": "psychological thriller: something is wrong at home (a phone call, a CCTV clip, a mirror), last-line twist",
+  "title": "CCTV में ये कौन दिख रहा है? 😱 | Psychological Thriller #shorts",
+  "seconds": 73.7,
+  "pictures": {
+   "pollinations": 8
+  },
+  "voice": "edge",
+  "youtube": "SHIThe6ogoo",
+  "file": "short-20261028-1846.mp4"
  }
 ]
