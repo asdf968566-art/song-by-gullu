@@ -20,7 +20,7 @@
   "views": 6,
   "likes": 0,
   "comments": 0,
-  "score": 0.7
+  "score": 0.6
  },
  {
   "date": "20261020-1452",
@@ -270,6 +270,24 @@
   },
   "voice": "edge",
   "youtube": "jAkxWk7X3Rw",
-  "file": "long-20261029-1220.mp4"
+  "file": "long-20261029-1220.mp4",
+  "views": 0,
+  "likes": 0,
+  "comments": 0,
+  "score": 0.0
+ },
+ {
+  "date": "20261029-1856",
+  "kind": "short",
+  "format": "mystery puzzle: a strange case with clues, and the viewer must guess the answer in the comments",
+  "title": "दिवाली का चोर कौन? 😱 | Mystery Puzzle #shorts",
+  "seconds": 79.3,
+  "pictures": {
+   "reused": 1,
+   "pollinations": 8
+  },
+  "voice": "edge",
+  "youtube": "1jR9r4K1AQc",
+  "file": "short-20261029-1856.mp4"
  }
 ]
