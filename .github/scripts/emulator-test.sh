@@ -80,13 +80,25 @@ play_source jiosaavn kesariya 1
 play_source youtube kesariya 0
 
 echo "== Download: YouTube ka gaana download hona chahiye (pehle JioSaavn se, warna YouTube se)"
-adb logcat -c
-adb shell "am start -W -a android.intent.action.VIEW -d 'sangeet://play?q=tum%20hi%20ho&source=youtube&download=1' -n $PKG/.MainActivity" >/dev/null
+# A fresh emulator is "on Wi-Fi and charging", so Smart downloads may have saved the song already, and the app
+# rightly skips it ("download skipped, same song already downloaded", main run of Oct 29): then try another song.
 DL=""
-for i in $(seq 1 60); do
-  DL=$(adb logcat -d | grep -o "download done: .*" | head -1)
-  [[ -n "$DL" ]] && break
-  sleep 2
+for q in "tum%20hi%20ho" "raataan%20lambiyan" "apna%20bana%20le"; do
+  adb logcat -c
+  adb shell "am start -W -a android.intent.action.VIEW -d 'sangeet://play?q=$q&source=youtube&download=1' -n $PKG/.MainActivity" >/dev/null
+  skipped=0
+  for i in $(seq 1 60); do
+    LOG=$(adb logcat -d)
+    DL=$(echo "$LOG" | grep -o "download done: .*" | head -1)
+    [[ -n "$DL" ]] && break
+    if echo "$LOG" | grep -q "download skipped, same song already downloaded"; then
+      echo "already on the phone (Smart downloads): $q, trying another song"
+      skipped=1
+      break
+    fi
+    sleep 2
+  done
+  [[ -n "$DL" || $skipped == 0 ]] && break
 done
 if [[ -z "$DL" ]]; then
   # Why: the download's own lines (worker start, pieces, retries, errors), not WorkManager's other jobs.
