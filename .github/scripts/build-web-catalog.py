@@ -255,25 +255,6 @@ C = Catalog()
 
 # ------------------------------------------------------------------ crawl
 
-# Playlist searches came back empty from Oct 20 on (pahadi: 0 playlists, ~290 Hindi playlists of 1500 asked for).
-# Android asks for 20 a page and gets them, so each run checks which page size JioSaavn answers.
-PL_N = "20"
-
-
-def check_playlist_search():
-    global PL_N
-    got = {n: call("search.getPlaylistResults", {"q": "hindi romantic", "p": "1", "n": n}) for n in ("50", "20")}
-    counts = {n: len(playlists_of(r)) for n, r in got.items()}
-    PL_N = "50" if counts["50"] >= max(1, counts["20"]) else "20"
-    print(f"playlist search: n=50 -> {counts['50']}, n=20 -> {counts['20']}; using n={PL_N}", flush=True)
-    if not any(counts.values()):
-        print(f"  playlist search answer: {json.dumps(got['20'])[:400] if got['20'] is not None else 'no answer'}", flush=True)
-
-
-def search_playlists(q, page, lang=None):
-    return call("search.getPlaylistResults", {"q": q, "p": str(page), "n": PL_N}, lang)
-
-
 def playlists_of(root):
     out = []
     for o in items(root, ["data", "results"]):
@@ -290,11 +271,10 @@ def core(lang, n_playlists):
         p["chart"] = 1
         found.setdefault(p["id"], p)
     jobs = [("content.getFeaturedPlaylists", {"fetch_from_serialized_files": "true", "p": str(p), "n": "50"}) for p in range(1, 25)]
-    pages = (1, 2) if PL_N == "20" else (1,)
-    jobs += [("search.getPlaylistResults", {"q": f"{lang} {m}", "p": str(p), "n": PL_N}) for m in MOODS for p in pages]
+    jobs += [("search.getPlaylistResults", {"q": f"{lang} {m}", "p": "1", "n": "50"}) for m in MOODS]
     if lang == "haryanvi":
-        jobs += [("search.getPlaylistResults", {"q": f"haryanvi {t}", "p": str(p), "n": PL_N}) for t in HARYANVI_TERMS for p in (1, 2, 3)]
-    asked = answered = from_search = 0
+        jobs += [("search.getPlaylistResults", {"q": f"haryanvi {t}", "p": str(p), "n": "50"}) for t in HARYANVI_TERMS for p in (1, 2)]
+    asked = answered = from_search = 0  # Oct 29: every search answered; ~300 distinct Hindi playlists is all there is
     with cf.ThreadPoolExecutor(16) as ex:
         for (method, params), res in zip(jobs, ex.map(lambda j: call(j[0], j[1], lang), jobs)):
             term = params["q"][len(lang) + 1:] if "q" in params else None
@@ -449,10 +429,12 @@ def seed_singers():
 def pahadi():
     """Garhwali, Kumaoni, Jaunsari and Himachali songs: playlists named like that, and song searches."""
     found = {}
-    jobs = [(t, p) for t in PAHADI_TERMS for p in (1, 2, 3)]
+    jobs = [{"q": t, "p": str(p), "n": "50"} for t in PAHADI_TERMS for p in (1, 2)]
+    # Oct 29: every search answered, but none of the playlists JioSaavn gives is named Pahadi any more; the Pahadi
+    # songs come from the song searches below.
     answered = raw = 0
     with cf.ThreadPoolExecutor(12) as ex:
-        for res in ex.map(lambda j: search_playlists(*j), jobs):
+        for res in ex.map(lambda q: call("search.getPlaylistResults", q), jobs):
             answered += res is not None
             raw += len(playlists_of(res))
             for p in playlists_of(res):
@@ -633,7 +615,6 @@ def write(playlists_by_lang):
 def main():
     t0 = time.time()
     C.load(STATE)
-    check_playlist_search()
     playlists = {}
     for lang in LANGS:
         n = {"hindi": 1500, "punjabi": 1000, "haryanvi": 900, "english": 400}.get(lang, 120)
