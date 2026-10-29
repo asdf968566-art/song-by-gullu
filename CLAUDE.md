@@ -683,6 +683,10 @@ request the owner made, in order.
   - Playlist searches were checked too (log `<lang> playlist searches: N of M answered…`): all answered, JioSaavn
     just has ~300 distinct Hindi playlists for those words; none of the playlists it gives for the Pahadi words is
     named Pahadi any more, so Pahadi songs come from the song searches (`pahadi: 0 playlists found` is expected).
+  - JioSaavn lists some Pahadi songs under their own language ("garhwali", …; CI walk Oct 29: a Garhwali song's radio
+    came out as kind "garhwali", not "pahadi"). The crawler keeps `PAHADI_LANGS` songs as Hindi + `C.pahadi`;
+    Android's `kindOf` and `Track.inLanguages` pass the language to `LanguageGuess.isPahadi`; the PAHADI word lists
+    (Android, web, crawler) also have the spelling "utrakhand".
 - **YouTube Shorts channel** (Oct 20, owner sent reels about "faceless" AI YouTube channels: "saare viral video dekh
   … cartoon, motion video, ai made movie … bna aur upload kar … monotize krwa"; "upload bhi tu kr, permission de
   dunga"; then "sirf shorts nhi, full movie, cartoon, ramayan, mahabharat"). Not part of the apps:

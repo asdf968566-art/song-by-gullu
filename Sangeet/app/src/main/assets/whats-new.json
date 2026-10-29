@@ -7,6 +7,11 @@
         "on": "both",
         "type": "new",
         "text": "More new songs every day"
+      },
+      {
+        "on": "android",
+        "type": "fix",
+        "text": "Related songs after every Pahadi song"
       }
     ]
   },

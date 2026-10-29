@@ -547,7 +547,8 @@ class RecommendationRepository(
      * their names, singers or film tell, or the catalog's Pahadi list has them), else its language.
      */
     internal fun kindOf(t: Track, pahadi: Set<String>): String = when {
-        t.id in pahadi || LanguageGuess.isPahadi(t.title, "${t.artist} ${t.album}") -> "pahadi"
+        // Also a song JioSaavn lists as Garhwali, Kumaoni, Himachali… (CI walk, Oct 29: "garhwali").
+        t.id in pahadi || LanguageGuess.isPahadi(t.title, "${t.artist} ${t.album} ${t.language}") -> "pahadi"
         else -> t.language.ifBlank { LanguageGuess.guess(t.title, t.artist) }
     }
 

@@ -76,7 +76,7 @@ SEED_SINGERS = {
 # Garhwali, Kumaoni, Jaunsari and Himachali songs: words and singers in their names (Android LanguageGuess and the
 # web app use the same list). Such songs, and the songs of playlists named like that, make data/pahadi.json.
 PAHADI = re.compile(
-    r"garhwali|garwali|gadwali|garhwal|kumaoni|kumauni|kumaon|jaunsari|himachali|pahadi|pahari|uttarakhand|uttrakhand|"
+    r"garhwali|garwali|gadwali|garhwal|kumaoni|kumauni|kumaon|jaunsari|himachali|pahadi|pahari|uttarakhand|uttrakhand|utrakhand|"
     r"\bnati\b|गढ़वाली|गढवाली|कुमाऊँनी|कुमाउनी|जौनसारी|पहाड़ी|पहाडी|हिमाचली|"
     r"narendra singh negi|gajendra rana|meena rana|pritam bhartwan|kishan mahipal|inder arya|saurav maithani|"
     r"anisha ranghar|rohit chauhan|kuldeep sharma|thakur das rathi|vicky chauhan|basanti bisht|hema negi karasi|"
@@ -84,6 +84,8 @@ PAHADI = re.compile(
     r"rajnikant semwal|karnail rana|jitendra tomkyal|sunil thapliyal|virendra negi",
     re.I,
 )
+# JioSaavn lists most Pahadi songs as Hindi, some under these languages: they are kept as Hindi + Pahadi.
+PAHADI_LANGS = {"garhwali", "kumaoni", "kumauni", "jaunsari", "himachali", "pahadi", "pahari"}
 PAHADI_TERMS = ["garhwali", "garhwali songs", "new garhwali", "garhwali dj", "kumaoni", "kumaoni songs", "kumaoni dj",
                 "pahadi", "pahadi songs", "pahari", "pahari nati", "himachali", "himachali nati", "himachali songs",
                 "jaunsari", "uttarakhandi", "uttarakhand", "garhwali bhajan", "jagar"]
@@ -191,6 +193,9 @@ class Catalog:
         if not isinstance(o, dict) or o.get("type", "song") != "song" or not o.get("id"):
             return None
         lang = (o.get("language") or "").lower()
+        pahadi_lang = lang in PAHADI_LANGS
+        if pahadi_lang:
+            lang = "hindi"
         if lang not in DEEP and (lang not in SMALL or not small):
             if not as_lang:
                 return None
@@ -231,6 +236,9 @@ class Catalog:
                     self.keys.add(key)
                     self.songs[sid] = row
                     self.order.append(sid)
+        if pahadi_lang:
+            with self.lock:
+                self.pahadi.add(sid)
         # Remember singers and albums to crawl next.
         if lang in DEEP:
             am = info.get("artistMap") or {}
