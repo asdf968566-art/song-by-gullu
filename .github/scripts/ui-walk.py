@@ -311,15 +311,30 @@ def main():
         return True
     step("Search: type 'arijit'", search, lambda: (find("Arijit", contains=True) is not None, "results shown"))
     def play_result():
-        # A song row below the search box (not the box or a suggestion chip).
-        box = find("Search", contains=True)
-        rows = [n for n in nodes(dump()) if "arijit" in (n["text"] + n["desc"]).lower() and box and n["y"] > box["y"] + 150]
+        # A song row below the search box: one with its own "More" button (main run of Oct 29 tapped an "arijit" row
+        # that played nothing, likely the singer card). The keyboard can stay up and take the tap.
+        if "mInputShown=true" in sh("dumpsys input_method"):
+            sh("input keyevent KEYCODE_BACK")
+            time.sleep(1)
+        _, h = screen()
+        all_nodes = list(nodes(dump()))
+        box = next((r for r in all_nodes if "Search" in (r["text"] + r["desc"]) and r["y"] < h * 0.4), None)
+        mores = [r["y"] for r in all_nodes if r["desc"] == "More"]
+        rows = [n for n in all_nodes if "arijit" in (n["text"] + n["desc"]).lower() and box and box["y"] + 150 < n["y"] < h * 0.78
+                and any(abs(y - n["y"]) < 70 for y in mores)]
         if not rows:
+            print("  play a result: no song row; on screen: " + " | ".join((r["text"] or r["desc"])[:30] for r in all_nodes if r["text"] or r["desc"])[:600])
             return False
-        sh(f"input tap {rows[0]['x']} {rows[0]['y']}")
-        time.sleep(10)
+        before = now_title()
+        for row in rows[:2]:
+            print(f"  play a result: tapped {(row['text'] or row['desc'])[:60]}")
+            sh(f"input tap {row['x']} {row['y']}")
+            for _ in range(10):
+                time.sleep(1)
+                if now_title() and now_title() != before:
+                    return True
         return True
-    step("Search: play a result", play_result, lambda: (playing(), f"playing: {now_title()}"))
+    step("Search: play a result", play_result, lambda: (playing_soon(), f"playing: {now_title()}"))
     def clear_search():
         if not tap("Clear", wait=2):
             return False
