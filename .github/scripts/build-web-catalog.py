@@ -294,9 +294,14 @@ def core(lang, n_playlists):
     jobs += [("search.getPlaylistResults", {"q": f"{lang} {m}", "p": str(p), "n": PL_N}) for m in MOODS for p in pages]
     if lang == "haryanvi":
         jobs += [("search.getPlaylistResults", {"q": f"haryanvi {t}", "p": str(p), "n": PL_N}) for t in HARYANVI_TERMS for p in (1, 2, 3)]
+    asked = answered = from_search = 0
     with cf.ThreadPoolExecutor(16) as ex:
-        for (_, params), res in zip(jobs, ex.map(lambda j: call(j[0], j[1], lang), jobs)):
+        for (method, params), res in zip(jobs, ex.map(lambda j: call(j[0], j[1], lang), jobs)):
             term = params["q"][len(lang) + 1:] if "q" in params else None
+            if method == "search.getPlaylistResults":
+                asked += 1
+                answered += res is not None
+                from_search += len(playlists_of(res))
             kept = 0
             for p in playlists_of(res):
                 p = found.setdefault(p["id"], p)
@@ -304,6 +309,7 @@ def core(lang, n_playlists):
                 if term in MOOD_WORDS and kept < 6 and re.search(rf"\b{re.escape(term)}\b", p["title"], re.I):
                     p["mood"] = 1
                     kept += 1
+    print(f"  {lang} playlist searches: {answered} of {asked} answered, {from_search} playlists, {len(found)} found in all", flush=True)
     chosen = [p for p in found.values() if p.get("chart") or p.get("mood")]
     rest = [p for p in found.values() if not (p.get("chart") or p.get("mood"))]
     random.shuffle(rest)
@@ -444,8 +450,11 @@ def pahadi():
     """Garhwali, Kumaoni, Jaunsari and Himachali songs: playlists named like that, and song searches."""
     found = {}
     jobs = [(t, p) for t in PAHADI_TERMS for p in (1, 2, 3)]
+    answered = raw = 0
     with cf.ThreadPoolExecutor(12) as ex:
         for res in ex.map(lambda j: search_playlists(*j), jobs):
+            answered += res is not None
+            raw += len(playlists_of(res))
             for p in playlists_of(res):
                 # Only playlists whose own name says Pahadi: their songs are trusted to be Pahadi.
                 if PAHADI.search(p["title"]):
@@ -484,6 +493,7 @@ def pahadi():
                     if row and PAHADI.search(f"{row[1]} {row[2]} {row[3]}"):
                         with C.lock:
                             C.pahadi.add(t[0])
+    print(f"pahadi: {answered} of {len(jobs)} searches answered, {raw} playlists before the name check", flush=True)
     print(f"pahadi: {len(found)} playlists found, {len(playlists)} kept, {len(C.pahadi)} songs; "
           f"their languages {dict(langs.most_common(6))}", flush=True)
     return playlists
