@@ -451,7 +451,7 @@ object LanguageGuess {
             "narendra singh negi|gajendra rana|meena rana|pritam bhartwan|kishan mahipal|inder arya|saurav maithani|" +
             "anisha ranghar|rohit chauhan|kuldeep sharma|thakur das rathi|vicky chauhan|basanti bisht|hema negi karasi|" +
             "gopal babu goswami|lalit mohan joshi|pappu karki|mangalesh dangwal|manglesh dangwal|darshan farswan|" +
-            "rajnikant semwal|karnail rana|jitendra tomkyal|sunil thapliyal|virendra negi|garhwal|uttrakhand",
+            "rajnikant semwal|karnail rana|jitendra tomkyal|sunil thapliyal|virendra negi|garhwal|uttrakhand|utrakhand",
         RegexOption.IGNORE_CASE,
     )
 

@@ -78,6 +78,15 @@ def tap(label, contains=False, scroll=0, wait=2.0):
     n = find(label, contains, scroll)
     if not n:
         return False
+    w, h = screen()
+    if scroll and n["y"] > h * 0.75 and any(t["text"] == "Your Library" and t["y"] > h * 0.85 for t in nodes(dump())):
+        # A row in a list, under the floating tab bar / mini player: bring it up first, or the tap lands on those.
+        # (Only where the tab bar shows: not in Now Playing or sheets.)
+        sh(f"input swipe {w // 2} {int(h * 0.6)} {w // 2} {int(h * 0.35)} 500")
+        time.sleep(1.5)
+        n = find(label, contains, 1)
+        if not n:
+            return False
     sh(f"input tap {n['x']} {n['y']}")
     time.sleep(wait)
     return True
@@ -323,10 +332,20 @@ def main():
          lambda: (alive(), "removed"))
 
     # Report #63: a searched song plays, and songs of its own kind (Bollywood -> Hindi, Pahadi -> Pahadi) come next.
+    def to_top():
+        for _ in range(4):
+            swipe_down()
+        time.sleep(1)
+    def search_box():
+        # The box at the top, never the "Search" tab at the bottom.
+        _, h = screen()
+        n = find("What do you want to listen to?", contains=True)
+        return n or next((r for r in nodes(dump()) if "Search" in (r["text"] + r["desc"]) and r["y"] < h * 0.4), None)
     def search_and_play(query, word):
         def go():
+            to_top()
             tap("Clear", wait=1)
-            n = find("What do you want to listen to?", contains=True) or find("Search", contains=True)
+            n = search_box()
             if not n:
                 print(f"  [{query}] no search box")
                 return False
@@ -352,9 +371,16 @@ def main():
                     if swipes < 3 and any(r["text"] in ("On this phone", "💿 Movies & albums", "🎤 Songs with these lyrics") for r in all_nodes):
                         swipe_up()
                         swipes += 1
-                    continue
+                        continue
+                    # One source only (YouTube search blocked from CI, run of Oct 27): no headers, the rows start
+                    # under the search box.
+                    box = next((r for r in all_nodes if r["text"].lower() == query), None)
+                    if not box:
+                        continue
+                    head = box
                 end = h * 0.78
-                rows = [r for r in all_nodes if word in (r["text"] + r["desc"]).lower() and head["y"] + 30 < r["y"] < end]
+                rows = [r for r in all_nodes if word in (r["text"] + r["desc"]).lower() and head["y"] + 30 < r["y"] < end
+                        and r["text"].lower() != query]
                 if rows:
                     # The first rows that start a song (the playing song changes); a second try on the next row.
                     for row in rows[:2]:
@@ -393,6 +419,7 @@ def main():
 
     def lyric_line():
         # A line from the middle of "Tujhe Dekha To" (not its name).
+        to_top()
         tap("Clear", wait=1)
         n = find("What do you want to listen to?", contains=True)
         if not n:
@@ -407,7 +434,8 @@ def main():
         # Genius (the lyrics search) can be blocked from CI servers, so this is only reported.
         hit = find("Songs with these lyrics", contains=True, scroll=2)
         print(("✅" if hit else "⚠️") + " lyrics search section " + ("shown" if hit else "not shown (Genius may be blocked here)"))
-    step("Search: voice search button", lambda: tap("Voice search", wait=3), lambda: (alive(), "opens the speech prompt or says it isn't available"))
+    step("Search: voice search button", lambda: (to_top(), tap("Voice search", wait=3))[1],
+         lambda: (alive(), "opens the speech prompt or says it isn't available"))
     back()
     back()
 
@@ -431,14 +459,15 @@ def main():
         tap("Cancel", wait=1)
         return ok
     step("Library: Blend with a friend", blend_dialog)
+    # Up to 7 ✨ mixes (Oct 27) sit before Recently played, Live radio and Listen together: room to scroll.
     for label in ["Online Library", "Live radio", "Your Stats", "Liked Songs", "Downloads", "On this phone"]:
         fresh()
         go_tab("Your Library")
-        step(f"Library: {label}", open_and_back(label, scroll=3, wait=5))
+        step(f"Library: {label}", open_and_back(label, scroll=6, wait=5))
     def together_room():
         fresh()
         go_tab("Your Library")
-        if not tap("Listen together", scroll=3, wait=2) or not tap("Start a room", wait=2):
+        if not tap("Listen together", scroll=6, wait=2) or not tap("Start a room", wait=2):
             return False
         ok = find("Room code") is not None and find("Invite friends") is not None
         tap("Leave", wait=1)

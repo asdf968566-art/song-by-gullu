@@ -1,5 +1,21 @@
 [
   {
+    "date": "2026-10-29",
+    "title": "More new songs",
+    "items": [
+      {
+        "on": "both",
+        "type": "new",
+        "text": "More new songs every day"
+      },
+      {
+        "on": "android",
+        "type": "fix",
+        "text": "Related songs after every Pahadi song"
+      }
+    ]
+  },
+  {
     "date": "2026-10-27",
     "title": "Mixes made for you",
     "items": [

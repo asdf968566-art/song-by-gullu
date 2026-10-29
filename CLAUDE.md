@@ -669,6 +669,24 @@ request the owner made, in order.
   - Web: `MadeForYou` in app.js (ids in `S.mfy[group] = {key, at, mixes}`; `recordPlay` counts plays per part of the
     day in `history[id].p`), shown in Library right after your playlists. Built in ~0.9 s on a desktop with 93 played
     songs (`songsBy` uses each song's `_k` first), then 1 ms from `S.mfy`. Pahadi songs stay out of the Hindi Mix.
+- **Catalog growth** (Oct 29, owner asked "kitne daily add hote h", then "krde"). On Oct 27 the catalog had
+  14,60,583 songs and grew ~850 a day (130 on the last day): every known singer (~1.9 lakh) was `done`, so the
+  150-minute crawl stopped after ~5 minutes. Now `build-web-catalog.py`:
+  - `deep_crawl` looks at finished singers again once unfinished ones run short: `artist_latest` (one page,
+    `category=latest`, `sort_order=desc`, like Android's `newSongsBy`); `checked` per artist in the state;
+    `refresh_every` = 3 / 7 / 21 / 60 days by `(1 + seen) × DEEP[lang]` (≥ 40 / 10 / 2); no answer → again in a day.
+    Log: `N crawled singers are due a look`, `crawl: … ; N singers looked at again, +M of them`.
+  - `new_releases(lang)` for the DEEP languages on every run: `content.getAlbums` pages 1–5 + `webapi.getLaunchData`
+    (`new_albums`, `new_trending`); albums go through `album()`. Log `new releases <lang>: …`.
+  - Two 8-minute branch runs: +17,238 and +12,812 songs (+14,009 / +9,524 of them from 3,216 / 4,071 singers looked
+    at again; new releases +315 the first time).
+  - Playlist searches were checked too (log `<lang> playlist searches: N of M answered…`): all answered, JioSaavn
+    just has ~300 distinct Hindi playlists for those words; none of the playlists it gives for the Pahadi words is
+    named Pahadi any more, so Pahadi songs come from the song searches (`pahadi: 0 playlists found` is expected).
+  - JioSaavn lists some Pahadi songs under their own language ("garhwali", …; CI walk Oct 29: a Garhwali song's radio
+    came out as kind "garhwali", not "pahadi"). The crawler keeps `PAHADI_LANGS` songs as Hindi + `C.pahadi`;
+    Android's `kindOf` and `Track.inLanguages` pass the language to `LanguageGuess.isPahadi`; the PAHADI word lists
+    (Android, web, crawler) also have the spelling "utrakhand".
 - **YouTube Shorts channel** (Oct 20, owner sent reels about "faceless" AI YouTube channels: "saare viral video dekh
   … cartoon, motion video, ai made movie … bna aur upload kar … monotize krwa"; "upload bhi tu kr, permission de
   dunga"; then "sirf shorts nhi, full movie, cartoon, ramayan, mahabharat"). Not part of the apps:
@@ -788,6 +806,7 @@ first, then `Baatcheet/docs/` (API, DEPLOYMENT, TESTING with a two-device call c
 | Kotlin `if (...) async {} else null` won't compile | Type inference | Explicit `Deferred<…>?` type |
 | Baseline profile | Gave no measurable gain on the emulator | Kept (harmless), reported honestly |
 | Main run 184: UI walk "Downloads screen: open" failed (branch run passed) | The check looked for the "Saved on this phone" header, which a LazyColumn doesn't draw when downloading/failed rows push it below the screen | The check reads the always-visible top line "N saved" (N ≥ 1) |
+| Oct 27: main's walk red 3 times ("Downloads screen: open", "For You: Play"); Settings / Search / Library steps warned "button not found" | The Downloads tile was the last row, under the floating tab bar + mini player, so the tap hit those; For You's check came while a YouTube song was still moving to its JioSaavn copy; `find` only scrolls down; with YouTube search blocked, results have no source headers; up to 7 ✨ mixes push Library's last tiles down | `tap(…, scroll>0)` nudges a row in the bottom quarter up when the tab bar shows; `playing_soon()`; Settings switches restart from the top; Search steps `to_top()` + rows under the box; Library tiles scroll 6 |
 
 Sandbox notes for Claude Code on the web: the session proxy blocks jiosaavn.com, genius, lrclib, invidious/piped,
 GitHub artifact/blob downloads and dl.google.com (no local Android SDK — build/test only in CI). Read job logs with
