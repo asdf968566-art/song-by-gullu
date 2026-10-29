@@ -50,7 +50,7 @@ jobs:
             *) [ "${{ github.ref }}" = "refs/heads/main" ] && MIN=10 || MIN=8 ;;
           esac
           python .github/scripts/build-web-catalog.py SangeetWeb/data catalog-state/state.json.gz "$MIN" | tee build.log
-          grep -E "state:|core |crawl|songs in catalog|TOTAL|pahadi|seed singers|community searches" build.log >> summary.txt
+          grep -E "state:|playlist search|core |new releases|due a look|crawl|songs in catalog|TOTAL|pahadi|seed singers|community searches" build.log >> summary.txt
           du -sh SangeetWeb/data catalog-state | tee -a summary.txt
       # Indian films with release year, music directors, producers, directors and cast (Wikidata), once a week.
       - name: Movie details

@@ -255,6 +255,25 @@ C = Catalog()
 
 # ------------------------------------------------------------------ crawl
 
+# Playlist searches came back empty from Oct 20 on (pahadi: 0 playlists, ~290 Hindi playlists of 1500 asked for).
+# Android asks for 20 a page and gets them, so each run checks which page size JioSaavn answers.
+PL_N = "20"
+
+
+def check_playlist_search():
+    global PL_N
+    got = {n: call("search.getPlaylistResults", {"q": "hindi romantic", "p": "1", "n": n}) for n in ("50", "20")}
+    counts = {n: len(playlists_of(r)) for n, r in got.items()}
+    PL_N = "50" if counts["50"] >= max(1, counts["20"]) else "20"
+    print(f"playlist search: n=50 -> {counts['50']}, n=20 -> {counts['20']}; using n={PL_N}", flush=True)
+    if not any(counts.values()):
+        print(f"  playlist search answer: {json.dumps(got['20'])[:400] if got['20'] is not None else 'no answer'}", flush=True)
+
+
+def search_playlists(q, page, lang=None):
+    return call("search.getPlaylistResults", {"q": q, "p": str(page), "n": PL_N}, lang)
+
+
 def playlists_of(root):
     out = []
     for o in items(root, ["data", "results"]):
@@ -271,9 +290,10 @@ def core(lang, n_playlists):
         p["chart"] = 1
         found.setdefault(p["id"], p)
     jobs = [("content.getFeaturedPlaylists", {"fetch_from_serialized_files": "true", "p": str(p), "n": "50"}) for p in range(1, 25)]
-    jobs += [("search.getPlaylistResults", {"q": f"{lang} {m}", "p": "1", "n": "50"}) for m in MOODS]
+    pages = (1, 2) if PL_N == "20" else (1,)
+    jobs += [("search.getPlaylistResults", {"q": f"{lang} {m}", "p": str(p), "n": PL_N}) for m in MOODS for p in pages]
     if lang == "haryanvi":
-        jobs += [("search.getPlaylistResults", {"q": f"haryanvi {t}", "p": str(p), "n": "50"}) for t in HARYANVI_TERMS for p in (1, 2)]
+        jobs += [("search.getPlaylistResults", {"q": f"haryanvi {t}", "p": str(p), "n": PL_N}) for t in HARYANVI_TERMS for p in (1, 2, 3)]
     with cf.ThreadPoolExecutor(16) as ex:
         for (_, params), res in zip(jobs, ex.map(lambda j: call(j[0], j[1], lang), jobs)):
             term = params["q"][len(lang) + 1:] if "q" in params else None
@@ -336,7 +356,52 @@ def artist_page(aid):
         a["dry"] = 0 if new else a.get("dry", 0) + 1
         if not songs or a["dry"] >= 4 or page >= 400:
             a["done"] = True
+            a["checked"] = int(time.time())
     return new
+
+
+# Singers already crawled are looked at again for their newest songs (Oct 29: every known singer was done, so the
+# 150-minute crawl stopped after 5 minutes and new songs came only from charts and playlists: ~130 a day).
+# Popular singers every 3 days, the rest less often.
+def refresh_every(a):
+    w = (1 + a.get("seen", 0)) * DEEP.get(a["lang"], 0.1)
+    return 86400 * (3 if w >= 40 else 7 if w >= 10 else 21 if w >= 2 else 60)
+
+
+def artist_latest(aid):
+    """A crawled singer's newest songs (one page). Returns how many were new."""
+    a = C.artists[aid]
+    res = call("artist.getArtistPageDetails", {"artistId": aid, "n_song": "50", "n_album": "0", "page": "0",
+                                               "category": "latest", "sort_order": "desc"})
+    new = sum(1 for o in items(res, ["topSongs"]) if (t := C.add(o, pop=1, small=False)) and t[2])
+    now = int(time.time())
+    with C.lock:
+        # No answer: try again in a day.
+        a["checked"] = now if res is not None else now - refresh_every(a) + 86400
+    return new
+
+
+def new_releases(lang):
+    """JioSaavn's new releases in a language (albums and singles), on every run."""
+    found, albums = 0, []
+    sources = [call("content.getAlbums", {"n": "50", "p": str(p)}, lang) for p in range(1, 6)]
+    launch = call("webapi.getLaunchData", {}, lang)
+    sources += [launch.get(k) for k in ("new_albums", "new_trending")] if isinstance(launch, dict) else []
+    new = 0
+    for res in sources:
+        for o in items(res, ["data", "results"]):
+            if not isinstance(o, dict) or not o.get("id"):
+                continue
+            found += 1
+            kind = o.get("type", "")
+            if kind == "song":
+                t = C.add(o, pop=3, small=False)
+                new += 1 if t and t[2] else 0
+            elif kind == "album" and o["id"] not in C.albums_done and o["id"] not in albums:
+                albums.append(o["id"])
+    with cf.ThreadPoolExecutor(12) as ex:
+        new += sum(ex.map(album, albums))
+    print(f"new releases {lang}: {found} found, {len(albums)} new albums, +{new} songs", flush=True)
 
 
 def album(alb):
@@ -378,9 +443,9 @@ def seed_singers():
 def pahadi():
     """Garhwali, Kumaoni, Jaunsari and Himachali songs: playlists named like that, and song searches."""
     found = {}
-    jobs = [{"q": t, "p": str(p), "n": "50"} for t in PAHADI_TERMS for p in (1, 2)]
+    jobs = [(t, p) for t in PAHADI_TERMS for p in (1, 2, 3)]
     with cf.ThreadPoolExecutor(12) as ex:
-        for res in ex.map(lambda q: call("search.getPlaylistResults", q), jobs):
+        for res in ex.map(lambda j: search_playlists(*j), jobs):
             for p in playlists_of(res):
                 # Only playlists whose own name says Pahadi: their songs are trusted to be Pahadi.
                 if PAHADI.search(p["title"]):
@@ -425,28 +490,43 @@ def pahadi():
 
 
 def deep_crawl(deadline):
-    """Every singer's songs, most important first, until the time is up."""
+    """Every singer's songs, most important first; then the newest songs of singers due a look, until the time is up."""
     requests = new = rounds = 0
+    looked = from_looks = 0
+    due = None  # finished singers due a look, most important first (made once, when unfinished ones run short)
     with cf.ThreadPoolExecutor(24) as ex:
         while time.time() < deadline:
             with C.lock:
                 todo = [aid for aid, a in C.artists.items() if not a["done"]]
                 todo.sort(key=lambda aid: -DEEP.get(C.artists[aid]["lang"], 0) * (1 + C.artists[aid]["seen"]) / (1 + C.artists[aid]["page"]))
                 albums = list(C.album_queue)[:200]
-            batch = todo[:240]
-            if not batch and not albums:
+                batch = todo[:240]
+                if len(batch) < 240 and due is None:
+                    now = time.time()
+                    due = [aid for aid, a in C.artists.items() if a["done"] and now - a.get("checked", 0) > refresh_every(a)]
+                    due.sort(key=lambda aid: -DEEP.get(C.artists[aid]["lang"], 0) * (1 + C.artists[aid]["seen"]))
+                    print(f"  {len(due)} crawled singers are due a look for new songs", flush=True)
+            looks = due[: 240 - len(batch)] if due else []
+            if due:
+                del due[: len(looks)]
+            if not batch and not albums and not looks:
                 break
             jobs = [ex.submit(artist_page, aid) for aid in batch] + [ex.submit(album, alb) for alb in albums[:60]]
-            for j in cf.as_completed(jobs):
+            look_jobs = [ex.submit(artist_latest, aid) for aid in looks]
+            for j in cf.as_completed(jobs + look_jobs):
                 requests += 1
                 try:
-                    new += j.result()
+                    n = j.result()
                 except Exception:
-                    pass
+                    continue
+                new += n
+                if j in look_jobs:
+                    looked += 1
+                    from_looks += n
             rounds += 1
             if rounds % 10 == 0:
                 print(f"  crawl: {requests} requests, +{new} songs, total {len(C.order)}", flush=True)
-    print(f"crawl: {requests} requests, +{new} new songs", flush=True)
+    print(f"crawl: {requests} requests, +{new} new songs; {looked} singers looked at again, +{from_looks} of them", flush=True)
 
 
 # ------------------------------------------------------------------ output
@@ -543,6 +623,7 @@ def write(playlists_by_lang):
 def main():
     t0 = time.time()
     C.load(STATE)
+    check_playlist_search()
     playlists = {}
     for lang in LANGS:
         n = {"hindi": 1500, "punjabi": 1000, "haryanvi": 900, "english": 400}.get(lang, 120)
@@ -571,6 +652,8 @@ def main():
                 for o in items(res, ["results"]):
                     C.add(o, pop=2)
         print(f"community searches: {len(wanted)} looked up, +{len(C.order) - before} songs, total {len(C.order)}", flush=True)
+    for lang in DEEP:
+        new_releases(lang)
     C.save(STATE)
     deep_crawl(t0 + MINUTES * 60)
     C.save(STATE)
