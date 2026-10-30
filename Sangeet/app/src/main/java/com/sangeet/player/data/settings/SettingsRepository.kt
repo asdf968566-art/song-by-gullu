@@ -23,7 +23,7 @@ enum class ThemeStyle(val label: String, val tagline: String) {
     SPOTIFY("Classic Dark", "Sleek dark look"),
     AURORA("Aurora", "Animated northern-lights gradient"),
     GLASS("Glassmorphism", "Frosted glass cards"),
-    NEUMORPHISM("Neumorphism", "Soft 3D raised buttons"),
+    NEUMORPHISM("Neumorphism", "Soft UI: raised cards and buttons everywhere"),
     AMOLED("AMOLED Black", "Pure black, saves battery"),
     MATERIAL_YOU("Material You", "Colors from your wallpaper (Android 12+)"),
     LIQUID_GLASS("Liquid Glass", "iOS 26 style: floating glass bars over the content"),

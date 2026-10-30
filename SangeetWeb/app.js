@@ -1125,8 +1125,8 @@ if ('mediaSession' in navigator) {
 
 /* ------------------------------------------------------------------ shared UI pieces */
 function trackRow(t, onClick) {
-  // Neon Glass (the reel's song rows): a heart and a round glass play button too.
-  const neon = document.body.classList.contains('neon');
+  // Neon Glass (the reel's song rows) and Soft UI: a heart and a round play button too.
+  const neon = document.body.classList.contains('neon') || document.body.classList.contains('soft');
   return h('div', { class: 'row' + (Player.current?.id === t.id ? ' playing' : ''), 'data-id': t.id, onclick: onClick },
     h('img', { class: 'art', src: art(t), loading: 'lazy', alt: '' }),
     h('div', { class: 'meta' }, h('div', { class: 't' }, t.title),
@@ -1139,10 +1139,10 @@ function trackRow(t, onClick) {
     } }, icon('play')) : null,
     h('button', { class: 'icon-btn more', 'aria-label': 'More', onclick: (e) => { e.stopPropagation(); trackMenu(t); } }, icon('more')));
 }
-/** A card's cover; on Neon Glass with a round glass play button on it (the reel's "Recently Played"). */
+/** A card's cover; on Neon Glass and Soft UI with a round play button on it (the reel's "Recently Played"). */
 function coverBox(src) {
   const img = h('img', { class: 'cover', src, loading: 'lazy', alt: '' });
-  if (!document.body.classList.contains('neon')) return img;
+  if (!document.body.classList.contains('neon') && !document.body.classList.contains('soft')) return img;
   return h('div', { class: 'cover-box' }, img, h('span', { class: 'go' }, icon('play')));
 }
 /** Long lists render 60 rows at a time as you scroll. `asRadio`: tapping a song plays it followed by songs like it
@@ -3265,7 +3265,7 @@ const WhatsNew = {
 };
 
 /* ------------------------------------------------------------------ look: Classic or Liquid Glass */
-const LOOKS = [['classic', 'Classic dark'], ['glass-dark', 'Liquid Glass · Dark'], ['glass-light', 'Liquid Glass · Light'], ['glass-auto', 'Liquid Glass · Same as iPhone'], ['crystal-dark', 'Crystal · Dark'], ['crystal-light', 'Crystal · Light'], ['neon', 'Neon Glass']];
+const LOOKS = [['classic', 'Classic dark'], ['glass-dark', 'Liquid Glass · Dark'], ['glass-light', 'Liquid Glass · Light'], ['glass-auto', 'Liquid Glass · Same as iPhone'], ['crystal-dark', 'Crystal · Dark'], ['crystal-light', 'Crystal · Light'], ['neon', 'Neon Glass'], ['soft-light', 'Soft UI · Light'], ['soft-dark', 'Soft UI · Dark']];
 const lightQuery = matchMedia('(prefers-color-scheme: light)');
 function applyLook() {
   const look = S.look || 'classic';
@@ -3274,13 +3274,16 @@ function applyLook() {
   const glass = look.startsWith('glass');
   // Neon Glass (owner, Oct 13, from an Instagram reel): blue-violet glass with glowing violet tabs. Always dark.
   const neon = look === 'neon';
-  const light = look === 'glass-light' || look === 'crystal-light' || (look === 'glass-auto' && lightQuery.matches);
+  // Soft UI (Neumorphism, the owner's picture, Oct 30): raised soft cards and buttons on every page.
+  const soft = look.startsWith('soft');
+  const light = look === 'glass-light' || look === 'crystal-light' || look === 'soft-light' || (look === 'glass-auto' && lightQuery.matches);
   document.documentElement.style.setProperty('--accent', S.accent || '#ff5c6b');
   document.body.classList.toggle('glass', glass);
   document.body.classList.toggle('crystal', crystal);
   document.documentElement.classList.toggle('crystal', crystal);
   document.body.classList.toggle('neon', neon);
   document.documentElement.classList.toggle('neon', neon);
+  document.body.classList.toggle('soft', soft);
   const pal = neon ? Neon.palette(S.accent || '#ff5c6b') : null;
   if (pal) for (const [k, v] of Object.entries(pal)) document.documentElement.style.setProperty('--n-' + k, v);
   document.body.classList.toggle('light', light);
@@ -3297,7 +3300,7 @@ function applyLook() {
     ['feed', 'search', 'library', 'settings'].forEach((t) => tabs.append(btn(t)));
     cap.remove();
   }
-  document.querySelector('meta[name="theme-color"]').setAttribute('content', light ? '#f2f2f7' : glass ? '#000000' : crystal ? '#0b0e1a' : neon ? pal.top : '#0b0b0f');
+  document.querySelector('meta[name="theme-color"]').setAttribute('content', soft ? (light ? '#e6e7eb' : '#2b2f36') : light ? '#f2f2f7' : glass ? '#000000' : crystal ? '#0b0e1a' : neon ? pal.top : '#0b0b0f');
   // Status bar text color is read when the app opens (index.html).
   const before = (() => { try { return localStorage.getItem('sangeet-look'); } catch { return null; } })();
   try { localStorage.setItem('sangeet-look', light ? 'light' : 'dark'); } catch {}
@@ -3453,7 +3456,7 @@ const UI = {
         h('div', { class: 'info', style: 'display:flex;align-items:center;gap:12px' },
           h('div', { class: 'meta', style: 'flex:1;min-width:0' },
             h('div', { style: 'font-size:22px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis' }, t.title),
-            h('div', { style: 'color:rgba(255,255,255,.7);white-space:nowrap;overflow:hidden;text-overflow:ellipsis' }, t.artist)),
+            h('div', { class: 'np-artist', style: 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis' }, t.artist)),
           // Add to playlist, right next to Like (a tester's report, Oct 10).
           t.src === 'radio' ? null : h('button', { class: 'icon-btn', 'aria-label': 'Add to playlist', onclick: () => playlistPicker(t) }, icon('plus')),
           likeBtn(t)),

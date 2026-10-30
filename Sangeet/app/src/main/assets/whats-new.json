@@ -1,5 +1,16 @@
 [
   {
+    "date": "2026-10-30",
+    "title": "Soft UI theme",
+    "items": [
+      {
+        "on": "both",
+        "type": "new",
+        "text": "Soft UI theme on every page"
+      }
+    ]
+  },
+  {
     "date": "2026-10-29",
     "title": "More new songs",
     "items": [

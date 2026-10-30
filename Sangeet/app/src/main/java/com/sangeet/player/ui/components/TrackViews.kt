@@ -397,8 +397,14 @@ fun QuickTile(title: String, artwork: String?, onClick: () -> Unit, modifier: Mo
 fun NeonHero(title: String, subtitle: String, artwork: String?, onPlay: () -> Unit, onOpen: () -> Unit) {
     val spec = Sangeet.spec
     val neon = spec.style == ThemeStyle.NEON
-    // Neon fades the cover into its deep blue-violet; Liquid Glass into its own frosted white / graphite.
-    val fade = if (neon) spec.neonColors.page[1] else if (spec.isDark) Color(0xFF1C1C1E) else Color(0xFFF7F9FC)
+    // Neon fades the cover into its deep blue-violet; Liquid Glass into its own frosted white / graphite; Soft UI into
+    // its soft grey.
+    val fade = when {
+        neon -> spec.neonColors.page[1]
+        spec.style == ThemeStyle.NEUMORPHISM -> spec.background
+        spec.isDark -> Color(0xFF1C1C1E)
+        else -> Color(0xFFF7F9FC)
+    }
     val ink = if (neon) Color.White else spec.onSurface
     val buttonInk = if (neon) spec.neonColors.page[2] else playIconColor(spec)
     Box(

@@ -39,6 +39,7 @@ import androidx.compose.ui.graphics.Color
 import com.sangeet.player.ui.theme.glassEverywhere
 import com.sangeet.player.ui.theme.glassInk
 import com.sangeet.player.ui.theme.glassPanel
+import com.sangeet.player.ui.theme.softInset
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
@@ -313,7 +314,7 @@ fun SearchScreen(nav: NavController) {
                 if (r.resultCode == Activity.RESULT_OK && !said.isNullOrBlank()) { vm.onVoice(said); focus.clearFocus() }
             }
             val fieldText = if (classic) Color(0xFF121212) else spec.onSurface
-            val fieldCorner = when (spec.style) { ThemeStyle.LIQUID_GLASS -> 24.dp; ThemeStyle.NEON -> 20.dp; else -> 8.dp }
+            val fieldCorner = when (spec.style) { ThemeStyle.LIQUID_GLASS -> 24.dp; ThemeStyle.NEON, ThemeStyle.NEUMORPHISM -> 20.dp; else -> 8.dp }
             val shape = RoundedCornerShape(fieldCorner)
             TextField(
                 value = ui.query,
@@ -353,7 +354,14 @@ fun SearchScreen(nav: NavController) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp)
-                    .then(if (classic) Modifier else Modifier.themedCard(spec, shape, corner = fieldCorner, elevation = 4.dp)),
+                    .then(
+                        when {
+                            classic -> Modifier
+                            // Soft UI: the box is pressed into the page.
+                            spec.style == ThemeStyle.NEUMORPHISM -> Modifier.softInset(spec, shape)
+                            else -> Modifier.themedCard(spec, shape, corner = fieldCorner, elevation = 4.dp)
+                        }
+                    ),
             )
         }
 

@@ -113,6 +113,7 @@ body.has-mini #page { bottom: calc(var(--tabs-h) + var(--mini-h)); }
 .np-top { display: flex; align-items: center; justify-content: space-between; }
 .np-body { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; margin: 12px 0; container-type: size; }
 .np-body .cover { width: min(100cqw, 100cqh, 420px); aspect-ratio: 1; border-radius: 14px; object-fit: cover; box-shadow: 0 20px 50px rgba(0, 0, 0, .5); background: var(--surface); }
+.np-artist { color: rgba(255, 255, 255, .7); }
 .np-bottom .row-icons { display: flex; justify-content: space-between; margin-top: 14px; color: rgba(255, 255, 255, .85); }
 .np-bottom .row-icons .on { color: var(--accent); }
 .lyrics { width: 100%; height: 100%; overflow-y: auto; padding: 40% 0; mask-image: linear-gradient(transparent, #000 15%, #000 85%, transparent); -webkit-mask-image: linear-gradient(transparent, #000 15%, #000 85%, transparent); }
@@ -443,3 +444,82 @@ body.neon .up-next { display: block; margin-top: 12px; padding: 10px 12px; borde
 .up-row .meta { flex: 1; min-width: 0; }
 .up-row .t { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .up-row .s { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---------- Soft UI (Neumorphism; the owner's picture, Oct 30): one soft color for the page and every part, which is
+   raised out of it (light from the top left: a highlight there, a soft shadow at the bottom right) or pressed into it
+   (the chosen tab, search, switches, the seek bar). Light and dark. */
+body.soft {
+  --bg: #2b2f36; --surface: #2b2f36; --line: rgba(255, 255, 255, .06); --text: #e6e9ef; --muted: #9aa1ad;
+  --soft-hi: rgba(255, 255, 255, .07); --soft-lo: rgba(0, 0, 0, .55);
+  --soft-face: linear-gradient(135deg, #30343c, #282c32);
+  --bar-h: 64px;
+}
+body.soft.light {
+  --bg: #e6e7eb; --surface: #e6e7eb; --line: rgba(0, 0, 0, .06); --text: #3b4049; --muted: #858b96; color-scheme: light;
+  --soft-hi: #fff; --soft-lo: rgba(163, 169, 181, .6);
+  --soft-face: linear-gradient(135deg, #eff0f3, #e1e2e6);
+}
+body.soft {
+  --soft-up: -6px -6px 14px var(--soft-hi), 6px 6px 14px var(--soft-lo);
+  --soft-up-s: -4px -4px 9px var(--soft-hi), 4px 4px 9px var(--soft-lo);
+  --soft-in: inset 3px 3px 6px var(--soft-lo), inset -3px -3px 6px var(--soft-hi);
+}
+/* The tab bar and mini player float, raised, over the page's end. */
+body.soft .tab-page, body.soft.has-mini #page { bottom: 0; }
+body.soft #page { padding-bottom: calc(env(safe-area-inset-bottom) + 100px); }
+body.soft.has-mini #page { padding-bottom: calc(env(safe-area-inset-bottom) + 178px); }
+body.soft #tabs, body.soft #mini { background: var(--soft-face); box-shadow: var(--soft-up); border: 0; }
+body.soft #tabs { left: 14px; right: 14px; bottom: calc(env(safe-area-inset-bottom) + 10px); height: var(--bar-h); padding: 6px; gap: 6px; border-radius: 24px; }
+body.soft #tabs button { border-radius: 18px; color: var(--muted); }
+body.soft #tabs button.on { background: var(--bg); box-shadow: var(--soft-in); color: var(--accent); }
+body.soft #tabs button.on svg { fill: var(--accent); }
+body.soft #mini { left: 14px; right: 14px; bottom: calc(env(safe-area-inset-bottom) + 10px + var(--bar-h) + 14px); height: 62px; border-radius: 20px; overflow: hidden; padding: 0 10px; }
+body.soft #mini .art { border-radius: 10px; }
+body.soft #mini .bar { top: auto; bottom: 0; }
+body.soft .fp { padding-bottom: calc(env(safe-area-inset-bottom) + 100px); }
+body.soft #toast { bottom: calc(env(safe-area-inset-bottom) + 170px); }
+/* Raised: song rows, cards, list rows, setting groups, buttons. */
+body.soft .row { margin: 8px 14px; padding: 8px 6px 8px 8px; gap: 10px; border-radius: 18px; background: var(--soft-face); box-shadow: var(--soft-up-s); }
+body.soft .ranked .row { margin-left: 4px; }
+body.soft .row .art { border-radius: 12px; }
+body.soft .row .t { font-weight: 600; }
+body.soft .row .like { width: 34px; height: 34px; }
+body.soft .row .like svg { width: 21px; height: 21px; }
+body.soft .row .more { width: 32px; }
+body.soft .row:active, body.soft .link-row:active, body.soft .card:active { box-shadow: var(--soft-in); }
+body.soft .go { width: 34px; height: 34px; flex: none; border-radius: 50%; display: grid; place-items: center; color: var(--accent); background: var(--soft-face); box-shadow: var(--soft-up-s); }
+body.soft .go svg { width: 20px; height: 20px; }
+body.soft .cover-box { position: relative; }
+body.soft .cover-box .go { position: absolute; right: 7px; bottom: 7px; width: 32px; height: 32px; }
+body.soft .card { padding: 8px; border-radius: 20px; background: var(--soft-face); box-shadow: var(--soft-up); }
+body.soft .card .cover { border-radius: 14px; box-shadow: none; }
+body.soft .grid { gap: 18px; padding: 10px 16px; }
+body.soft .link-row { margin: 10px 14px; border-radius: 16px; padding: 12px 14px; background: var(--soft-face); box-shadow: var(--soft-up-s); }
+body.soft .set-card { background: var(--soft-face); box-shadow: var(--soft-up); border-radius: 18px; }
+body.soft .pill, body.soft .chip { background: var(--soft-face); box-shadow: var(--soft-up-s); border: 0; color: var(--text); }
+body.soft .pill.primary, body.soft .chip.on { background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 80%, #fff), var(--accent)); color: #fff; }
+body.soft .cat { border-radius: 18px; height: 84px; color: var(--text); background: radial-gradient(circle at 0 0, color-mix(in srgb, var(--c, #888) 55%, transparent), transparent 75%), var(--soft-face) !important; box-shadow: var(--soft-up-s); }
+/* Pressed in: search and other boxes, switches. */
+body.soft .search-box { background: var(--bg); }
+body.soft input, body.soft select { background: var(--bg); border: 0; border-radius: 16px; box-shadow: var(--soft-in); }
+body.soft .switch { background: var(--bg); box-shadow: var(--soft-in); }
+body.soft .switch.on { background: var(--accent); }
+body.soft .switch span { box-shadow: -2px -2px 4px var(--soft-hi), 2px 2px 4px var(--soft-lo); }
+body.soft .menu .box { background: var(--bg); box-shadow: 0 -8px 24px var(--soft-lo); border-radius: 24px 24px 0 0; }
+/* Now Playing on the plain soft page: a raised cover and round raised buttons, the play button in the accent. */
+body.soft .sheet { background: var(--bg); color: var(--text); }
+body.soft .sheet .bg { display: none; }
+body.soft .np-body .cover { border-radius: 24px; box-shadow: var(--soft-up); }
+body.soft .np-bottom .row-icons { color: var(--text); }
+body.soft .np-artist { color: var(--muted); }
+body.soft .np-bottom .row-icons .icon-btn { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; background: var(--soft-face); box-shadow: var(--soft-up-s); }
+body.soft .np-bottom .row-icons .icon-btn svg { width: 21px; height: 21px; }
+body.soft .controls { gap: 30px; }
+body.soft .controls > button:not(.big) { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; color: var(--text); background: var(--soft-face); box-shadow: var(--soft-up-s); }
+body.soft .controls > button:not(.big) svg { width: 30px; height: 30px; }
+body.soft .controls .big { color: #fff; background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 78%, #fff), var(--accent) 60%, color-mix(in srgb, var(--accent) 88%, #000)); box-shadow: var(--soft-up); }
+body.soft .seek input { height: 8px; border-radius: 4px; background: linear-gradient(to right, var(--accent) var(--p, 0%), transparent var(--p, 0%)), var(--bg); box-shadow: var(--soft-in); }
+body.soft .seek input::-webkit-slider-thumb { width: 18px; height: 18px; background: var(--accent); box-shadow: -2px -2px 4px var(--soft-hi), 2px 2px 4px var(--soft-lo); }
+body.soft .seek .times { color: var(--muted); }
+body.soft .lyrics p { color: color-mix(in srgb, var(--text) 35%, transparent); }
+body.soft .lyrics p.on { color: var(--text); }

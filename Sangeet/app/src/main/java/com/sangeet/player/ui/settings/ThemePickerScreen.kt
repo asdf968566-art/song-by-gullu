@@ -71,7 +71,13 @@ fun ThemePickerScreen(nav: NavController) {
                         style = style,
                         selected = s.theme == style,
                         modifier = Modifier.weight(1f),
-                    ) { scope.launch { c.settings.setTheme(style) } }
+                    ) {
+                        scope.launch {
+                            c.settings.setTheme(style)
+                            // Soft UI is the owner's light picture (Oct 30); Dark can still be picked below.
+                            if (style == ThemeStyle.NEUMORPHISM && s.darkMode == DarkMode.DARK) c.settings.setDarkMode(DarkMode.LIGHT)
+                        }
+                    }
                 }
                 if (row.size == 1) Spacer(Modifier.weight(1f))
             }
