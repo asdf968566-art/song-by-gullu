@@ -99,7 +99,7 @@ import kotlinx.coroutines.flow.map
 import com.sangeet.player.ui.theme.LocalBottomBarSpace
 import com.sangeet.player.ui.theme.ThemeSpec
 import com.sangeet.player.ui.theme.glassCircle
-import com.sangeet.player.ui.theme.glassEverywhere
+import com.sangeet.player.ui.theme.seeThrough
 import com.sangeet.player.ui.theme.neonColors
 import com.sangeet.player.ui.theme.playButtonStyle
 import com.sangeet.player.ui.theme.playIconColor
@@ -369,7 +369,7 @@ fun DiscoverScreen(nav: NavController) {
                     color = Color.White,
                     modifier = Modifier.weight(1f),
                 )
-                if (feed.glassEverywhere) {
+                if (feed.seeThrough) {
                     FeedButton(feed, onClick = { nav.navigate(Routes.DJ) }) { Icon(Icons.Rounded.AutoAwesome, "AI DJ", tint = Color.White, modifier = Modifier.size(22.dp)) }
                     Spacer(Modifier.width(10.dp))
                     FeedButton(feed, onClick = vm::refresh) { Icon(Icons.Rounded.Refresh, "New feed", tint = Color.White, modifier = Modifier.size(22.dp)) }
@@ -388,11 +388,11 @@ fun DiscoverScreen(nav: NavController) {
                 // Glass themes: the chosen chip takes the theme's color (report #51: For You looked unthemed).
                 val chosen = when {
                     feed.style == com.sangeet.player.data.settings.ThemeStyle.NEON -> feed.neonColors.solid
-                    feed.glassEverywhere -> feed.accent
+                    feed.seeThrough -> feed.accent
                     else -> Color.White
                 }
                 val chipColors = FilterChipDefaults.filterChipColors(
-                    containerColor = Color.White.copy(alpha = if (feed.glassEverywhere) 0.16f else 0.12f),
+                    containerColor = Color.White.copy(alpha = if (feed.seeThrough) 0.16f else 0.12f),
                     labelColor = Color.White,
                     selectedContainerColor = chosen,
                     selectedLabelColor = if (chosen.luminance() > 0.5f) Color.Black else Color.White,
@@ -443,7 +443,7 @@ private fun FeedPage(
     val t = suggestion.track
     val spec = Sangeet.spec
     val feed = feedSpec()
-    val glass = feed.glassEverywhere
+    val glass = feed.seeThrough
     // "Add to playlist" right next to Like (a tester's report, Oct 10).
     var addTo by remember { mutableStateOf(false) }
     if (addTo) com.sangeet.player.ui.components.AddToPlaylistDialog(listOf(t)) { addTo = false }
@@ -641,10 +641,13 @@ private fun feedSpec(): ThemeSpec {
     return remember(spec) { spec.copy(isDark = true, onSurface = Color.White, muted = Color.White.copy(alpha = 0.7f)) }
 }
 
-/** A control of the feed; on Neon / Liquid Glass a round glass button (report #51), else a plain icon button. */
+/**
+ * A control of the feed; on Neon / Liquid Glass a round glass button (report #51), else a plain icon button. Soft UI
+ * keeps plain ones: its shadows need a plain page, and the feed plays over the song's cover.
+ */
 @Composable
 private fun FeedButton(feed: ThemeSpec, onClick: () -> Unit, size: androidx.compose.ui.unit.Dp = 40.dp, content: @Composable () -> Unit) {
-    if (feed.glassEverywhere) com.sangeet.player.ui.components.GlassIconButton(onClick, size = size, spec = feed, content = content)
+    if (feed.seeThrough) com.sangeet.player.ui.components.GlassIconButton(onClick, size = size, spec = feed, content = content)
     else IconButton(onClick = onClick, modifier = Modifier.size(size), content = content)
 }
 

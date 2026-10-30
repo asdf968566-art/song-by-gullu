@@ -138,12 +138,13 @@ private fun specFor(style: ThemeStyle, dark: Boolean, accent: Color, scheme: Col
         style, false, accent, Color(0xFFDCD6FF), Color(0x73FFFFFF), Color(0xFF1C1433), Color(0xFF4F4670), Color(0x80FFFFFF),
     )
 
+    // Soft UI (the owner's picture, Oct 30): one soft grey for the page and every raised part, lit from the top left.
     ThemeStyle.NEUMORPHISM -> if (dark) ThemeSpec(
         style, true, accent, Color(0xFF2B2F36), Color(0xFF2B2F36), Color(0xFFE6E9EF), Color(0xFF9AA1AD), Color(0xFF2B2F36),
-        lightShadow = Color(0x1AFFFFFF), darkShadow = Color(0x99000000),
+        lightShadow = Color(0x24FFFFFF), darkShadow = Color(0xA6000000),
     ) else ThemeSpec(
-        style, false, accent, Color(0xFFE3E8EF), Color(0xFFE3E8EF), Color(0xFF3A4150), Color(0xFF7B8394), Color(0xFFE3E8EF),
-        lightShadow = Color(0xFFFFFFFF), darkShadow = Color(0x55A3B1C6),
+        style, false, accent, Color(0xFFE6E7EB), Color(0xFFE6E7EB), Color(0xFF3B4049), Color(0xFF858B96), Color(0xFFE6E7EB),
+        lightShadow = Color(0xFFFFFFFF), darkShadow = Color(0x8CA3A9B5),
     )
 
     // Liquid Glass (iOS 26): plain system background and cards; the glass is only on the floating controls.

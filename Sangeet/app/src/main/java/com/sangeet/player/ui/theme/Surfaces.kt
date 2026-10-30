@@ -19,10 +19,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.graphics.addOutline
+import androidx.compose.ui.graphics.asAndroidPath
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.draw.blur
@@ -185,9 +189,14 @@ private fun Modifier.liquidBackdrop(spec: ThemeSpec): Modifier {
 
 /**
  * Neon Glass and Liquid Glass put every song row, card, tile and tool on glass (report #51: "jo neon glass theme
- * ka effect hai … same liquid glass theme ke liye bhi kar de").
+ * ka effect hai … same liquid glass theme ke liye bhi kar de"); Neumorphism puts them on soft raised panels (owner,
+ * Oct 30: "saare cards par ye apply honge sb jagah").
  */
-val ThemeSpec.glassEverywhere: Boolean get() = style == ThemeStyle.NEON || style == ThemeStyle.LIQUID_GLASS
+val ThemeSpec.glassEverywhere: Boolean
+    get() = style == ThemeStyle.NEON || style == ThemeStyle.LIQUID_GLASS || style == ThemeStyle.NEUMORPHISM
+
+/** Real see-through glass, which can sit over a song's cover (For You). Neumorphism's shadows need a plain page. */
+val ThemeSpec.seeThrough: Boolean get() = style == ThemeStyle.NEON || style == ThemeStyle.LIQUID_GLASS
 
 /**
  * Liquid Glass on the page itself (rows, cards): a frosted pane, cool white in light mode and graphite in dark,
@@ -214,13 +223,19 @@ fun Modifier.liquidPane(spec: ThemeSpec, shape: Shape, strong: Boolean = false):
         shape,
     )
 
-/** This theme's glass panel: Neon's tinted glass or Liquid Glass's frosted pane. */
-fun Modifier.glassPanel(spec: ThemeSpec, shape: Shape): Modifier =
-    if (spec.style == ThemeStyle.NEON) neonGlass(shape) else liquidPane(spec, shape)
+/** This theme's panel: Neon's tinted glass, Liquid Glass's frosted pane or Neumorphism's soft raised one. */
+fun Modifier.glassPanel(spec: ThemeSpec, shape: Shape): Modifier = when (spec.style) {
+    ThemeStyle.NEON -> neonGlass(shape)
+    ThemeStyle.NEUMORPHISM -> softRaised(spec, shape, 4.dp)
+    else -> liquidPane(spec, shape)
+}
 
-/** This theme's round glass button (play in rows, the heart on the cover, Now Playing's tools…). */
-fun Modifier.glassCircle(spec: ThemeSpec): Modifier =
-    if (spec.style == ThemeStyle.NEON) neonCircle() else liquidPane(spec, CircleShape, strong = true)
+/** This theme's round button (play in rows, the heart on the cover, Now Playing's tools…). */
+fun Modifier.glassCircle(spec: ThemeSpec): Modifier = when (spec.style) {
+    ThemeStyle.NEON -> neonCircle()
+    ThemeStyle.NEUMORPHISM -> softRaised(spec, CircleShape, 3.dp)
+    else -> liquidPane(spec, CircleShape, strong = true)
+}
 
 /** Icons and names on this theme's glass: white on Neon's dark glass, the page's text color on Liquid Glass. */
 fun glassInk(spec: ThemeSpec): Color = if (spec.style == ThemeStyle.NEON) Color.White else spec.onSurface
@@ -257,6 +272,66 @@ fun Modifier.neonFill(spec: ThemeSpec, shape: Shape, glow: Dp = 12.dp): Modifier
 }
 
 /**
+ * Soft UI (Neumorphism; the owner's picture, Oct 30): a part pushed out of the page. The light comes from the top
+ * left, so a white glow sits there and a soft grey shadow at the bottom right; the face is the page's own color with
+ * a faint sheen. Works for any shape (cards, pills, circles). Shadow layers draw on Android 9+; older phones get the
+ * flat face.
+ */
+fun Modifier.softRaised(spec: ThemeSpec, shape: Shape, elevation: Dp = 6.dp): Modifier = this
+    .drawWithCache {
+        val e = elevation.toPx()
+        val path = androidx.compose.ui.graphics.Path()
+            .apply { addOutline(shape.createOutline(size, layoutDirection, this@drawWithCache)) }
+            .asAndroidPath()
+        val paint = android.graphics.Paint().apply { isAntiAlias = true; color = spec.background.toArgb() }
+        onDrawBehind {
+            drawIntoCanvas { canvas ->
+                paint.setShadowLayer(e * 1.6f, -e * 0.7f, -e * 0.7f, spec.lightShadow.toArgb())
+                canvas.nativeCanvas.drawPath(path, paint)
+                paint.setShadowLayer(e * 1.6f, e * 0.7f, e * 0.7f, spec.darkShadow.toArgb())
+                canvas.nativeCanvas.drawPath(path, paint)
+            }
+        }
+    }
+    .clip(shape)
+    .background(
+        Brush.linearGradient(
+            listOf(
+                lerp(spec.background, Color.White, if (spec.isDark) 0.04f else 0.3f),
+                lerp(spec.background, Color.Black, if (spec.isDark) 0.06f else 0.025f),
+            )
+        )
+    )
+
+/**
+ * Soft UI pressed into the page (the chosen tab, like the picture's OFF switch): a dark inner shadow along the top
+ * left and a light one along the bottom right, drawn by a frame around the shape whose shadows fall inside it.
+ */
+fun Modifier.softInset(spec: ThemeSpec, shape: Shape, depth: Dp = 3.dp): Modifier = this
+    .clip(shape)
+    .background(lerp(spec.background, Color.Black, if (spec.isDark) 0.08f else 0.03f))
+    .drawWithCache {
+        val e = depth.toPx()
+        val inner = androidx.compose.ui.graphics.Path()
+            .apply { addOutline(shape.createOutline(size, layoutDirection, this@drawWithCache)) }
+            .asAndroidPath()
+        val frame = android.graphics.Path().apply {
+            fillType = android.graphics.Path.FillType.EVEN_ODD
+            addRect(-4 * e, -4 * e, size.width + 4 * e, size.height + 4 * e, android.graphics.Path.Direction.CW)
+            addPath(inner)
+        }
+        val paint = android.graphics.Paint().apply { isAntiAlias = true; color = spec.background.toArgb() }
+        onDrawBehind {
+            drawIntoCanvas { canvas ->
+                paint.setShadowLayer(e * 1.4f, e, e, spec.darkShadow.toArgb())
+                canvas.nativeCanvas.drawPath(frame, paint)
+                paint.setShadowLayer(e * 1.4f, -e, -e, spec.lightShadow.toArgb())
+                canvas.nativeCanvas.drawPath(frame, paint)
+            }
+        }
+    }
+
+/**
  * Card / tile ki styling. Har theme ka alag look:
  * Neumorphism = do shadow wala ubhra hua, Glass = frosted + border, baaki = flat.
  */
@@ -266,9 +341,7 @@ fun Modifier.themedCard(
     corner: Dp = 16.dp,
     elevation: Dp = 6.dp,
 ): Modifier = when (spec.style) {
-    ThemeStyle.NEUMORPHISM -> this
-        .neumorphic(spec, corner, elevation)
-        .clip(shape)
+    ThemeStyle.NEUMORPHISM -> this.softRaised(spec, shape, elevation)
     ThemeStyle.GLASS, ThemeStyle.AURORA -> this
         .clip(shape)
         .background(spec.surface)
@@ -296,33 +369,12 @@ fun Modifier.themedCard(
         .background(spec.surface)
 }
 
-/** Neumorphic soft shadows (upar-baayen roshni, neeche-daayen parchhai). Android 9+ pe best dikhta hai. */
-fun Modifier.neumorphic(spec: ThemeSpec, corner: Dp, elevation: Dp, pressed: Boolean = false): Modifier =
-    drawBehind {
-        val r = corner.toPx()
-        val e = elevation.toPx()
-        drawIntoCanvas { canvas ->
-            val paint = Paint()
-            val fp = paint.asFrameworkPaint()
-            fp.isAntiAlias = true
-            fp.color = spec.background.toArgb()
-            if (!pressed) {
-                fp.setShadowLayer(e * 1.6f, -e * 0.7f, -e * 0.7f, spec.lightShadow.toArgb())
-                canvas.drawRoundRect(0f, 0f, size.width, size.height, r, r, paint)
-                fp.setShadowLayer(e * 1.6f, e * 0.7f, e * 0.7f, spec.darkShadow.toArgb())
-                canvas.drawRoundRect(0f, 0f, size.width, size.height, r, r, paint)
-            } else {
-                fp.setShadowLayer(e * 0.8f, e * 0.3f, e * 0.3f, spec.darkShadow.toArgb())
-                canvas.drawRoundRect(0f, 0f, size.width, size.height, r, r, paint)
-            }
-            fp.clearShadowLayer()
-            canvas.drawRoundRect(0f, 0f, size.width, size.height, r, r, paint)
-        }
-    }
-
 /** Bade play button ka look. */
 fun Modifier.playButtonStyle(spec: ThemeSpec, size: Dp): Modifier = when (spec.style) {
-    ThemeStyle.NEUMORPHISM -> this.neumorphic(spec, size / 2, 8.dp)
+    // Soft UI: a raised button filled with the accent, lit from the top left (the picture's orange coin).
+    ThemeStyle.NEUMORPHISM -> this
+        .softRaised(spec, RoundedCornerShape(50), (size / 7).coerceIn(3.dp, 8.dp))
+        .background(Brush.linearGradient(listOf(lerp(spec.accent, Color.White, 0.22f), spec.accent, lerp(spec.accent, Color.Black, 0.12f))))
     ThemeStyle.GLASS -> this
         .clip(RoundedCornerShape(50))
         .background(Color.White.copy(alpha = if (spec.isDark) 0.25f else 0.6f))
@@ -350,7 +402,7 @@ fun Modifier.playButtonStyle(spec: ThemeSpec, size: Dp): Modifier = when (spec.s
 
 /** Play button ke upar icon ka rang. */
 fun playIconColor(spec: ThemeSpec): Color = when (spec.style) {
-    ThemeStyle.NEUMORPHISM -> spec.accent
+    ThemeStyle.NEUMORPHISM -> if (spec.accent.luminance() > 0.6f) Color.Black else Color.White
     ThemeStyle.GLASS -> if (spec.isDark) Color.White else Color(0xFF1C1433)
     ThemeStyle.AURORA -> Color.White
     ThemeStyle.CRYSTAL -> spec.onSurface

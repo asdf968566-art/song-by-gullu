@@ -1041,6 +1041,17 @@ def main():
     step("Neon Glass: Now Playing", lambda: open_now_playing() and shot("neon-NowPlaying"))
     if find("Close"):
         tap("Close", wait=2)
+    # Soft UI (Neumorphism, the owner's picture, Oct 30): soft raised cards and buttons on every page. Picking it
+    # switches Dark to Light.
+    step("Theme: choose Neumorphism", set_theme("Neumorphism"))
+    for t in ["Home", "Search", "Your Library"]:
+        step(f"Neumorphism: {t} page", lambda t=t: go_tab(t) and shot("soft-" + t.replace(" ", "")))
+    step("Neumorphism: Now Playing", lambda: open_now_playing() and shot("soft-NowPlaying"))
+    if find("Close"):
+        tap("Close", wait=2)
+    step("Neumorphism: Settings", lambda: go_tab("Home") and tap("Settings", wait=3) and shot("soft-Settings") and (back() or True))
+    step("Neumorphism: dark mode", mode("Dark"))
+    step("Neumorphism dark: Home page", lambda: go_tab("Home") and shot("soft-dark-Home"))
     # Classic Dark, AMOLED Black and Material You are gone (report #53): the app starts in Liquid Glass.
     step("Theme: no Classic Dark any more", lambda: True,
          lambda: (go_tab("Home") and tap("Settings", wait=3) and tap("Theme", scroll=8, wait=3) and find("Classic Dark", scroll=4) is None

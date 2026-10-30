@@ -70,6 +70,7 @@ import com.sangeet.player.ui.components.GlassIconButton
 import com.sangeet.player.ui.components.SeekBar
 import com.sangeet.player.ui.theme.glassEverywhere
 import com.sangeet.player.ui.theme.glassInk
+import com.sangeet.player.ui.theme.softRaised
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
@@ -198,8 +199,8 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
         // Neeche ki screen tak touch na jaye.
         Modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
     ) {
-        // Neon Glass keeps its own blue and violet page; the cover glows instead.
-        val top = if (neon) 0f else if (spec.isDark) 0.9f else 0.7f
+        // Neon Glass keeps its own blue and violet page; the cover glows instead. Soft UI keeps its plain soft grey.
+        val top = if (neon || spec.style == ThemeStyle.NEUMORPHISM) 0f else if (spec.isDark) 0.9f else 0.7f
         if (top > 0f) Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(bg.copy(alpha = top), bg.copy(alpha = top * 0.45f), Color.Transparent))))
         BoxWithConstraints(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
             // Report #55: the lyrics card shows under the controls without scrolling; the cover takes the room that is
@@ -272,6 +273,8 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                                             if (neon) Modifier
                                                 .shadow(28.dp, coverShape, ambientColor = spec.neonColors.fill[1], spotColor = spec.neonColors.accent)
                                                 .border(1.5.dp, Brush.linearGradient(listOf(Color.White.copy(alpha = 0.7f), Color.White.copy(alpha = 0.1f), Color.White.copy(alpha = 0.4f))), coverShape)
+                                            // Soft UI: the cover is raised out of the page.
+                                            else if (spec.style == ThemeStyle.NEUMORPHISM) Modifier.softRaised(spec, coverShape, 8.dp)
                                             // Liquid Glass: the cover floats on a soft shadow with the glass rim.
                                             else if (glassAll) Modifier
                                                 .shadow(20.dp, coverShape, ambientColor = Color.Black.copy(alpha = 0.25f), spotColor = Color.Black.copy(alpha = 0.35f))

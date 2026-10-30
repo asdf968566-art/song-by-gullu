@@ -687,6 +687,27 @@ request the owner made, in order.
     came out as kind "garhwali", not "pahadi"). The crawler keeps `PAHADI_LANGS` songs as Hindi + `C.pahadi`;
     Android's `kindOf` and `Track.inLanguages` pass the language to `LanguageGuess.isPahadi`; the PAHADI word lists
     (Android, web, crawler) also have the spelling "utrakhand".
+- **Soft UI (Neumorphism) everywhere** (Oct 30; the owner sent a picture of a "Neumorphism (Soft UI)" slide: light
+  grey, soft raised cards, an orange coin / switch, "ye theme bna … saare cards par … sb jagah apply honge").
+  - Android: `ThemeSpec.glassEverywhere` now includes NEUMORPHISM, so every glass layout (song rows, shelf cards,
+    the Home hero, Search tiles, Library tiles, Now Playing's heart / tools / previous / next) takes it.
+    `glassPanel` / `glassCircle` → `softRaised(spec, shape, elevation)` (Surfaces.kt: any shape's outline drawn
+    twice with `setShadowLayer`, a white glow up-left and a grey shadow down-right, Android 9+; the face is the page
+    color with a faint sheen). `softInset` = pressed in (a frame around the shape whose shadows fall inside): the
+    chosen tab of `SoftTabBar` (SangeetRoot) and the search box. `themedCard` and the play button
+    (`playButtonStyle`: a raised accent disc, white icon) too; the mini player is a raised 20 dp card; Now Playing has
+    no cover wash and a raised cover. The old `neumorphic` helper is gone.
+  - For You stays as before on this theme (`ThemeSpec.seeThrough` = only Neon / Liquid Glass): soft shadows need a
+    plain page, and the feed plays over the cover.
+  - Colors: light page `#E6E7EB`, text `#3B4049`, shadows white / `0x8CA3A9B5`; dark `#2B2F36`. Picking the theme
+    switches Dark mode to Light (the picture is light); Orange accent = the picture.
+  - Web: Theme → "Soft UI · Light / Dark" (`body.soft`, `body.soft.light`; CSS `--soft-up`, `--soft-up-s`,
+    `--soft-in`): raised rows (with a heart and a round play button, like Neon), cards (play button on the cover),
+    list rows, setting groups, chips, Search tiles (the category color glowing from a corner), floating tab bar and
+    mini player; pressed-in search box, switches, chosen tab and seek bar; Now Playing on the plain page with raised
+    round controls and an accent play button (`.np-artist` class for the singer's color).
+  - UI walk: "Theme: choose Neumorphism", screenshots `soft-*.png` (Home, Search, Library, Now Playing, Settings,
+    dark Home).
 - **YouTube Shorts channel** (Oct 20, owner sent reels about "faceless" AI YouTube channels: "saare viral video dekh
   … cartoon, motion video, ai made movie … bna aur upload kar … monotize krwa"; "upload bhi tu kr, permission de
   dunga"; then "sirf shorts nhi, full movie, cartoon, ramayan, mahabharat"). Not part of the apps:

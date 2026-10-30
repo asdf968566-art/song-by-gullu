@@ -83,6 +83,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.sangeet.player.data.settings.ThemeStyle
 import com.sangeet.player.ui.theme.liquidGlass
+import com.sangeet.player.ui.theme.softInset
+import com.sangeet.player.ui.theme.softRaised
 import com.sangeet.player.ui.theme.neonFill
 import com.sangeet.player.ui.theme.neonGlass
 import com.sangeet.player.ui.theme.rememberGlassSource
@@ -415,6 +417,10 @@ private fun BottomNav(nav: NavHostController) {
         NeonTabBar(tabs, route, go)
         return
     }
+    if (spec.style == ThemeStyle.NEUMORPHISM) {
+        SoftTabBar(tabs, route, go)
+        return
+    }
     NavigationBar(containerColor = spec.navBar, tonalElevation = 0.dp) {
         tabs.forEach { tab ->
             val selected = route == tab.route
@@ -461,6 +467,42 @@ private fun NeonTabBar(tabs: List<Tab>, route: String?, go: (String) -> Unit) {
                 verticalArrangement = Arrangement.Center,
             ) {
                 val tint = if (selected) Color.White else Color.White.copy(alpha = 0.72f)
+                Icon(if (selected) tab.selectedIcon else tab.icon, tab.label, tint = tint, modifier = Modifier.size(23.dp))
+                Text(tab.label, color = tint, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+            }
+        }
+    }
+}
+
+/**
+ * Soft UI tab bar (the owner's picture, Oct 30): a raised soft panel; the chosen tab is pressed into it, in the accent.
+ */
+@Composable
+private fun SoftTabBar(tabs: List<Tab>, route: String?, go: (String) -> Unit) {
+    val spec = Sangeet.spec
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(start = 14.dp, end = 14.dp, top = 8.dp, bottom = 10.dp)
+            .height(64.dp)
+            .softRaised(spec, RoundedCornerShape(24.dp), 5.dp)
+            .padding(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        tabs.forEach { tab ->
+            val selected = route == tab.route
+            Column(
+                Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .padding(horizontal = 3.dp)
+                    .then(if (selected) Modifier.softInset(spec, RoundedCornerShape(18.dp)) else Modifier.clip(RoundedCornerShape(18.dp)))
+                    .clickable { go(tab.route) },
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                val tint = if (selected) spec.accent else spec.muted
                 Icon(if (selected) tab.selectedIcon else tab.icon, tab.label, tint = tint, modifier = Modifier.size(23.dp))
                 Text(tab.label, color = tint, style = MaterialTheme.typography.labelSmall, maxLines = 1)
             }

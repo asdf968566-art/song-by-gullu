@@ -64,6 +64,10 @@ fun MiniPlayer(onExpand: () -> Unit, modifier: Modifier = Modifier) {
                 else if (spec.style == ThemeStyle.NEON) Modifier
                     .padding(start = 12.dp, end = 12.dp, top = 4.dp)
                     .themedCard(spec, RoundedCornerShape(20.dp))
+                // Soft UI: a raised soft card above the raised tab bar, with room for their shadows.
+                else if (spec.style == ThemeStyle.NEUMORPHISM) Modifier
+                    .padding(start = 14.dp, end = 14.dp, top = 10.dp, bottom = 2.dp)
+                    .themedCard(spec, RoundedCornerShape(20.dp), elevation = 5.dp)
                 else Modifier
                     .padding(horizontal = 8.dp, vertical = 4.dp)
                     .themedCard(spec, RoundedCornerShape(10.dp), corner = 10.dp, elevation = 5.dp)
