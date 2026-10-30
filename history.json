@@ -93,7 +93,7 @@
   "views": 4,
   "likes": 0,
   "comments": 0,
-  "score": 0.7
+  "score": 0.6
  },
  {
   "date": "20261024-1627",
@@ -288,6 +288,24 @@
   },
   "voice": "edge",
   "youtube": "1jR9r4K1AQc",
-  "file": "short-20261029-1856.mp4"
+  "file": "short-20261029-1856.mp4",
+  "views": 0,
+  "likes": 0,
+  "comments": 0,
+  "score": 0.0
+ },
+ {
+  "date": "20261030-1823",
+  "kind": "short",
+  "format": "AI mini movie: suspense / mystery with a shocking last line",
+  "title": "दिवाली की रात: 2 लोग और 3 परछाइयां! 😱 #shorts",
+  "seconds": 71.0,
+  "pictures": {
+   "pollinations": 4,
+   "reused": 4
+  },
+  "voice": "edge",
+  "youtube": "eaZPAtloRf0",
+  "file": "short-20261030-1823.mp4"
  }
 ]
