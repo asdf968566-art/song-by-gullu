@@ -93,7 +93,7 @@
   "views": 4,
   "likes": 0,
   "comments": 0,
-  "score": 0.6
+  "score": 0.5
  },
  {
   "date": "20261024-1627",
@@ -112,7 +112,7 @@
   "views": 1,
   "likes": 0,
   "comments": 0,
-  "score": 0.2
+  "score": 0.1
  },
  {
   "date": "20261025-1013",
@@ -306,6 +306,24 @@
   },
   "voice": "edge",
   "youtube": "eaZPAtloRf0",
-  "file": "short-20261030-1823.mp4"
+  "file": "short-20261030-1823.mp4",
+  "views": 0,
+  "likes": 0,
+  "comments": 0,
+  "score": 0.0
+ },
+ {
+  "date": "20261031-1134",
+  "kind": "long",
+  "format": "city-horror",
+  "title": "नाइट शिफ्ट का खौफ: 13वीं मंजिल का बंद केबिन 😱 | AI Horror Movie",
+  "seconds": 715.4,
+  "pictures": {
+   "pollinations": 23,
+   "reused": 34
+  },
+  "voice": "edge",
+  "youtube": "QQhGxvgVCsg",
+  "file": "long-20261031-1134.mp4"
  }
 ]
