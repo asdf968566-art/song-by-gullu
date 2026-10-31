@@ -121,9 +121,10 @@ class RecommendationRepository(
     ) {
         val playedIds: Set<String> = played.mapTo(HashSet()) { it.track.id }
         /** Pichhle 12 ghante mein suna — auto mode mein dobara nahi. */
-        val recentIds: Set<String> = played
+        val recentTracks: List<Track> = played
             .filter { System.currentTimeMillis() - it.playedAt < 12 * 3_600_000L }
-            .mapTo(HashSet()) { it.track.id }
+            .map { it.track }
+        val recentIds: Set<String> = recentTracks.mapTo(HashSet()) { it.id }
         val topArtists: List<String> =
             artistScore.entries.sortedByDescending { it.value }.map { artistNames.getValue(it.key) }
         val isEmpty: Boolean get() = played.isEmpty() && liked.isEmpty()
@@ -132,20 +133,31 @@ class RecommendationRepository(
     // ------------------------------------------------------------ public
 
     // All the heavy work (thousands of songs scored) runs off the main thread, so the UI never stutters.
-    suspend fun suggestions(limit: Int = 30, exclude: Set<String> = emptySet()): List<Suggestion> = withContext(Dispatchers.Default) {
+    suspend fun suggestions(
+        limit: Int = 30,
+        exclude: Set<String> = emptySet(),
+        avoid: List<Track> = emptyList(),
+    ): List<Suggestion> = withContext(Dispatchers.Default) {
         val p = profile()
         val pool = candidates(p, null)
         val fresh = rank(p, pool, null, exclude + p.recentIds + seenIds(), preferNew = true)
         // Sab dekh liya ho (bahut kam hota hai) tabhi purane mein se
-        (fresh.ifEmpty { rank(p, pool, null, exclude + p.recentIds, preferNew = true) }).take(limit)
+        val list = fresh.ifEmpty { rank(p, pool, null, exclude + p.recentIds, preferNew = true) }
+        SameSong.oneCopy(list, avoid + p.recentTracks, limit) { it.track }
     }
 
     /**
      * Autoplay / radio: haal hi mein (12 ghante) suna gaana apne aap dobara nahi aata. Songs of the seed's own kind come
      * first (report #63: "bollywood ya pahadi to uske related hi … latest and popular wale"): Pahadi after Pahadi,
-     * Hindi after Hindi; other songs only when those run out.
+     * Hindi after Hindi; other songs only when those run out. No copy of a song in [avoid] (the queue) or played in
+     * those 12 hours comes either (report #90: "ek song bar bar play list mai arha hai").
      */
-    suspend fun radio(seed: Track, exclude: Set<String>, limit: Int = 15): List<Track> = withContext(Dispatchers.Default) {
+    suspend fun radio(
+        seed: Track,
+        exclude: Set<String>,
+        limit: Int = 15,
+        avoid: List<Track> = emptyList(),
+    ): List<Track> = withContext(Dispatchers.Default) {
         // A YouTube song's JioSaavn copy tells its year and language, and has JioSaavn's "similar" list.
         val twinJob: Deferred<Track?>? = if (seed.source != SourceType.JIOSAAVN && online.canGoOnline && settings.current.jiosaavnEnabled) {
             CoroutineScope(SupervisorJob() + Dispatchers.IO).async { saavnTwin(seed, sameName = true) }
@@ -162,7 +174,8 @@ class RecommendationRepository(
         val pahadi = pahadiIds()
         val kind = kindOf(known, pahadi)
         val (same, other) = if (kind.isBlank()) ranked to emptyList() else ranked.partition { kindOf(it.track, pahadi) == kind }
-        val out = (spreadArtists(same) + spreadArtists(other)).take(limit).map { it.track }
+        val out = SameSong.oneCopy(spreadArtists(same) + spreadArtists(other), avoid + p.recentTracks + seed, limit) { it.track }
+            .map { it.track }
         android.util.Log.i("Sangeet", "radio: ${out.size} songs after '${seed.title}' by ${seed.artist} (${kind.ifBlank { "?" }}): ${minOf(same.size, out.size)} the same kind")
         out
     }
@@ -173,7 +186,12 @@ class RecommendationRepository(
      * Music's own lists of what its listeners play next, from the same years and in its language. Every other song
      * is the singer's own, so the singer keeps coming back.
      */
-    suspend fun likeThis(seed: Track, exclude: Set<String>, limit: Int = 6): List<Track> = withContext(Dispatchers.Default) {
+    suspend fun likeThis(
+        seed: Track,
+        exclude: Set<String>,
+        limit: Int = 6,
+        avoid: List<Track> = emptyList(),
+    ): List<Track> = withContext(Dispatchers.Default) {
         val singer = mainSinger(seed.artist)
         val canOnline = online.canGoOnline
         val saavnOn = canOnline && settings.current.jiosaavnEnabled
@@ -234,6 +252,7 @@ class RecommendationRepository(
             }
             .sortedByDescending { it.second }
             .map { it.first }
+            .let { SameSong.oneCopy(it, avoid + seed) }
         val mine = if (singer == null) emptyList() else ranked.filter { artistMatch(it.artist, singer) }
         val like = ranked.filter { singer == null || !artistMatch(it.artist, singer) }
         buildList {

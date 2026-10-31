@@ -44,6 +44,42 @@ object SameSong {
 
     fun same(a: Track, b: Track) = a.id == b.id || key(a).sameAs(key(b))
 
+    /**
+     * Remembers songs, to tell a new one from another copy of one it has. JioSaavn lists a hit on many albums, each copy
+     * with its own id, so ids alone let the same song come back again and again (report #90).
+     */
+    class Seen(have: List<Track> = emptyList()) {
+        // Same songs always have the same clean title, so only keys with that title are compared.
+        private val keys = HashMap<String, MutableList<Key>>()
+        private val ids = HashSet<String>()
+
+        init { have.forEach { add(it) } }
+
+        /** Adds the song; false when it, or a copy of it, is here already. */
+        fun add(t: Track): Boolean {
+            if (!ids.add(t.id)) return false
+            val k = key(t)
+            val same = keys[k.title]
+            if (same != null && same.any { it.sameAs(k) }) return false
+            (same ?: ArrayList<Key>(2).also { keys[k.title] = it }).add(k)
+            return true
+        }
+    }
+
+    /** [list] with one copy of each song and none that is a copy of a song in [have], at most [max]. */
+    fun <T> oneCopy(list: List<T>, have: List<Track> = emptyList(), max: Int = Int.MAX_VALUE, track: (T) -> Track): List<T> {
+        val seen = Seen(have)
+        val out = ArrayList<T>()
+        for (item in list) {
+            if (out.size >= max) break
+            if (seen.add(track(item))) out += item
+        }
+        return out
+    }
+
+    fun oneCopy(list: List<Track>, have: List<Track> = emptyList(), max: Int = Int.MAX_VALUE): List<Track> =
+        oneCopy(list, have, max) { it }
+
     /** The song's name without "(From …)", " - Official Video", " | Film"…, lower case. */
     fun cleanTitle(t: String) = norm(
         t.lowercase()

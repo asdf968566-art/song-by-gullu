@@ -62,6 +62,7 @@ import com.sangeet.player.AppContainer
 import com.sangeet.player.data.lyrics.Lyrics
 import com.sangeet.player.data.Mood
 import com.sangeet.player.data.Moods
+import com.sangeet.player.data.SameSong
 import com.sangeet.player.data.model.inLanguages
 import com.sangeet.player.ui.Routes
 import android.widget.Toast
@@ -155,11 +156,13 @@ class DiscoverViewModel(private val c: AppContainer) : ViewModel() {
         }
         followed[t.id] = -1
         viewModelScope.launch {
-            val have = _ui.value.items.mapTo(HashSet()) { it.track.id } + c.player.state.value.queue.map { it.id }
-            val more = runCatching { c.recommendations.likeThis(t, have) }.getOrDefault(emptyList())
+            // Ids and copies of the songs in the feed and the queue: the same song with another id is still the same
+            // song (report #90).
+            val around = _ui.value.items.map { it.track } + c.player.state.value.queue
+            val more = runCatching { c.recommendations.likeThis(t, around.mapTo(HashSet()) { it.id }, avoid = around) }.getOrDefault(emptyList())
             val now = _ui.value.items
             val at = now.indexOfFirst { it.track.id == t.id }
-            val fresh = more.filter { m -> now.none { it.track.id == m.id } }
+            val fresh = SameSong.oneCopy(more, now.map { it.track })
             if (fresh.isEmpty()) android.util.Log.i("Sangeet", "For You: nothing like '${t.title}' found")
             if (fresh.isEmpty() || at < 0 || _ui.value.mood != null) { followed[t.id] = 0; return@launch }
             followed[t.id] = fresh.size
@@ -174,10 +177,11 @@ class DiscoverViewModel(private val c: AppContainer) : ViewModel() {
         loadingMore = true
         viewModelScope.launch {
             _ui.value = _ui.value.copy(loading = true)
-            val have = _ui.value.items.mapTo(HashSet()) { it.track.id }
+            val shown = _ui.value.items.map { it.track }
+            val have = shown.mapTo(HashSet()) { it.id }
             val mood = _ui.value.mood
             val more = runCatching {
-                if (mood == null) c.recommendations.suggestions(limit = 25, exclude = have)
+                if (mood == null) c.recommendations.suggestions(limit = 25, exclude = have, avoid = shown)
                 else moodBatch(mood, have)
             }.getOrDefault(emptyList())
             if (mood != _ui.value.mood) { loadingMore = false; return@launch }

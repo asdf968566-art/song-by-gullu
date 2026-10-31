@@ -1,5 +1,26 @@
 [
   {
+    "date": "2026-10-31",
+    "title": "Singer pages and fixes",
+    "items": [
+      {
+        "on": "android",
+        "type": "new",
+        "text": "All songs on singer pages"
+      },
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Only original songs on singer pages"
+      },
+      {
+        "on": "android",
+        "type": "fix",
+        "text": "Same song repeating in the queue"
+      }
+    ]
+  },
+  {
     "date": "2026-10-30",
     "title": "Soft UI theme",
     "items": [

@@ -6,7 +6,10 @@ import com.sangeet.player.data.model.Track
 import com.sangeet.player.data.remote.LanguageGuess
 import com.sangeet.player.data.settings.SettingsRepository
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 
 /**
  * The listener's singers (report #57): the ones picked in Settings → Favourite singers, then the ones they play most.
@@ -50,31 +53,45 @@ class Singers(
     }
 
     /**
-     * All the singer's songs JioSaavn gives (their page, its "more songs" pages and a search; another search when that
-     * is short) in the listener's languages. Pahadi songs are listed as Hindi on JioSaavn, so they count for Pahadi too.
+     * All the singer's songs, as they come (report #89: "sab singers ke saare songs … only hindi … only original song
+     * hi, remix wale mat karna"): JioSaavn's (their page, its "more songs" pages and a search, page after page; another
+     * search when that is short) in the listener's languages, originals only, one copy of each song. Pahadi songs are
+     * listed as Hindi on JioSaavn, so they count for Pahadi too.
      */
-    suspend fun songs(name: String): List<Track> = withContext(Dispatchers.IO) {
+    fun songs(name: String): Flow<List<Track>> = flow {
         val langs = settings.current.languages.toSet()
-        val me = name.lowercase()
-        val page = if (online.jiosaavnOn) runCatching { online.saavn.artistSongs(name) }.getOrDefault(emptyList()) else emptyList()
-        val more = if (page.size < 20) runCatching { online.searchAll(name) }.getOrDefault(emptyList()) else emptyList()
-        (page + more.filter { me in it.artist.lowercase() })
-            .distinctBy { it.id }
-            .filter { t ->
-                val lang = t.language.ifBlank { LanguageGuess.guess(t.title, t.artist) }
-                lang.isBlank() || lang in langs || ("pahadi" in langs && LanguageGuess.isPahadi(t.title, t.artist))
-            }
-            .let { list ->
-                // One copy of each song (JioSaavn lists a song again on compilations); other versions stay.
-                val kept = ArrayList<SameSong.Key>()
-                list.filter { t ->
-                    val k = SameSong.key(t)
-                    (kept.none { it.sameAs(k) }).also { if (it) kept += k }
-                }
-            }
-    }
+        fun inLanguages(t: Track): Boolean {
+            val lang = t.language.ifBlank { LanguageGuess.guess(t.title, t.artist) }
+            return lang.isBlank() || lang in langs || ("pahadi" in langs && LanguageGuess.isPahadi(t.title, "${t.artist} ${t.language}"))
+        }
+        // One copy of each song (JioSaavn lists a song again on compilations); other versions of it stay. Every list
+        // starts with the one before, so only the new songs are looked at.
+        val seen = SameSong.Seen()
+        val kept = ArrayList<Track>()
+        var done = 0
+        fun keep(all: List<Track>): List<Track> {
+            for (t in all.subList(done.coerceAtMost(all.size), all.size)) if (original(t) && inLanguages(t) && seen.add(t)) kept += t
+            done = all.size
+            return kept.toList()
+        }
+        var all = emptyList<Track>()
+        if (online.jiosaavnOn) online.saavn.artistSongs(name).catch { }.collect { all = it; emit(keep(it)) }
+        if (all.size < 20) {
+            val me = name.lowercase()
+            val more = runCatching { online.searchAll(name) }.getOrDefault(emptyList()).filter { me in it.artist.lowercase() }
+            emit(keep((all + more).distinctBy { it.id }))
+        }
+    }.flowOn(Dispatchers.IO)
 
     companion object {
+        /** Not the song as sung: remixes, lofi, slowed, sped up, mashups, karaoke, instrumentals, DJ / cover versions. */
+        private val NOT_ORIGINAL = Regex(
+            "(?i)re-?mix|mash ?-?up|lo-?fi|slowed|reverb|sped ?up|\\b8d\\b|karaoke|instrumental|jukebox|non ?-?stop|mixtape|" +
+                "bass ?boost|[(\\[][^)\\]]*\\b(dj|cover)\\b",
+        )
+
+        fun original(t: Track) = !NOT_ORIGINAL.containsMatchIn(t.title) && !NOT_ORIGINAL.containsMatchIn(t.album)
+
         /** Well-known singers per language, offered in the picker. */
         private val POPULAR = mapOf(
             "hindi" to listOf(

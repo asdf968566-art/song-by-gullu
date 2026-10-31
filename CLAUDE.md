@@ -386,8 +386,8 @@ request the owner made, in order.
   - It sends: maker / model / Android / ROM build, screen dp and density, font scale, the phone's dark mode,
     status bar / cutout / navigation bar sizes, the navigation mode, and the status bar icon colour the app set
     per screen.
-  - It also sends the theme / dark mode / accent, offline mode and YouTube on or off, online or not, which source
-    is playing, and the last 6 screen route patterns.
+  - It also sends the theme / dark mode / accent, offline mode and YouTube on or off, the song languages (Oct 31),
+    online or not, which source is playing, and the last 6 screen route patterns.
   - It never sends songs, playlists, searches, names, accounts, files or location. Reports go to day1, which is
     public.
   - SangeetRoot fills in the bar sizes and icon colours.
@@ -708,6 +708,43 @@ request the owner made, in order.
     round controls and an accent play button (`.np-artist` class for the singer's color).
   - UI walk: "Theme: choose Neumorphism", screenshots `soft-*.png` (Home, Search, Library, Now Playing, Settings,
     dark Home).
+- **App reports of Oct 28–30** (Android only).
+  - **#90** (Xiaomi 23124RN87I, build 336): "ek song bar bar play list mai arha hai … jo song chalau uske related ana
+    chahiye".
+    - Cause: the radio, the queue's autoplay and For You's "more like this" left out songs by id only. JioSaavn lists a
+      hit on many albums ("Tum Hi Ho" and "Tum Hi Ho (From …)"), each copy with its own id, so the same song came back.
+    - Fix: `SameSong.Seen` remembers songs by id and by key, looked up by clean title (a HashMap, so long lists stay
+      fast). `add` is false for a copy. `SameSong.oneCopy(list, have, max)` keeps one copy of each song and none that
+      is a copy of one in `have`.
+    - Used by `Recommendations.radio` (new `avoid` = the queue, plus `Profile.recentTracks` (12 h) and the seed),
+      `likeThis` (`avoid` = the feed and the queue), `suggestions` (`avoid` = the feed shown so far) and
+      `DiscoverViewModel.follow`.
+    - `PlayerConnection.radio` now takes `(seed, exclude, avoid)`.
+  - **#89** (LAVA LXX525 tester, build 333): "your singers … sab singers ke saare songs fetch kar de only hindi …
+    bangla … remove … only original song hi, remix wale mat karna".
+    - `JioSaavnSource.artistSongs` is a Flow. The first round is the same as before (page, latest, 12 "more songs"
+      pages, 4 search pages, all at once). Then it pages three kinds of page in rounds, while a kind still brings new
+      songs: `getArtistPageDetails` page 1+ (6 a round, like the crawler), `getArtistMoreSong` 13+ (4) and search 5+
+      (2). Limits: 2500 songs, 30 rounds. Each emit is everything found so far.
+    - `Singers.songs` (Flow; one `Seen`, only the new songs of each emit are looked at) keeps the listener's languages, `Singers.original` (`NOT_ORIGINAL`: remix, lofi,
+      slowed / reverb, sped up, 8d, mashup, karaoke, instrumental, jukebox, non stop, mixtape, bass boost, and
+      "(DJ …)" / "(… cover …)" in brackets, on the title and the album; "DJ Wale Babu" stays) and one copy of each.
+    - `SingerScreen` shows the songs as they come, with a spinner at the bottom. Its log has "singer page: N songs by
+      X so far", then the total.
+    - `LanguageGuess.guess` knows Bengali script.
+    - The diagnostics now list the song languages (the tester's weren't known).
+    - UI walk: the singer page must show no remix / lofi / slowed / mashup rows.
+  - **#80–#84** (samsung SM-M366B, Android 16, build 317, Neon Glass): five native crashes in two minutes on Oct 28
+    (four on screen, one playing in the background), with no detail, so the cause is unknown. Nothing has come from
+    that phone since.
+    - `AppExits.tombstone` now reads Android's tombstone for a native crash (Android 12+, protobuf from
+      `traceInputStream`, field numbers from AOSP `tombstone.proto`). It sends the signal, causes, abort message and
+      the crashing thread's first 16 frames (library file name + function). Memory, registers, other threads and the
+      log buffers are left out.
+    - The automatic "Android stopped the app" report goes at most once in 6 h (`sent_at`) and says "(N times since
+      the last report)".
+  - #69 stays open: the tester's latest exits are the phone ending the app while it isn't playing
+    (`PriScreenOffKiller`, "too many empty procs").
 - **YouTube Shorts channel** (Oct 20, owner sent reels about "faceless" AI YouTube channels: "saare viral video dekh
   … cartoon, motion video, ai made movie … bna aur upload kar … monotize krwa"; "upload bhi tu kr, permission de
   dunga"; then "sirf shorts nhi, full movie, cartoon, ramayan, mahabharat"). Not part of the apps:

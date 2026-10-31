@@ -64,7 +64,8 @@ object Diagnostics {
             val s = c.settings.current
             appendLine(
                 "- App: theme ${s.theme.label}, ${s.darkMode.label.lowercase()} mode, accent ${s.accent.label}, " +
-                    "offline mode ${if (s.offlineMode) "on" else "off"}, YouTube ${if (s.youtubeEnabled) "on" else "off"}",
+                    "offline mode ${if (s.offlineMode) "on" else "off"}, YouTube ${if (s.youtubeEnabled) "on" else "off"}, " +
+                    "song languages ${s.languages.joinToString(" + ")}",
             )
             val playing = c.player.state.value
             appendLine(
