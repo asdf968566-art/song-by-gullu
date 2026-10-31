@@ -20,7 +20,7 @@
   "views": 6,
   "likes": 0,
   "comments": 0,
-  "score": 0.6
+  "score": 0.5
  },
  {
   "date": "20261020-1452",
@@ -324,6 +324,24 @@
   },
   "voice": "edge",
   "youtube": "QQhGxvgVCsg",
-  "file": "long-20261031-1134.mp4"
+  "file": "long-20261031-1134.mp4",
+  "views": 0,
+  "likes": 0,
+  "comments": 0,
+  "score": 0.0
+ },
+ {
+  "date": "20261031-1738",
+  "kind": "short",
+  "format": "highway / train / bus horror story at night, told like it really happened to the narrator",
+  "title": "ट्रेन का वो आखिरी डिब्बा 😱 | Train Horror Story #shorts",
+  "seconds": 77.8,
+  "pictures": {
+   "pollinations": 5,
+   "reused": 4
+  },
+  "voice": "edge",
+  "youtube": "q7_e4kkYFc8",
+  "file": "short-20261031-1738.mp4"
  }
 ]
