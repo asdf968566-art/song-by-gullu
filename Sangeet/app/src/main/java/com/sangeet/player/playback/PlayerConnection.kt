@@ -60,7 +60,7 @@ class PlayerConnection(
     private var tickJob: Job? = null
 
     /** Queue khatam hone par milte-julte gaane laane wala (AppContainer set karta hai). */
-    var radio: (suspend (seed: Track, exclude: Set<String>) -> List<Track>)? = null
+    var radio: (suspend (seed: Track, exclude: Set<String>, avoid: List<Track>) -> List<Track>)? = null
     var autoplayEnabled: () -> Boolean = { false }
     private var radioJob: Job? = null
 
@@ -244,8 +244,8 @@ class PlayerConnection(
         val seed = _state.value.current ?: return
         val source = radio ?: return
         radioJob = scope.launch {
-            val exclude = _state.value.queue.mapTo(HashSet()) { it.id }
-            val more = runCatching { source(seed, exclude) }.getOrDefault(emptyList())
+            val queue = _state.value.queue
+            val more = runCatching { source(seed, queue.mapTo(HashSet()) { it.id }, queue) }.getOrDefault(emptyList())
             if (more.isEmpty()) return@launch
             library.remember(more)
             val c = controller ?: return@launch
@@ -354,7 +354,7 @@ class PlayerConnection(
         play(listOf(seed))
         val source = radio ?: return
         radioJob = scope.launch {
-            val more = runCatching { source(seed, setOf(seed.id)) }.getOrDefault(emptyList())
+            val more = runCatching { source(seed, setOf(seed.id), listOf(seed)) }.getOrDefault(emptyList())
             if (more.isNotEmpty()) addToQueue(more)
         }
     }

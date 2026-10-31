@@ -462,6 +462,7 @@ object LanguageGuess {
         if (isPahadi(title, artist)) return "pahadi"
         if (text.any { it in '਀'..'੿' }) return "punjabi"
         if (text.any { it in 'ऀ'..'ॿ' }) return "hindi"
+        if (text.any { it in 'ঀ'..'৿' }) return "bengali"
         val t = text.lowercase()
         return when {
             listOf("punjabi", "sidhu", "diljit", "karan aujla", "ap dhillon", "shubh", "gurnam", "jass manak", "ammy virk").any { it in t } -> "punjabi"

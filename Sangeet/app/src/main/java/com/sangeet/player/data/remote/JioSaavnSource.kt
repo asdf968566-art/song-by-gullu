@@ -11,6 +11,8 @@ import javax.crypto.spec.SecretKeySpec
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -106,39 +108,57 @@ class JioSaavnSource : OnlineSource {
     }
 
     /**
-     * As many of a singer's songs as JioSaavn gives (CI probe, Oct 17: their page has ~32 popular and ~49 latest,
-     * each "more songs" page only ~9 of e.g. Arijit Singh's 4683; a search adds 40 a page). All asked at once,
-     * popular first; a search result counts only when the singer is named in its artists.
+     * All of a singer's songs JioSaavn gives, as they come (report #89: "sab singers ke saare songs"). Their page (~32
+     * popular, ~49 latest; CI probe, Oct 17), its "more songs" pages (only ~9 a page of e.g. Arijit Singh's 4683) and a
+     * search (a result counts only when the singer is named) come first, all at once, popular first. Then the next
+     * pages of each, a few at a time (the catalog crawler pages their page the same way), as long as a kind of page
+     * still brings songs not seen yet, up to [max]. Each emit is everything found so far.
      */
-    suspend fun artistSongs(artist: String, max: Int = 400): List<Track> = coroutineScope {
-        val id = artistId(artist) ?: return@coroutineScope emptyList()
+    fun artistSongs(artist: String, max: Int = 2500): Flow<List<Track>> = flow {
+        val id = artistId(artist) ?: return@flow
         fun songsOf(root: JsonElement?): List<Track> {
             val o = root as? JsonObject ?: return emptyList()
             val songs = (o["topSongs"] as? JsonArray) ?: ((o["topSongs"] as? JsonObject)?.get("songs") as? JsonArray)
                 ?: (o["songs"] as? JsonArray) ?: return emptyList()
             return songs.mapNotNull { (it as? JsonObject)?.let(::toTrack) }
         }
-        fun page(category: String, order: String) = async {
-            runCatching {
-                songsOf(call(
-                    "artist.getArtistPageDetails",
-                    "artistId" to id, "n_song" to "50", "n_album" to "0", "page" to "0", "category" to category, "sort_order" to order,
-                ))
-            }.getOrDefault(emptyList())
+        suspend fun details(p: Int, category: String = "", order: String = "") = songsOf(call(
+            "artist.getArtistPageDetails",
+            "artistId" to id, "n_song" to "50", "n_album" to "0", "page" to p.toString(), "category" to category, "sort_order" to order,
+        ))
+        suspend fun more(p: Int) = songsOf(call(
+            "artist.getArtistMoreSong", "artistId" to id, "n_song" to "50", "page" to p.toString(), "category" to "", "sort_order" to "",
+        ))
+        suspend fun search(p: Int) = searchPage(artist, p).filter { it.artist.contains(artist, ignoreCase = true) }
+
+        val found = LinkedHashMap<String, Track>()
+        // Asks all at once; how many new songs each answer brought, in order.
+        suspend fun round(calls: List<suspend () -> List<Track>>): List<Int> = coroutineScope {
+            calls.map { async { runCatching { it() }.getOrDefault(emptyList()) } }.awaitAll()
+                .map { got -> got.count { found.putIfAbsent(it.id, it) == null } }
         }
-        val parts = buildList {
-            add(page("", ""))
-            add(page("latest", "desc"))
-            for (p in 1..12) add(async {
-                runCatching {
-                    songsOf(call("artist.getArtistMoreSong", "artistId" to id, "n_song" to "50", "page" to p.toString(), "category" to "", "sort_order" to ""))
-                }.getOrDefault(emptyList())
-            })
-            for (p in 1..4) add(async {
-                runCatching { searchPage(artist, p).filter { it.artist.contains(artist, ignoreCase = true) } }.getOrDefault(emptyList())
-            })
+        round(buildList<suspend () -> List<Track>> {
+            add { details(0) }
+            add { details(0, "latest", "desc") }
+            for (p in 1..12) add { more(p) }
+            for (p in 1..4) add { search(p) }
+        })
+        emit(found.values.toList())
+
+        fun ask(get: suspend () -> List<Track>) = get
+        class Pager(var next: Int, val each: Int, val get: suspend (Int) -> List<Track>) { var live = true }
+        val pagers = listOf(Pager(1, 6) { details(it) }, Pager(13, 4) { more(it) }, Pager(5, 2) { search(it) })
+        var rounds = 0
+        while (found.size < max && rounds++ < 30) {
+            val live = pagers.filter { it.live }
+            if (live.isEmpty()) break
+            val calls = live.flatMap { pg -> (pg.next until pg.next + pg.each).map { p -> pg to p } }
+            val counts = round(calls.map { (pg, p) -> ask { pg.get(p) } })
+            live.forEach { it.next += it.each; it.live = false }
+            calls.forEachIndexed { i, (pg, _) -> if (counts[i] > 0) pg.live = true }
+            if (counts.sum() == 0) break
+            emit(found.values.toList())
         }
-        parts.awaitAll().flatten().distinctBy { it.id }.take(max)
     }
 
     /** Singers for a search (name and photo), for picking favourite singers. */

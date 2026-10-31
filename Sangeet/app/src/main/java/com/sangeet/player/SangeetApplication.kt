@@ -83,7 +83,7 @@ class AppContainer(private val app: Application) {
             .shuffled()
             .take(80)
     val player = PlayerConnection(app, library, scope).apply {
-        radio = { seed, exclude -> recommendations.radio(seed, exclude) }
+        radio = { seed, exclude, avoid -> recommendations.radio(seed, exclude, avoid = avoid) }
         autoplayEnabled = { settings.current.autoplay }
         crossfadeMs = { settings.current.crossfadeSec * 1000L }
         onListened = { t, start, ms ->

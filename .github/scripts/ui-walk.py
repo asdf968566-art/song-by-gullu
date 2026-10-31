@@ -905,7 +905,10 @@ def main():
         m = re.search(r"singer page: (\d+) songs by", log[-1]) if log else None
         n = int(m.group(1)) if m else 0
         header = find("Singer •", contains=True)
-        return n >= 40 and header is not None, (log[-1].split(": ", 1)[-1] if log else "no log line") + f"; header: {(header or {}).get('text')}"
+        # Report #89: originals only.
+        remix = [x["text"] for x in nodes(dump()) if re.search(r"(?i)remix|lo-?fi|slowed|mash ?up", x["text"])]
+        return n >= 40 and header is not None and not remix, \
+            (log[-1].split(": ", 1)[-1] if log else "no log line") + f"; header: {(header or {}).get('text')}; remixes: {remix[:3]}"
     step("Home: Your singers → the singer's page", open_singer, singer_page)
     step("Singer page: Play plays their songs", lambda: tap("Play", wait=8), lambda: (playing(), f"playing: {now_title()}"))
     def all_singers():

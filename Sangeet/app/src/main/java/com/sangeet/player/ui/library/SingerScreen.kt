@@ -58,8 +58,18 @@ import com.sangeet.player.ui.theme.themedCard
 fun SingerScreen(nav: NavController, name: String) {
     val c = LocalAppContainer.current
     var menuFor by remember { mutableStateOf<Track?>(null) }
+    // The songs come in a few at a time (report #89: all of them); the first ones show at once.
+    var loadingMore by remember(name) { mutableStateOf(true) }
     val songs by produceState<List<Track>?>(null, name) {
-        value = c.singers.songs(name).also { android.util.Log.i("Sangeet", "singer page: ${it.size} songs by $name") }
+        var first = true
+        c.singers.songs(name).collect {
+            value = it
+            if (first) android.util.Log.i("Sangeet", "singer page: ${it.size} songs by $name so far")
+            first = false
+        }
+        if (value == null) value = emptyList()
+        loadingMore = false
+        android.util.Log.i("Sangeet", "singer page: ${value?.size ?: 0} songs by $name")
     }
     val photo by produceState<String?>(null, name) { value = c.singers.photo(name) }
 
@@ -70,9 +80,14 @@ fun SingerScreen(nav: NavController, name: String) {
         item { CollectionHeader(nav, name, "Singer", list, artwork = photo ?: list.firstOrNull()?.artworkUrl, playShuffled = true) }
         when {
             songs == null -> item { LoadingBox() }
-            list.isEmpty() -> item { EmptyState(Icons.Rounded.Person, "No songs found", "No songs by $name in your languages.") }
-            else -> itemsIndexed(list, key = { i, t -> "${i}_${t.id}" }) { i, t ->
-                TrackRow(t, onClick = { c.player.play(list, i) }, onMore = { menuFor = t })
+            list.isEmpty() -> item {
+                if (loadingMore) LoadingBox() else EmptyState(Icons.Rounded.Person, "No songs found", "No songs by $name in your languages.")
+            }
+            else -> {
+                itemsIndexed(list, key = { i, t -> "${i}_${t.id}" }) { i, t ->
+                    TrackRow(t, onClick = { c.player.play(list, i) }, onMore = { menuFor = t })
+                }
+                if (loadingMore) item { LoadingBox() }
             }
         }
         item { Spacer(Modifier.height(24.dp)) }
