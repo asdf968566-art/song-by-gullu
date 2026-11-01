@@ -93,7 +93,7 @@
   "views": 4,
   "likes": 0,
   "comments": 0,
-  "score": 0.5
+  "score": 0.4
  },
  {
   "date": "20261024-1627",
@@ -363,6 +363,24 @@
   "file": "long-20261101-1222.mp4",
   "series": "Bhootiya Haveli",
   "episode": 1,
-  "recap": "The Sharma family moves into the cursed Gulabgarh Haveli despite the eerie warnings of the elderly caretaker. On their first night, paranormal activity culminates at 3:17 AM as the forbidden sealed door unlocks itself, revealing a horrifying entity reaching out for Aarav."
+  "recap": "The Sharma family moves into the cursed Gulabgarh Haveli despite the eerie warnings of the elderly caretaker. On their first night, paranormal activity culminates at 3:17 AM as the forbidden sealed door unlocks itself, revealing a horrifying entity reaching out for Aarav.",
+  "views": 0,
+  "likes": 0,
+  "comments": 0,
+  "score": 0.0
+ },
+ {
+  "date": "20261101-1820",
+  "kind": "short",
+  "format": "today's trend turned into an original horror or suspense story (use one of today's top searched topics in India as the setting, never real people)",
+  "title": "AQI 999: धुंध के पीछे कौन था? 😱 #shorts",
+  "seconds": 85.6,
+  "pictures": {
+   "reused": 1,
+   "pollinations": 7
+  },
+  "voice": "edge",
+  "youtube": "ZYHor_RPiXs",
+  "file": "short-20261101-1820.mp4"
  }
 ]
