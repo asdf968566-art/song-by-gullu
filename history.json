@@ -342,6 +342,27 @@
   },
   "voice": "edge",
   "youtube": "q7_e4kkYFc8",
-  "file": "short-20261031-1738.mp4"
+  "file": "short-20261031-1738.mp4",
+  "views": 2,
+  "likes": 0,
+  "comments": 0,
+  "score": 2.0
+ },
+ {
+  "date": "20261101-1222",
+  "kind": "long",
+  "format": "series:Bhootiya Haveli",
+  "title": "Bhootiya Haveli Episode 1 | पहली रात और बंद कमरे की चीख",
+  "seconds": 697.9,
+  "pictures": {
+   "pollinations": 45,
+   "reused": 13
+  },
+  "voice": "edge",
+  "youtube": "nHen93ub-CI",
+  "file": "long-20261101-1222.mp4",
+  "series": "Bhootiya Haveli",
+  "episode": 1,
+  "recap": "The Sharma family moves into the cursed Gulabgarh Haveli despite the eerie warnings of the elderly caretaker. On their first night, paranormal activity culminates at 3:17 AM as the forbidden sealed door unlocks itself, revealing a horrifying entity reaching out for Aarav."
  }
 ]
