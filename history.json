@@ -20,7 +20,7 @@
   "views": 6,
   "likes": 0,
   "comments": 0,
-  "score": 0.5
+  "score": 0.4
  },
  {
   "date": "20261020-1452",
@@ -346,7 +346,7 @@
   "views": 2,
   "likes": 0,
   "comments": 0,
-  "score": 2.0
+  "score": 0.9
  },
  {
   "date": "20261101-1222",
@@ -381,6 +381,23 @@
   },
   "voice": "edge",
   "youtube": "ZYHor_RPiXs",
-  "file": "short-20261101-1820.mp4"
+  "file": "short-20261101-1820.mp4",
+  "views": 0,
+  "likes": 0,
+  "comments": 0,
+  "score": 0.0
+ },
+ {
+  "date": "20261102-2211",
+  "kind": "short",
+  "format": "horror story in a city: a lift, a flat, a hostel, a hospital night shift or a metro, with a twist",
+  "title": "दिवाली की सफाई का भयानक अंत 😱 #shorts",
+  "seconds": 80.2,
+  "pictures": {
+   "pollinations": 8
+  },
+  "voice": "edge",
+  "youtube": "S3zaehPt9BM",
+  "file": "short-20261102-2211.mp4"
  }
 ]
