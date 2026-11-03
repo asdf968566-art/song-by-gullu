@@ -346,7 +346,7 @@
   "views": 2,
   "likes": 0,
   "comments": 0,
-  "score": 0.9
+  "score": 0.6
  },
  {
   "date": "20261101-1222",
@@ -398,6 +398,23 @@
   },
   "voice": "edge",
   "youtube": "S3zaehPt9BM",
-  "file": "short-20261102-2211.mp4"
+  "file": "short-20261102-2211.mp4",
+  "views": 0,
+  "likes": 0,
+  "comments": 0,
+  "score": 0.0
+ },
+ {
+  "date": "20261103-2015",
+  "kind": "short",
+  "format": "highway / train / bus horror story at night, told like it really happened to the narrator",
+  "title": "हाईवे की वो डरावनी रात 😱 | Night Bus Horror Story #shorts",
+  "seconds": 84.8,
+  "pictures": {
+   "pollinations": 9
+  },
+  "voice": "edge",
+  "youtube": "AVhKxf3NHjs",
+  "file": "short-20261103-2015.mp4"
  }
 ]
