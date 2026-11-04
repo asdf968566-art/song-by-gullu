@@ -1,5 +1,6 @@
 package com.sangeet.player.data.recommend
 
+import com.sangeet.player.data.Rx
 import android.content.Context
 import com.sangeet.player.data.LibraryRepository
 import com.sangeet.player.data.LocalMusicRepository
@@ -267,7 +268,7 @@ class RecommendationRepository(
 
     /** The singer to follow: the first name of the song's singers, not a music label's channel. */
     internal fun mainSinger(artist: String): String? {
-        val first = artist.replace(Regex("(?i)\\s*-\\s*topic$|vevo$|\\s+official$"), "")
+        val first = artist.replace(Rx.CHANNEL_SUFFIX, "")
             .split(',', '&', '/', '|').map { it.trim() }.firstOrNull { it.isNotBlank() } ?: return null
         val n = norm(first)
         if (n.isBlank() || n == "unknown" || n == "unknown artist" || LABELS.any { n.contains(it) }) return null
@@ -638,8 +639,8 @@ class RecommendationRepository(
     }
 
     internal fun norm(s: String) = s.lowercase()
-        .replace(Regex("""\(.*?\)|\[.*?]"""), "")
-        .replace(Regex("[^\\p{L}\\p{N}]+"), " ")
+        .replace(Rx.BRACKETS, "")
+        .replace(Rx.NON_WORD, " ")
         .trim()
 
     companion object {

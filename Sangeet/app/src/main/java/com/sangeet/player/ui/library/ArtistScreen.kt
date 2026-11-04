@@ -1,5 +1,6 @@
 package com.sangeet.player.ui.library
 
+import com.sangeet.player.data.Rx
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
@@ -139,13 +140,15 @@ fun ArtistScreen(nav: NavController, name: String) {
     }
 }
 
-private fun norm(s: String) = s.lowercase().replace(Regex("[^\\p{L}\\p{N}]+"), " ").trim()
+private fun norm(s: String) = s.lowercase().replace(Rx.NON_WORD, " ").trim()
 
 private fun matches(artistField: String, me: String): Boolean =
     me.isNotBlank() && splitArtists(artistField).any { norm(it) == me || norm(it).contains(me) } || norm(artistField) == me
 
+private val ARTIST_SPLIT = Regex("""\s*(,|&| and | x | feat\.? | ft\.? )\s*""", RegexOption.IGNORE_CASE)
+
 /** "Pritam, Arijit Singh & Amitabh ft. X" -> [Pritam, Arijit Singh, Amitabh, X] */
 private fun splitArtists(s: String): List<String> =
-    s.split(Regex("""\s*(,|&| and | x | feat\.? | ft\.? )\s*""", RegexOption.IGNORE_CASE))
+    s.split(ARTIST_SPLIT)
         .map { it.trim() }
         .filter { it.length > 1 && !it.equals("Unknown", true) && !it.equals("YouTube", true) }

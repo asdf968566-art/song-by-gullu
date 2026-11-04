@@ -28,9 +28,9 @@ object SameSong {
     fun key(t: Track): Key {
         val raw = norm(
             t.title.lowercase()
-                .replace(Regex("lo[ -]fi"), "lofi")
-                .replace(Regex("sped[ -]up"), "spedup")
-                .replace(Regex("8[ -]d\\b"), "8d")
+                .replace(LOFI, "lofi")
+                .replace(SPED_UP, "spedup")
+                .replace(EIGHT_D, "8d")
         )
         val words = raw.split(' ').toSet()
         return Key(
@@ -83,17 +83,17 @@ object SameSong {
     /** The song's name without "(From …)", " - Official Video", " | Film"…, lower case. */
     fun cleanTitle(t: String) = norm(
         t.lowercase()
-            .replace(Regex("""\(.*?\)|\[.*?]"""), " ")
+            .replace(Rx.BRACKETS, " ")
             .substringBefore(" - ")
             .substringBefore(" | ")
-            .replace(Regex("\\b(official|video|audio|lyrical|lyrics|full song|song|hd|4k)\\b"), " ")
+            .replace(FILLER, " ")
     )
 
     /** The first real singer of [artist] (not a music label's channel), lower case, or null. */
     fun mainSinger(artist: String): String? = singers(artist).firstOrNull()
 
     private fun singers(artist: String): List<String> =
-        artist.replace(Regex("(?i)\\s*-\\s*topic$|vevo$|\\s+official$"), "")
+        artist.replace(Rx.CHANNEL_SUFFIX, "")
             .split(',', '&', '/', '|', ';')
             .map { norm(it) }
             .filter { n -> n.length > 2 && n != "unknown" && n != "unknown artist" && LABELS.none { n.contains(it) } }
@@ -104,14 +104,20 @@ object SameSong {
      * nobody else is named, the first name is kept.
      */
     fun singerOf(artist: String): String? {
-        val names = artist.replace(Regex("(?i)\\s*-\\s*topic$|vevo$|\\s+official$"), "")
+        val names = artist.replace(Rx.CHANNEL_SUFFIX, "")
             .split(',', '&', '/', '|', ';')
             .map { it.trim() }
             .filter { n -> norm(n).let { it.length > 2 && it != "unknown" && it != "unknown artist" && LABELS.none { l -> it.contains(l) } } }
         return names.firstOrNull { norm(it) !in CREDITS } ?: names.firstOrNull()
     }
 
-    private fun norm(s: String) = s.lowercase().replace(Regex("[^\\p{L}\\p{N}]+"), " ").trim()
+    private fun norm(s: String) = s.lowercase().replace(Rx.NON_WORD, " ").trim()
+
+    // Built once: a key is made for thousands of songs (report #92).
+    private val LOFI = Regex("lo[ -]fi")
+    private val SPED_UP = Regex("sped[ -]up")
+    private val EIGHT_D = Regex("8[ -]d\\b")
+    private val FILLER = Regex("\\b(official|video|audio|lyrical|lyrics|full song|song|hd|4k)\\b")
 
     private val VERSIONS = listOf(
         "remix", "lofi", "slowed", "reverb", "spedup", "unplugged", "acoustic", "reprise", "female", "male", "sad",

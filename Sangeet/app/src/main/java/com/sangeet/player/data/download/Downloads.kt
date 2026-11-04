@@ -1,5 +1,6 @@
 package com.sangeet.player.data.download
 
+import com.sangeet.player.data.Rx
 import com.sangeet.player.MainActivity
 import android.content.Intent
 import android.app.PendingIntent
@@ -136,9 +137,9 @@ class DownloadRepository(
     }
 
     private fun cleanTitle(t: String) = t.lowercase()
-        .replace(Regex("""\(.*?\)|\[.*?]"""), " ")
+        .replace(Rx.BRACKETS, " ")
         .substringBefore(" - ")
-        .replace(Regex("[^\\p{L}\\p{N}]+"), " ")
+        .replace(Rx.NON_WORD, " ")
         .trim()
 
     suspend fun downloadAll(tracks: List<Track>) = tracks.forEach { download(it) }
@@ -168,7 +169,7 @@ class DownloadRepository(
         const val TAG = "downloads"
         fun workName(trackId: String) = "download_$trackId"
         fun dir(context: Context) = File(context.filesDir, "downloads").apply { mkdirs() }
-        fun safe(id: String) = id.replace(Regex("[^A-Za-z0-9_-]"), "_")
+        fun safe(id: String) = id.replace(Rx.NOT_ID, "_")
     }
 }
 

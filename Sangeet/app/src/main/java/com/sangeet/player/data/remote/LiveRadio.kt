@@ -1,5 +1,6 @@
 package com.sangeet.player.data.remote
 
+import com.sangeet.player.data.Rx
 import com.sangeet.player.data.model.SourceType
 import com.sangeet.player.data.model.Track
 import java.net.URLEncoder
@@ -43,7 +44,7 @@ object LiveRadio {
         return (Http.json.parseToJsonElement(body) as JsonArray).mapNotNull { e ->
             val o = e as? JsonObject ?: return@mapNotNull null
             val url = o.s("url_resolved").ifBlank { o.s("url") }
-            val name = o.s("name").replace(Regex("\\s+"), " ")
+            val name = o.s("name").replace(Rx.SPACES, " ")
             // https only: Android blocks plain http streams (no cleartext traffic in this app).
             if (!url.startsWith("https://") || name.isBlank() || !seen.add(name.lowercase()) || !seen.add(url)) return@mapNotNull null
             val langs = o.s("language").lowercase().split(',', ';').map { it.trim() }.filter { it.isNotBlank() }

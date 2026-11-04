@@ -1,5 +1,6 @@
 package com.sangeet.player.data.ai
 
+import com.sangeet.player.data.Rx
 import com.sangeet.player.data.Categories
 import com.sangeet.player.data.Mood
 import com.sangeet.player.data.Moods
@@ -74,7 +75,7 @@ object DjBrain {
     )
 
     fun understand(request: String, previous: DjIntent?, myLanguages: List<String>): DjIntent {
-        val t = " " + request.lowercase().replace(Regex("[^\\p{L}\\p{N}' ]+"), " ").replace(Regex("\\s+"), " ").trim() + " "
+        val t = " " + request.lowercase().replace(Regex("[^\\p{L}\\p{N}' ]+"), " ").replace(Rx.SPACES, " ").trim() + " "
         fun has(w: String) = t.contains(" $w ")
 
         val langs = LANGUAGE_WORDS.filterKeys { has(it) }.values.distinct()
@@ -120,7 +121,7 @@ object DjBrain {
         )
         val followUp = previous != null && (FOLLOW_UP.containsMatchIn(request.trim()) ||
             (now.languages.isEmpty() && now.mood == null && now.artists.isEmpty() && now.like.isEmpty() && now.movie.isEmpty() &&
-                request.trim().split(Regex("\\s+")).size <= 3))
+                request.trim().split(Rx.SPACES).size <= 3))
         if (!followUp || previous == null) return now.copy(languages = now.languages.ifEmpty { myLanguages })
         // A follow-up: change only what was said, keep the rest. "Punjabi too" / "punjabi bhi" adds a language.
         val addLanguage = t.contains(" too ") || t.contains(" bhi ") || t.contains(" also ")

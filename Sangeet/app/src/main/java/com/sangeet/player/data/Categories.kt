@@ -187,7 +187,7 @@ object Moods {
     /** The mood a request talks about ("sad punjabi songs for a night drive" -> Sad), if any. */
     fun find(text: String): Mood? {
         val t = " ${text.lowercase()} "
-        return all.firstOrNull { m -> m.words.any { Regex("\\b${Regex.escape(it)}\\b").containsMatchIn(t) } }
+        return all.firstOrNull { m -> m.words.any { Rx.word(it).containsMatchIn(t) } }
     }
 }
 
@@ -198,7 +198,7 @@ private val TOPIC_GENERIC = setOf("songs", "song", "geet", "music", "playlist")
 
 /** A category / festival search ("haryanvi songs", "holi songs") as a [Topic]. */
 fun topicOf(query: String, languages: List<String>, singer: Boolean = false): Topic {
-    val words = query.lowercase().split(Regex("\\s+")).filter { it.isNotBlank() && it !in TOPIC_GENERIC }
+    val words = query.lowercase().split(Rx.SPACES).filter { it.isNotBlank() && it !in TOPIC_GENERIC }
     // Mood words in it ("hindi sad songs") also count as the mood's other words.
     val mood = Moods.find(query)
     val names = (words + mood?.words.orEmpty()).distinct()

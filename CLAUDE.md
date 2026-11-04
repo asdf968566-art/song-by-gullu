@@ -745,6 +745,36 @@ request the owner made, in order.
       the last report)".
   - #69 stays open: the tester's latest exits are the phone ending the app while it isn't playing
     (`PriScreenOffKiller`, "too many empty procs").
+- **Owner's how-to of Nov 3** ("download gaane device storage me kaise save hoga with photo bta"). Answered with
+  real screenshots from a one-off CI run (`.github/workflows/probe-howto.yml` + `.github/scripts/howto-shots.py` on
+  the dev branch, then removed; pictures in the log between `IMG-BEGIN` / `IMG-END`) and iPhone ones from Playwright.
+  - Android: song ⋮ → Download; Home → Settings → Online / Offline → "Save downloads to phone storage" on → the
+    phone's Files → Music/Sangeet.
+  - iPhone: Library → Downloads → folder icon → Save to Files.
+  - Seen in that run: the copies in Music/Sangeet carry no cover picture, and MediaStore shows their artist as
+    `<unknown>` (the m4a files have no tags). The owner was offered putting the photo and the singer into the file;
+    no answer yet.
+- **App reports of Nov 3** (samsung SM-M366B, now Android 17, build 341, Neumorphism light, Orange; the same phone
+  as #80–#84). Android only.
+  - **#92**: the new tombstone detail worked: SIGABRT on a `DefaultDispatch` thread, "Scudo ERROR: internal map
+    failure (Out of memory)" inside ICU `RegexCompile`.
+    - Cause: on Android every `Regex(...)` is compiled by ICU in native memory. `SameSong.key` built ~10 regexes per
+      song, and build 341 runs it over thousands of songs (radio, For You, singer pages). `Recommendations.norm`,
+      `OnlineRepository`, `YouTubeSource.splitTitle` and others did the same per song. The phone ran out of native
+      memory maps. #80–#84 (build 317) were very likely the same.
+    - Fix: `data/Rx.kt` holds the shared ones (`NON_WORD`, `BRACKETS`, `SPACES`, `CHANNEL_SUFFIX`,
+      `BAD_FILE_CHARS`, `NOT_ID`, and `word(w)` = a cached `\bw\b`, any case). Per-file constants: SameSong (`LOFI`,
+      `SPED_UP`, `EIGHT_D`, `FILLER`), YouTubeSource's companion (`ISO_DURATION`, `VIDEO_ID`, `TITLE_TAGS`,
+      `TITLE_PREFIX`, `HANDLE`, `ART_SIZE`), JioSaavnSource `BITRATE`, ArtistScreen `ARTIST_SPLIT`, Usage
+      `ROUTE_ARG`. **Don't build a `Regex` inside a function that runs per song.**
+  - **#93**: `IllegalArgumentException: Unsupported MIME type audio/webm` from `ContentResolver.insert`. The owner
+    turned on "Save downloads to phone storage" after the how-to, and Android 17 refuses audio/webm in MediaStore.
+    The exception reached the Settings switch's coroutine on the main thread and crashed the app.
+    - Fix: `PhoneMusic.save` never throws (log "save to phone failed"). A WebM (Opus) download is put into an Ogg
+      file first (`toOgg`: MediaExtractor + MediaMuxer `MUXER_OUTPUT_OGG`, Android 10+, no re-encoding) and saved as
+      audio/ogg.
+    - Ringtones of Opus songs are cut into .ogg on Android 10+ for the same reason (Vorbis and Android 8–9 stay
+      .webm).
 - **YouTube Shorts channel** (Oct 20, owner sent reels about "faceless" AI YouTube channels: "saare viral video dekh
   … cartoon, motion video, ai made movie … bna aur upload kar … monotize krwa"; "upload bhi tu kr, permission de
   dunga"; then "sirf shorts nhi, full movie, cartoon, ramayan, mahabharat"). Not part of the apps:

@@ -1,5 +1,6 @@
 package com.sangeet.player.data.community
 
+import com.sangeet.player.data.Rx
 import com.sangeet.player.AppContainer
 import com.sangeet.player.BuildConfig
 import com.sangeet.player.data.model.SourceType
@@ -22,7 +23,7 @@ object Top50 {
         // The same song once, even when it came from both sources.
         val seen = HashSet<String>()
         return (ours + fill).filter { t ->
-            val name = t.title.lowercase().replace(Regex("""\(.*?\)|\[.*?]"""), "").replace(Regex("[^\\p{L}\\p{N}]+"), " ").trim()
+            val name = t.title.lowercase().replace(Rx.BRACKETS, "").replace(Rx.NON_WORD, " ").trim()
             seen.add(t.id) and seen.add("$name|${t.artist.substringBefore(",").trim().lowercase()}")
         }.take(limit)
     }
