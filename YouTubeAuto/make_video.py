@@ -333,18 +333,22 @@ Did best on this channel so far (learn what viewers liked: topic, hook, title st
 {chr(10).join('- ' + b for b in best) or '- (no data yet)'}
 
 Rules:
-- 7 to 9 scenes, each 1-2 short spoken sentences; all narration together 110-150 words (about 55 seconds).
-- Scene 1 is a strong hook in the first 2 seconds. The last scene ends the story and asks viewers to comment or
-  subscribe (one short line).
+- 9 to 11 scenes, each ONE short spoken sentence (max 12 words); all narration together 70-95 words (30-40
+  seconds). Short Shorts that people watch to the end (and again) are what YouTube shows to more people.
+- Scene 1 is the hook: the most shocking moment or question of the story, said in the first 2 seconds (no
+  "namaste", no intro, no channel name). Every scene must make people want the next one.
+- The last scene is the twist and leads straight back into the first line, so the Short feels like a loop. No
+  "like / subscribe" line; at most a 3-4 word question that makes people comment.
+- hook: 2-5 Hindi words (Devanagari) shown big on screen for the first 2 seconds, e.g. "ये गलती मत करना!".
 {SCENE_RULES.format(shape="Vertical 9:16")}
 - title: catchy, max 70 characters, Hindi in Devanagari or Hinglish, ends with #shorts.
 - description: 2-3 lines in Hindi plus 5 hashtags. tags: 10 short tags.
 
 Answer with only this JSON:
-{{"title": "...", "description": "...", "tags": ["..."], "style": "...",
+{{"title": "...", "hook": "...", "description": "...", "tags": ["..."], "style": "...",
  "characters": [{{"name": "...", "look": "..."}}],
  "scenes": [{{"speaker": "narrator", "narration": "...", "image_prompt": "..."}}]}}"""
-    p = ask_json(prompt, scenes_ok(5))
+    p = ask_json(prompt, scenes_ok(6))
     p.update(format=fmt, kids=kids, kind="short")
     return p
 
@@ -573,6 +577,8 @@ def voices(p):
     out, kinds = [], set()
     for i, s in enumerate(p["scenes"]):
         voice, rate, pitch = VOICES.get(s.get("speaker", "narrator"), VOICES["narrator"])
+        if not LONG:
+            rate = f"{int(rate.rstrip('%')) + 8:+d}%"  # Shorts are told a little faster
         if not LONG and s.get("speaker", "narrator") == "narrator" and p.get("kids"):
             voice, rate, pitch = VOICES["woman"]
         path = os.path.join(WORK, f"voice{i:03d}.mp3")
@@ -624,9 +630,14 @@ def captions(p, durs, path, gap):
         per = 7
     else:
         styles = ["Style: Cap,Noto Sans Devanagari,92,&H0000F6FF,&H00FFFFFF,&H00000000,&H64000000,-1,0,0,0,100,100,0,0,"
-                  "1,7,3,2,70,70,560,1"]
+                  "1,7,3,2,70,70,560,1",
+                  "Style: Hook,Noto Sans Devanagari,120,&H00FFFFFF,&H00FFFFFF,&H000000C8,&H96000000,-1,0,0,0,100,100,0,0,"
+                  "1,9,4,8,60,60,260,1"]
         per = 3
     lines = ass_head(styles)
+    if not LONG and p.get("hook"):
+        # The hook in big white letters with a red edge at the top for the first 2.5 seconds.
+        lines.append(f"Dialogue: 1,{ass_time(0.0)},{ass_time(2.5)},Hook,,0,0,0,,{{\\fad(0,300)}}{plain(p['hook'])[:40]}")
     if LONG:
         title = plain(re.sub(r"\s*#\w+", "", p["title"]))
         lines.append(f"Dialogue: 1,{ass_time(0.3)},{ass_time(5.3)},Title,,0,0,0,,{{\\fad(300,400)}}{title}")
@@ -900,8 +911,38 @@ def reply_comments(history, limit=60):
     log(f"comments: {done} replies, {len(d.get('items', []))} threads read")
 
 
+def make_private(history, keep_views=2):
+    """Owner, Nov 4: hide the weak old videos (fewer than `keep_views` views). Private, not deleted, so any of them
+    can go public again in YouTube Studio."""
+    token = access_token()
+    if not token:
+        return
+    n = 0
+    for h in history:
+        if not h.get("youtube") or h.get("private") or (h.get("views") or 0) >= keep_views:
+            continue
+        try:
+            http("https://www.googleapis.com/youtube/v3/videos?part=status",
+                 {"id": h["youtube"], "status": {"privacyStatus": "private",
+                                                 "selfDeclaredMadeForKids": h.get("format", "").startswith("cartoon"),
+                                                 "containsSyntheticMedia": True}},
+                 headers={"Authorization": "Bearer " + token}, method="PUT")
+            h["private"] = True
+            n += 1
+            log("private:", h["youtube"], h["title"][:60])
+        except urllib.error.HTTPError as e:
+            log("private failed:", h["youtube"], e.code, e.read().decode(errors="replace")[:300])
+    log(f"private: {n} videos hidden")
+
+
 def main():
     history = load_history()
+    if "--cleanup" in sys.argv:
+        channel_stats(history)
+        make_private(history)
+        json.dump(history[-500:], open(os.path.join(STATE, "history.json"), "w", encoding="utf-8"),
+                  ensure_ascii=False, indent=1)
+        return
     if "--comments" in sys.argv:
         reply_comments(history)
         return

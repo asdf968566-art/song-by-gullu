@@ -7,15 +7,15 @@ name: YouTube Shorts
 # branch youtube-preview, so a session can look at them.
 on:
   schedule:
-    - cron: "41 12 * * *"   # Short: 6:11 PM India time, when Shorts get the most views
-    - cron: "41 3 */2 * *"  # long video: 9:11 AM India time, so it is up by the evening
+    - cron: "41 12 * * 1,3,5"  # Short on Mon / Wed / Fri, 6:11 PM India time (fewer, better videos since Nov 4)
+    - cron: "41 3 * * 0"       # long video on Sunday, 9:11 AM India time
     - cron: "23 14 * * *"   # replies to new comments once a day, 7:53 PM India time
   workflow_dispatch:
     inputs:
       kind:
-        description: "short, long, or comments (only reply to new comments)"
+        description: "short, long, comments (only reply to new comments) or cleanup (make weak old videos private)"
         type: choice
-        options: [short, long, comments]
+        options: [short, long, comments, cleanup]
         default: short
       login:
         description: "Link the YouTube channel (the sign-in link / code goes to the branch youtube-login)"
@@ -55,7 +55,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Tools
-        if: ${{ !inputs.login && inputs.kind != 'comments' && github.event.schedule != '23 14 * * *' }}
+        if: ${{ !inputs.login && inputs.kind != 'comments' && inputs.kind != 'cleanup' && github.event.schedule != '23 14 * * *' }}
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-noto-core >/dev/null
           pip install -q --break-system-packages edge-tts gTTS pillow
@@ -85,8 +85,9 @@ jobs:
           export YT_API_KEY=$(sed -n 's/^sangeet.youtubeApiKey=//p' Sangeet/gradle.properties)
           ARGS=""
           if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ inputs.upload }}" = "true" ]; then ARGS="--upload"; fi
-          if [ "${{ github.event.schedule }}" = "41 3 */2 * *" ] || [ "${{ inputs.kind }}" = "long" ]; then ARGS="$ARGS --long"; fi
+          if [ "${{ github.event.schedule }}" = "41 3 * * 0" ] || [ "${{ inputs.kind }}" = "long" ]; then ARGS="$ARGS --long"; fi
           if [ "${{ github.event.schedule }}" = "23 14 * * *" ] || [ "${{ inputs.kind }}" = "comments" ]; then ARGS="--comments"; fi
+          if [ "${{ inputs.kind }}" = "cleanup" ]; then ARGS="--cleanup"; fi
           python3 YouTubeAuto/make_video.py state out $ARGS
       - name: Preview frames (branch youtube-preview)
         if: ${{ !inputs.login && hashFiles('out/*.mp4') != '' }}
