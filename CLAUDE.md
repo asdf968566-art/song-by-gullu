@@ -806,6 +806,9 @@ request the owner made, in order.
     03:41 UTC. Shorts are 30–40 s (9–11 one-sentence scenes, 70–95 words), told 8% faster, with a hook line said in
     the first 2 s, a `hook` (2–5 words) shown big at the top for 2.5 s, and a loop ending instead of "subscribe".
     The owner was asked to check Studio → Content → Visibility / Restrictions (screenshot not sent yet).
+    Same day the owner asked again: "saare delete kr de ek baar". `--delete-all` (kind "delete-all", by hand)
+    deleted all 23 uploads (told first that it can't be undone; copies stay in the release). History keeps them
+    with `deleted`, `channel_stats` skips those.
   - Told the owner: no fake views; monetization (1000 subs + 4000 h or 10M Shorts views in 90 days) can't be promised;
     mass-produced repetitive AI videos are demonetized, so every video is a different format/story.
 - Other platforms checked Oct 9 from CI: Gaana's old open API is gone (404); Wynk, Hungama, Spotify have no open
