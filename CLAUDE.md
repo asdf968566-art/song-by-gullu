@@ -799,6 +799,13 @@ request the owner made, in order.
     their keys, `TREND_SHORT` turns the day's trend into a horror story), `LONG_FORMATS` = the series "Bhootiya
     Haveli", horror, mystery, city-horror, folk-horror, trend. Ramayan / Mahabharat / cartoon / facts are gone from
     the rotation (old history entries stay). Trend searches use horror words.
+  - **Fewer, better videos** (Nov 4). After 2 weeks: 23 videos, 15 views (horror changed nothing; most Shorts got 0,
+    i.e. YouTube showed them to nobody). Owner: "saare delete krde ya kuch bhi try kr". Not deleted (can't be undone,
+    and deleting doesn't reset a channel): `--cleanup` (kind "cleanup", run once by hand) makes every upload with
+    < 2 views private (`make_private`, `private` in history). Schedule: Shorts Mon/Wed/Fri 12:41 UTC, long Sunday
+    03:41 UTC. Shorts are 30–40 s (9–11 one-sentence scenes, 70–95 words), told 8% faster, with a hook line said in
+    the first 2 s, a `hook` (2–5 words) shown big at the top for 2.5 s, and a loop ending instead of "subscribe".
+    The owner was asked to check Studio → Content → Visibility / Restrictions (screenshot not sent yet).
   - Told the owner: no fake views; monetization (1000 subs + 4000 h or 10M Shorts views in 90 days) can't be promised;
     mass-produced repetitive AI videos are demonetized, so every video is a different format/story.
 - Other platforms checked Oct 9 from CI: Gaana's old open API is gone (404); Wynk, Hungama, Spotify have no open
