@@ -244,7 +244,7 @@ SCENE_RULES = """- narration: what is heard, in simple everyday Hindi in Devanag
 # ---------- What works on the channel ----------
 def channel_stats(history):
     """Views, likes and comments of the channel's own videos (1 quota unit per 50), kept in the history."""
-    ids = [h["youtube"] for h in history if h.get("youtube")]
+    ids = [h["youtube"] for h in history if h.get("youtube") and not h.get("deleted")]
     if not ids:
         return
     token = None
@@ -935,8 +935,37 @@ def make_private(history, keep_views=2):
     log(f"private: {n} videos hidden")
 
 
+def delete_all(history):
+    """Owner, Nov 4: "saare delete kr de ek baar". Deletes every upload from YouTube (copies stay in the release
+    youtube-videos); history keeps them as `deleted`, so topics still don't repeat."""
+    token = access_token()
+    if not token:
+        return
+    n = 0
+    for h in history:
+        if not h.get("youtube") or h.get("deleted"):
+            continue
+        req = urllib.request.Request("https://www.googleapis.com/youtube/v3/videos?id=" + h["youtube"], method="DELETE",
+                                     headers={"Authorization": "Bearer " + token, "User-Agent": UA})
+        try:
+            urllib.request.urlopen(req, timeout=60).read()
+            h["deleted"] = True
+            n += 1
+            log("deleted:", h["youtube"], h["title"][:60])
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                h["deleted"] = True
+            log("delete failed:", h["youtube"], e.code, e.read().decode(errors="replace")[:300])
+    log(f"deleted: {n} videos")
+
+
 def main():
     history = load_history()
+    if "--delete-all" in sys.argv:
+        delete_all(history)
+        json.dump(history[-500:], open(os.path.join(STATE, "history.json"), "w", encoding="utf-8"),
+                  ensure_ascii=False, indent=1)
+        return
     if "--cleanup" in sys.argv:
         channel_stats(history)
         make_private(history)
