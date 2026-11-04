@@ -38,7 +38,8 @@
   "views": 1,
   "likes": 0,
   "comments": 0,
-  "score": 0.1
+  "score": 0.1,
+  "private": true
  },
  {
   "date": "20261020-1746",
@@ -56,7 +57,8 @@
   "views": 1,
   "likes": 0,
   "comments": 0,
-  "score": 0.1
+  "score": 0.1,
+  "private": true
  },
  {
   "date": "20261021-1046",
@@ -75,7 +77,8 @@
   "views": 0,
   "likes": 0,
   "comments": 0,
-  "score": 0.0
+  "score": 0.0,
+  "private": true
  },
  {
   "date": "20261023-1746",
@@ -93,7 +96,7 @@
   "views": 4,
   "likes": 0,
   "comments": 0,
-  "score": 0.4
+  "score": 0.3
  },
  {
   "date": "20261024-1627",
@@ -112,7 +115,8 @@
   "views": 1,
   "likes": 0,
   "comments": 0,
-  "score": 0.1
+  "score": 0.1,
+  "private": true
  },
  {
   "date": "20261025-1013",
@@ -131,7 +135,8 @@
   "views": 0,
   "likes": 0,
   "comments": 0,
-  "score": 0.0
+  "score": 0.0,
+  "private": true
  },
  {
   "date": "20261025-1700",
@@ -150,7 +155,8 @@
   "views": 0,
   "likes": 0,
   "comments": 0,
-  "score": 0.0
+  "score": 0.0,
+  "private": true
  },
  {
   "date": "20261025-1855",
@@ -168,7 +174,8 @@
   "views": 0,
   "likes": 0,
   "comments": 0,
-  "score": 0.0
+  "score": 0.0,
+  "private": true
  },
  {
   "date": "20261025-1934",
@@ -186,7 +193,8 @@
   "views": 0,
   "likes": 0,
   "comments": 0,
-  "score": 0.0
+  "score": 0.0,
+  "private": true
  },
  {
   "date": "20261026-2004",
@@ -203,7 +211,8 @@
   "views": 0,
   "likes": 0,
   "comments": 0,
-  "score": 0.0
+  "score": 0.0,
+  "private": true
  },
  {
   "date": "20261027-1208",
@@ -221,7 +230,8 @@
   "views": 0,
   "likes": 0,
   "comments": 0,
-  "score": 0.0
+  "score": 0.0,
+  "private": true
  },
  {
   "date": "20261027-1832",
@@ -239,7 +249,8 @@
   "views": 0,
   "likes": 0,
   "comments": 0,
-  "score": 0.0
+  "score": 0.0,
+  "private": true
  },
  {
   "date": "20261028-1846",
@@ -256,7 +267,8 @@
   "views": 0,
   "likes": 0,
   "comments": 0,
-  "score": 0.0
+  "score": 0.0,
+  "private": true
  },
  {
   "date": "20261029-1220",
@@ -274,7 +286,8 @@
   "views": 0,
   "likes": 0,
   "comments": 0,
-  "score": 0.0
+  "score": 0.0,
+  "private": true
  },
  {
   "date": "20261029-1856",
@@ -292,7 +305,8 @@
   "views": 0,
   "likes": 0,
   "comments": 0,
-  "score": 0.0
+  "score": 0.0,
+  "private": true
  },
  {
   "date": "20261030-1823",
@@ -310,7 +324,8 @@
   "views": 0,
   "likes": 0,
   "comments": 0,
-  "score": 0.0
+  "score": 0.0,
+  "private": true
  },
  {
   "date": "20261031-1134",
@@ -328,7 +343,8 @@
   "views": 0,
   "likes": 0,
   "comments": 0,
-  "score": 0.0
+  "score": 0.0,
+  "private": true
  },
  {
   "date": "20261031-1738",
@@ -346,7 +362,7 @@
   "views": 2,
   "likes": 0,
   "comments": 0,
-  "score": 0.6
+  "score": 0.5
  },
  {
   "date": "20261101-1222",
@@ -367,7 +383,8 @@
   "views": 0,
   "likes": 0,
   "comments": 0,
-  "score": 0.0
+  "score": 0.0,
+  "private": true
  },
  {
   "date": "20261101-1820",
@@ -385,7 +402,8 @@
   "views": 0,
   "likes": 0,
   "comments": 0,
-  "score": 0.0
+  "score": 0.0,
+  "private": true
  },
  {
   "date": "20261102-2211",
@@ -402,7 +420,8 @@
   "views": 0,
   "likes": 0,
   "comments": 0,
-  "score": 0.0
+  "score": 0.0,
+  "private": true
  },
  {
   "date": "20261103-2015",
@@ -415,6 +434,10 @@
   },
   "voice": "edge",
   "youtube": "AVhKxf3NHjs",
-  "file": "short-20261103-2015.mp4"
+  "file": "short-20261103-2015.mp4",
+  "views": 2,
+  "likes": 0,
+  "comments": 0,
+  "score": 2.0
  }
 ]
