@@ -20,7 +20,8 @@
   "views": 6,
   "likes": 0,
   "comments": 0,
-  "score": 0.4
+  "score": 0.4,
+  "deleted": true
  },
  {
   "date": "20261020-1452",
@@ -39,7 +40,8 @@
   "likes": 0,
   "comments": 0,
   "score": 0.1,
-  "private": true
+  "private": true,
+  "deleted": true
  },
  {
   "date": "20261020-1746",
@@ -58,7 +60,8 @@
   "likes": 0,
   "comments": 0,
   "score": 0.1,
-  "private": true
+  "private": true,
+  "deleted": true
  },
  {
   "date": "20261021-1046",
@@ -78,7 +81,8 @@
   "likes": 0,
   "comments": 0,
   "score": 0.0,
-  "private": true
+  "private": true,
+  "deleted": true
  },
  {
   "date": "20261023-1746",
@@ -96,7 +100,8 @@
   "views": 4,
   "likes": 0,
   "comments": 0,
-  "score": 0.3
+  "score": 0.3,
+  "deleted": true
  },
  {
   "date": "20261024-1627",
@@ -116,7 +121,8 @@
   "likes": 0,
   "comments": 0,
   "score": 0.1,
-  "private": true
+  "private": true,
+  "deleted": true
  },
  {
   "date": "20261025-1013",
@@ -136,7 +142,8 @@
   "likes": 0,
   "comments": 0,
   "score": 0.0,
-  "private": true
+  "private": true,
+  "deleted": true
  },
  {
   "date": "20261025-1700",
@@ -156,7 +163,8 @@
   "likes": 0,
   "comments": 0,
   "score": 0.0,
-  "private": true
+  "private": true,
+  "deleted": true
  },
  {
   "date": "20261025-1855",
@@ -175,7 +183,8 @@
   "likes": 0,
   "comments": 0,
   "score": 0.0,
-  "private": true
+  "private": true,
+  "deleted": true
  },
  {
   "date": "20261025-1934",
@@ -194,7 +203,8 @@
   "likes": 0,
   "comments": 0,
   "score": 0.0,
-  "private": true
+  "private": true,
+  "deleted": true
  },
  {
   "date": "20261026-2004",
@@ -212,7 +222,8 @@
   "likes": 0,
   "comments": 0,
   "score": 0.0,
-  "private": true
+  "private": true,
+  "deleted": true
  },
  {
   "date": "20261027-1208",
@@ -231,7 +242,8 @@
   "likes": 0,
   "comments": 0,
   "score": 0.0,
-  "private": true
+  "private": true,
+  "deleted": true
  },
  {
   "date": "20261027-1832",
@@ -250,7 +262,8 @@
   "likes": 0,
   "comments": 0,
   "score": 0.0,
-  "private": true
+  "private": true,
+  "deleted": true
  },
  {
   "date": "20261028-1846",
@@ -268,7 +281,8 @@
   "likes": 0,
   "comments": 0,
   "score": 0.0,
-  "private": true
+  "private": true,
+  "deleted": true
  },
  {
   "date": "20261029-1220",
@@ -287,7 +301,8 @@
   "likes": 0,
   "comments": 0,
   "score": 0.0,
-  "private": true
+  "private": true,
+  "deleted": true
  },
  {
   "date": "20261029-1856",
@@ -306,7 +321,8 @@
   "likes": 0,
   "comments": 0,
   "score": 0.0,
-  "private": true
+  "private": true,
+  "deleted": true
  },
  {
   "date": "20261030-1823",
@@ -325,7 +341,8 @@
   "likes": 0,
   "comments": 0,
   "score": 0.0,
-  "private": true
+  "private": true,
+  "deleted": true
  },
  {
   "date": "20261031-1134",
@@ -344,7 +361,8 @@
   "likes": 0,
   "comments": 0,
   "score": 0.0,
-  "private": true
+  "private": true,
+  "deleted": true
  },
  {
   "date": "20261031-1738",
@@ -362,7 +380,8 @@
   "views": 2,
   "likes": 0,
   "comments": 0,
-  "score": 0.5
+  "score": 0.5,
+  "deleted": true
  },
  {
   "date": "20261101-1222",
@@ -384,7 +403,8 @@
   "likes": 0,
   "comments": 0,
   "score": 0.0,
-  "private": true
+  "private": true,
+  "deleted": true
  },
  {
   "date": "20261101-1820",
@@ -403,7 +423,8 @@
   "likes": 0,
   "comments": 0,
   "score": 0.0,
-  "private": true
+  "private": true,
+  "deleted": true
  },
  {
   "date": "20261102-2211",
@@ -421,7 +442,8 @@
   "likes": 0,
   "comments": 0,
   "score": 0.0,
-  "private": true
+  "private": true,
+  "deleted": true
  },
  {
   "date": "20261103-2015",
@@ -438,6 +460,7 @@
   "views": 2,
   "likes": 0,
   "comments": 0,
-  "score": 2.0
+  "score": 2.0,
+  "deleted": true
  }
 ]
