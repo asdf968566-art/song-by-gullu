@@ -1,5 +1,6 @@
 package com.sangeet.player.data.playlist
 
+import com.sangeet.player.data.Rx
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -281,8 +282,8 @@ class PlaylistImporter(
     }.getOrNull() ?: uri.lastPathSegment
 
     private fun norm(s: String) = s.lowercase()
-        .replace(Regex("""\(.*?\)|\[.*?]"""), "")
-        .replace(Regex("[^\\p{L}\\p{N}]+"), " ")
+        .replace(Rx.BRACKETS, "")
+        .replace(Rx.NON_WORD, " ")
         .trim()
 
     private fun key(title: String, artist: String) = norm(title) + "|" + norm(artist)

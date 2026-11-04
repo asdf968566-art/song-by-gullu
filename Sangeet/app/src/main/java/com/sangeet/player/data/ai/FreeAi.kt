@@ -1,5 +1,6 @@
 package com.sangeet.player.data.ai
 
+import com.sangeet.player.data.Rx
 import com.sangeet.player.data.remote.Http
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -270,6 +271,6 @@ object FreeAi {
     }
 
     /** Lowercase letters and digits only, without "(From ...)" / "[Remix]" parts. */
-    fun norm(s: String) = s.lowercase().replace(Regex("""\(.*?\)|\[.*?]"""), " ")
-        .replace(Regex("[^\\p{L}\\p{N}]+"), " ").trim()
+    fun norm(s: String) = s.lowercase().replace(Rx.BRACKETS, " ")
+        .replace(Rx.NON_WORD, " ").trim()
 }

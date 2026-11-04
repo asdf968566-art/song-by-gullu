@@ -1,5 +1,6 @@
 package com.sangeet.player.data.ringtone
 
+import com.sangeet.player.data.Rx
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
@@ -30,9 +31,9 @@ import okhttp3.Request
 
 /**
  * A song's best part as the phone's ringtone, alarm or notification sound (owner, Oct 11). 30 seconds are copied out
- * of the song as they are (no re-encoding: AAC → .m4a, Opus / Vorbis → .webm, MP3 → .mp3) into Ringtones/Sangeet,
- * and set with the "Modify system settings" permission. The part starts where the chorus is first sung (the lyrics
- * line sung most often), else 30% into the song; the user can move it.
+ * of the song as they are (no re-encoding: AAC → .m4a, Opus → .ogg (Android 10+, else .webm), Vorbis → .webm,
+ * MP3 → .mp3) into Ringtones/Sangeet, and set with the "Modify system settings" permission. The part starts where
+ * the chorus is first sung (the lyrics line sung most often), else 30% into the song; the user can move it.
  */
 object Ringtone {
     const val CLIP_MS = 30_000L
@@ -53,7 +54,7 @@ object Ringtone {
             ?.filePath?.let(::File)?.takeIf { it.exists() }?.let { return@withContext Uri.fromFile(it) }
         if (track.source == SourceType.LOCAL) return@withContext Uri.parse(track.streamUrl ?: throw IOException("This file is gone"))
         val dir = File(c.appContext.cacheDir, "ringtone").apply { mkdirs() }
-        val file = File(dir, track.id.replace(Regex("[^A-Za-z0-9_-]"), "_") + ".song")
+        val file = File(dir, track.id.replace(Rx.NOT_ID, "_") + ".song")
         if (file.length() > 0) return@withContext Uri.fromFile(file)
         val url = c.online.downloadUrl(track, AudioQuality.MEDIUM) ?: throw IOException("This song can't be fetched now")
         dir.listFiles()?.forEach { it.delete() } // only the last song is kept
@@ -128,7 +129,7 @@ object Ringtone {
 
     /** Where the best part starts: a little before the chorus is first sung (the line sung most often), else 30% in. */
     fun bestStart(lines: List<LyricLine>, durationMs: Long): Long {
-        val key = { s: String -> s.lowercase().replace(Regex("[^\\p{L}\\p{N}]+"), " ").trim() }
+        val key = { s: String -> s.lowercase().replace(Rx.NON_WORD, " ").trim() }
         val sung = lines.filter { key(it.text).length >= 8 }
         val chorus = sung.groupingBy { key(it.text) }.eachCount().filter { it.value >= 2 }.maxByOrNull { it.value }?.key
         val at = chorus?.let { k -> (sung.firstOrNull { key(it.text) == k && it.timeMs >= 15_000 } ?: sung.first { key(it.text) == k }).timeMs - 500 }
@@ -170,8 +171,17 @@ object Ringtone {
                 }
                 MediaFormat.MIMETYPE_AUDIO_AAC, MediaFormat.MIMETYPE_AUDIO_OPUS, MediaFormat.MIMETYPE_AUDIO_VORBIS -> {
                     val aac = mime == MediaFormat.MIMETYPE_AUDIO_AAC
-                    val out = File(dir, if (aac) "part.m4a" else "part.webm")
-                    val muxer = MediaMuxer(out.path, if (aac) MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4 else MediaMuxer.OutputFormat.MUXER_OUTPUT_WEBM)
+                    // Opus goes in an Ogg file on Android 10+: Android 17 refuses audio/webm in MediaStore (report #93).
+                    val ogg = mime == MediaFormat.MIMETYPE_AUDIO_OPUS && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+                    val out = File(dir, if (aac) "part.m4a" else if (ogg) "part.ogg" else "part.webm")
+                    val muxer = MediaMuxer(
+                        out.path,
+                        when {
+                            aac -> MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4
+                            ogg -> MediaMuxer.OutputFormat.MUXER_OUTPUT_OGG
+                            else -> MediaMuxer.OutputFormat.MUXER_OUTPUT_WEBM
+                        },
+                    )
                     try {
                         val t = muxer.addTrack(format)
                         muxer.start()
@@ -206,12 +216,12 @@ object Ringtone {
     /** Puts the part in Ringtones/Sangeet (shown in the phone's sound pickers too). Returns its media Uri. */
     fun save(context: Context, part: File, track: Track): Uri {
         val ext = part.extension
-        val name = "${track.title} (Sangeet)".replace(Regex("""[\\/:*?"<>|]"""), " ").take(100).trim()
+        val name = "${track.title} (Sangeet)".replace(Rx.BAD_FILE_CHARS, " ").take(100).trim()
         val values = ContentValues().apply {
             put(MediaStore.Audio.Media.DISPLAY_NAME, "$name.$ext")
             put(MediaStore.Audio.Media.TITLE, track.title)
             put(MediaStore.Audio.Media.ARTIST, track.artist)
-            put(MediaStore.Audio.Media.MIME_TYPE, when (ext) { "mp3" -> "audio/mpeg"; "webm" -> "audio/webm"; else -> "audio/mp4" })
+            put(MediaStore.Audio.Media.MIME_TYPE, when (ext) { "mp3" -> "audio/mpeg"; "ogg" -> "audio/ogg"; "webm" -> "audio/webm"; else -> "audio/mp4" })
             put(MediaStore.Audio.Media.IS_RINGTONE, 1)
             put(MediaStore.Audio.Media.IS_ALARM, 1)
             put(MediaStore.Audio.Media.IS_NOTIFICATION, 1)

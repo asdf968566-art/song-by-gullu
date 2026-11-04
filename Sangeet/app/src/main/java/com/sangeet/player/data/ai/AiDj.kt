@@ -1,5 +1,6 @@
 package com.sangeet.player.data.ai
 
+import com.sangeet.player.data.Rx
 import com.anthropic.client.AnthropicClient
 import com.anthropic.client.okhttp.AnthropicOkHttpClient
 import com.anthropic.errors.AnthropicServiceException
@@ -258,8 +259,8 @@ class AiDj(
 
     /** All songs of the film / album named [name], when one is named exactly so. */
     private suspend fun movieAlbum(name: String): List<Track> {
-        fun words(s: String) = s.lowercase().replace(Regex("""\(.*?\)|\[.*?]"""), " ")
-            .replace(Regex("[^\\p{L}\\p{N}]+"), " ").split(" ").filter { it.isNotBlank() }
+        fun words(s: String) = s.lowercase().replace(Rx.BRACKETS, " ")
+            .replace(Rx.NON_WORD, " ").split(" ").filter { it.isNotBlank() }
         val want = words(name)
         if (want.isEmpty()) return emptyList()
         val album = online.saavn.searchAlbums(name).firstOrNull { a ->
@@ -290,7 +291,7 @@ class AiDj(
         // The built-in DJ searches "hindi happy songs", which also finds songs that only have the word in their
         // name or singer (Happy Raikoti): leave those out when there is a mood.
         val noisy = { t: Track ->
-            !usedAi && mood != null && mood.words.any { w -> Regex("\\b${Regex.escape(w)}\\b", RegexOption.IGNORE_CASE).containsMatchIn("${t.title} ${t.artist}") }
+            !usedAi && mood != null && mood.words.any { w -> Rx.word(w).containsMatchIn("${t.title} ${t.artist}") }
         }
         var tracks = (moodSongs?.await().orEmpty() + merged.filterNot(noisy)).distinctBy { it.id }
             .filter { it.inLanguages(plan.languages) || plan.languages.isEmpty() }
@@ -376,7 +377,7 @@ class AiDj(
         val queries = buildList {
             artists.forEach { a -> add("$a ${mood ?: "hits"}"); add("$a $era songs".trim()) }
             langs.take(2).forEach { l ->
-                add("$l ${mood ?: "hit"} songs $era".replace(Regex("\\s+"), " ").trim())
+                add("$l ${mood ?: "hit"} songs $era".replace(Rx.SPACES, " ").trim())
                 add("$l ${mood ?: "popular"} playlist")
             }
             if (isEmpty()) add(request)

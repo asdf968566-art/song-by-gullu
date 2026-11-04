@@ -1,5 +1,21 @@
 [
   {
+    "date": "2026-11-04",
+    "title": "Crash fixes",
+    "items": [
+      {
+        "on": "android",
+        "type": "fix",
+        "text": "App closing by itself on some phones"
+      },
+      {
+        "on": "android",
+        "type": "fix",
+        "text": "Crash when saving downloads to the phone"
+      }
+    ]
+  },
+  {
     "date": "2026-10-31",
     "title": "Singer pages and fixes",
     "items": [

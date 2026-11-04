@@ -258,7 +258,7 @@ class JioSaavnSource : OnlineSource {
             AudioQuality.MEDIUM -> "160"
             AudioQuality.HIGH -> if (has320) "320" else "160"
         }
-        return base.replace(Regex("_(96|160|320)\\.(mp4|m4a|mp3)"), "_$kbps.$2")
+        return base.replace(BITRATE, "_$kbps.$2")
     }
 
     // ------------------------------------------------------------ http + parsing
@@ -329,6 +329,7 @@ class JioSaavnSource : OnlineSource {
     companion object {
         /** streamUrl ke aakhir mein ye marker = 320 kbps bhi milta hai. */
         private const val HAS_320 = "#320"
+        private val BITRATE = Regex("_(96|160|320)\\.(mp4|m4a|mp3)")
 
         /** JioSaavn media url DES-ECB (key "38346591") se encrypted hota hai. */
         fun decrypt(encrypted: String): String? = runCatching {

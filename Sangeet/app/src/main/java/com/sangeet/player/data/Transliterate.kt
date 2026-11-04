@@ -44,7 +44,7 @@ object Transliterate {
 
     /** A few spellings, the usual one first: as written, with long vowels, without the unsaid a's. */
     fun variants(text: String): List<String> {
-        val words = text.split(Regex("\\s+")).filter { it.isNotBlank() }.map(::units)
+        val words = text.split(Rx.SPACES).filter { it.isNotBlank() }.map(::units)
         fun spell(long: Boolean, drop: Boolean) = words.joinToString(" ") { render(it, long, drop) }.trim()
         return listOf(spell(false, false), spell(true, false), spell(false, true)).filter { it.isNotBlank() }.distinct()
     }

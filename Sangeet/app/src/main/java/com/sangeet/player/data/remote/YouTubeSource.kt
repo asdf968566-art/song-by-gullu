@@ -325,7 +325,7 @@ class YouTubeSource : OnlineSource {
         /** "PT3M42S" -> ms */
         private fun isoDurationMs(iso: String?): Long {
             if (iso == null) return 0
-            val m = Regex("""PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?""").matchEntire(iso) ?: return 0
+            val m = ISO_DURATION.matchEntire(iso) ?: return 0
             val (h, mi, s) = m.destructured
             return ((h.toLongOrNull() ?: 0) * 3600 + (mi.toLongOrNull() ?: 0) * 60 + (s.toLongOrNull() ?: 0)) * 1000
         }
@@ -337,6 +337,14 @@ class YouTubeSource : OnlineSource {
     }
 
     companion object {
+        // Built once: these run for every search result (report #92).
+        private val ISO_DURATION = Regex("""PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?""")
+        private val VIDEO_ID = Regex("[A-Za-z0-9_-]{11}")
+        private val TITLE_TAGS = Regex("""\s*[\(\[][^)\]]*(official|video|lyric|audio|full song|4k|8k|hd|visualizer)[^)\]]*[\)\]]""", RegexOption.IGNORE_CASE)
+        private val TITLE_PREFIX = Regex("""^(video|audio|lyrical|full video)\s*\|\s*""", RegexOption.IGNORE_CASE)
+        private val HANDLE = Regex("""@\S+""")
+        private val ART_SIZE = Regex("=w\\d+-h\\d+")
+
         /** NewPipe ka apna browser jaisa User-Agent. */
         const val BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0"
 
@@ -365,7 +373,7 @@ class YouTubeSource : OnlineSource {
                 host.endsWith("youtube.com") -> u.queryParameter("v")
                 else -> null
             }
-            return id?.takeIf { Regex("[A-Za-z0-9_-]{11}").matches(it) }
+            return id?.takeIf { VIDEO_ID.matches(it) }
         }
 
         /** googlevideo.com ke stream ko wahi User-Agent chahiye jis client se link bana. */
@@ -386,9 +394,9 @@ class YouTubeSource : OnlineSource {
          */
         private fun splitTitle(raw: String, channel: String): Pair<String, String> {
             val cleaned = raw
-                .replace(Regex("""\s*[\(\[][^)\]]*(official|video|lyric|audio|full song|4k|8k|hd|visualizer)[^)\]]*[\)\]]""", RegexOption.IGNORE_CASE), "")
-                .replace(Regex("""^(video|audio|lyrical|full video)\s*\|\s*""", RegexOption.IGNORE_CASE), "")
-                .replace(Regex("""@\S+"""), "")
+                .replace(TITLE_TAGS, "")
+                .replace(TITLE_PREFIX, "")
+                .replace(HANDLE, "")
                 .trim()
             if (cleaned.contains(" | ")) {
                 val parts = cleaned.split(" | ").map { it.trim() }.filter { it.isNotEmpty() }
@@ -414,7 +422,7 @@ class YouTubeSource : OnlineSource {
         )
 
         /** Thumbnail ko square cover jaisa (YouTube Music thumbnails pe size badal sakte hain). */
-        private fun squareArt(url: String) = url.replace(Regex("=w\\d+-h\\d+"), "=w544-h544")
+        private fun squareArt(url: String) = url.replace(ART_SIZE, "=w544-h544")
     }
 }
 

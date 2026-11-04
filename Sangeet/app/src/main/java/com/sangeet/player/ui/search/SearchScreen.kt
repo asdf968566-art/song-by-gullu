@@ -1,5 +1,6 @@
 package com.sangeet.player.ui.search
 
+import com.sangeet.player.data.Rx
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -196,8 +197,8 @@ class SearchViewModel(private val c: AppContainer) : ViewModel() {
      * the words in it. Singles named like a song ("Kesariya (From Brahmastra)") are left out.
      */
     private suspend fun movieAlbums(q: String): List<OnlinePlaylist> {
-        fun words(s: String) = s.lowercase().replace(Regex("""\(.*?\)|\[.*?]"""), " ")
-            .replace(Regex("[^\\p{L}\\p{N}]+"), " ").split(" ").filter { it.isNotBlank() }
+        fun words(s: String) = s.lowercase().replace(Rx.BRACKETS, " ")
+            .replace(Rx.NON_WORD, " ").split(" ").filter { it.isNotBlank() }
         val skip = setOf("songs", "song", "movie", "film", "album", "all", "ke", "gaane", "gane", "full", "jukebox")
         val want = words(q).filter { it !in skip }
         if (want.isEmpty()) return emptyList()

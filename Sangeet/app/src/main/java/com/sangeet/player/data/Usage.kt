@@ -31,9 +31,11 @@ object Usage {
     fun day(offsetDays: Int = 0): String =
         SimpleDateFormat("yyyyMMdd", Locale.US).format(Date(System.currentTimeMillis() - offsetDays * 86_400_000L))
 
+    private val ROUTE_ARG = Regex("/\\{[^}]*\\}")
+
     /** A screen was opened (route without its arguments: "dj", "movies", "downloads"…). */
     fun opened(context: Context, route: String?) {
-        val key = route?.substringBefore('?')?.replace(Regex("/\\{[^}]*\\}"), "")?.takeIf { it.isNotBlank() } ?: return
+        val key = route?.substringBefore('?')?.replace(ROUTE_ARG, "")?.takeIf { it.isNotBlank() } ?: return
         val p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         p.edit().putInt("use_$key", p.getInt("use_$key", 0) + 1).apply()
     }

@@ -1,5 +1,6 @@
 package com.sangeet.player.data.lyrics
 
+import com.sangeet.player.data.Rx
 import com.sangeet.player.data.remote.Http
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
@@ -18,7 +19,7 @@ object LyricsSearch {
     private val brackets = Regex("\\s*[(\\[].*?[)\\]]")
 
     /** A few words typed (3+) can be a line from the middle of a song, not just its name. */
-    fun looksLikeLine(q: String): Boolean = q.trim().split(Regex("\\s+")).size >= 3
+    fun looksLikeLine(q: String): Boolean = q.trim().split(Rx.SPACES).size >= 3
 
     suspend fun find(line: String, limit: Int = 6): List<Hit> {
         val url = "https://genius.com/api/search/multi".toHttpUrl().newBuilder()

@@ -1,5 +1,6 @@
 package com.sangeet.player.data.recommend
 
+import com.sangeet.player.data.Rx
 import com.sangeet.player.data.LibraryRepository
 import com.sangeet.player.data.Moods
 import com.sangeet.player.data.OnlineRepository
@@ -431,7 +432,7 @@ internal class MadeForYou(
     /** Mood mixes from your singers and languages: moods your playlists' names talk about first, then a weekly turn. */
     private suspend fun moodMixes(t: Taste, now: Calendar): List<Mix> = coroutineScope {
         val names = runCatching { library.playlistNames() }.getOrDefault(emptyList()).joinToString(" ")
-        val yours = Moods.all.filter { m -> m.words.any { w -> Regex("\\b${Regex.escape(w)}\\b", RegexOption.IGNORE_CASE).containsMatchIn(names) } }
+        val yours = Moods.all.filter { m -> m.words.any { w -> Rx.word(w).containsMatchIn(names) } }
         val turn = listOf("Romantic", "Party", "Sad", "Chill", "Happy", "Workout", "Road Trip", "Devotional")
         val week = now.get(Calendar.WEEK_OF_YEAR)
         val rotation = (turn.drop(week % turn.size) + turn.take(week % turn.size)).mapNotNull { n -> Moods.all.firstOrNull { it.name == n } }

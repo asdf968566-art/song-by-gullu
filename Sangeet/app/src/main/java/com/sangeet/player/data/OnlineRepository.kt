@@ -120,7 +120,7 @@ class OnlineRepository(
     suspend fun topicTracks(topic: Topic, page: Int = 0, limit: Int = 60): List<Track> = coroutineScope {
         if (!canGoOnline || !settings.current.jiosaavnEnabled) return@coroutineScope emptyList()
         val generic = Categories.languages.toSet() + setOf("hits", "hit", "top", "best", "new", "latest", "bollywood", "old", "playlist")
-        fun has(text: String, w: String) = Regex("\\b${Regex.escape(w)}\\b", RegexOption.IGNORE_CASE).containsMatchIn(text)
+        fun has(text: String, w: String) = Rx.word(w).containsMatchIn(text)
         val words = topic.words.map { it.lowercase() }.distinct()
         val needed = words.filter { it !in generic }.ifEmpty { words }
         val found = topic.searches.map { q ->
@@ -181,8 +181,8 @@ class OnlineRepository(
     suspend fun movieSongs(title: String, year: Int, albumId: String = ""): List<Track> = coroutineScope {
         if (!canGoOnline) return@coroutineScope emptyList()
         if (albumId.isNotBlank()) runCatching { saavn.albumTracks(albumId) }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { return@coroutineScope it }
-        fun words(s: String) = s.lowercase().replace(Regex("""\(.*?\)|\[.*?]"""), " ")
-            .replace(Regex("[^\\p{L}\\p{N}]+"), " ").split(" ").filter { it.isNotBlank() }
+        fun words(s: String) = s.lowercase().replace(Rx.BRACKETS, " ")
+            .replace(Rx.NON_WORD, " ").split(" ").filter { it.isNotBlank() }
         val want = words(title)
         val album = runCatching { saavn.searchAlbums(title) }.getOrDefault(emptyList())
             .filter { words(it.title).containsAll(want) && (year == 0 || it.year == 0 || kotlin.math.abs(it.year - year) <= 1) }
@@ -269,8 +269,8 @@ class OnlineRepository(
     }
 
     private fun norm(s: String) = s.lowercase()
-        .replace(Regex("""\(.*?\)|\[.*?]"""), "")
-        .replace(Regex("[^\\p{L}\\p{N}]+"), " ")
+        .replace(Rx.BRACKETS, "")
+        .replace(Rx.NON_WORD, " ")
         .trim()
 
     fun qualityLabel(track: Track, quality: AudioQuality): String = when (track.source) {

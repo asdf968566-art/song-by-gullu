@@ -1,5 +1,6 @@
 package com.sangeet.player.ui.library
 
+import com.sangeet.player.data.Rx
 import android.content.Context
 import android.util.JsonReader
 import android.util.JsonToken
@@ -155,7 +156,7 @@ fun MoviesScreen(nav: NavController, initial: String) {
         list.orEmpty().flatMap { it.languages }.groupingBy { it }.eachCount().entries.sortedByDescending { it.value }.map { it.key }.take(10)
     }
     val found = remember(list, query, lang, decade) {
-        val words = query.lowercase().split(Regex("\\s+")).filter { it.isNotBlank() }
+        val words = query.lowercase().split(Rx.SPACES).filter { it.isNotBlank() }
         val years = DECADES[decade].second
         list.orEmpty().filter { m -> (lang.isEmpty() || lang in m.languages) && m.year in years && words.all { it in m.key } }
     }

@@ -1,6 +1,11 @@
 package com.sangeet.player.data.download
 
+import com.sangeet.player.data.Rx
 import android.content.ContentValues
+import android.media.MediaCodec
+import android.media.MediaExtractor
+import android.media.MediaFormat
+import android.media.MediaMuxer
 import android.content.Context
 import android.net.Uri
 import android.os.Build
@@ -8,6 +13,7 @@ import android.os.Environment
 import android.provider.MediaStore
 import com.sangeet.player.data.model.Track
 import java.io.File
+import java.nio.ByteBuffer
 
 /**
  * Puts a copy of a downloaded song in the phone's Music/Sangeet folder (Android 10+, no permission needed).
@@ -18,11 +24,25 @@ object PhoneMusic {
 
     fun supported() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
 
-    /** Returns the new file's content Uri, or null if it already exists / isn't possible. */
+    /** Returns the new file's content Uri, or null if it already exists / isn't possible. Never throws. */
     fun save(context: Context, track: Track, file: File): Uri? {
         if (!supported() || !file.exists()) return null
+        // Android 17 refuses audio/webm in Music (report #93: the app crashed when this was turned on), so a WebM
+        // (Opus) download goes in as Ogg, without re-encoding.
+        val ogg = if (file.extension.equals("webm", ignoreCase = true)) toOgg(context, file) ?: return null else null
+        return try {
+            saveAs(context, track, ogg ?: file)
+        } catch (e: Exception) {
+            android.util.Log.w("Sangeet", "save to phone failed: ${e.javaClass.simpleName}: ${e.message}")
+            null
+        } finally {
+            ogg?.delete()
+        }
+    }
+
+    private fun saveAs(context: Context, track: Track, file: File): Uri? {
         val ext = file.extension.ifBlank { "m4a" }
-        val name = "${track.artist} - ${track.title}".replace(Regex("""[\\/:*?"<>|]"""), " ").take(120).trim() + ".$ext"
+        val name = "${track.artist} - ${track.title}".replace(Rx.BAD_FILE_CHARS, " ").take(120).trim() + ".$ext"
         val resolver = context.contentResolver
         val collection = MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
         val relPath = "${Environment.DIRECTORY_MUSIC}/$FOLDER/"
@@ -48,6 +68,40 @@ object PhoneMusic {
             null
         }
     }
+
+    /** The Opus track of a WebM file, put in an Ogg file (MediaMuxer, Android 10+); null if it isn't Opus. */
+    private fun toOgg(context: Context, file: File): File? = runCatching {
+        val out = File(context.cacheDir, "phone-${file.nameWithoutExtension}.ogg")
+        val ex = MediaExtractor()
+        try {
+            ex.setDataSource(file.path)
+            val track = (0 until ex.trackCount)
+                .firstOrNull { ex.getTrackFormat(it).getString(MediaFormat.KEY_MIME) == MediaFormat.MIMETYPE_AUDIO_OPUS }
+                ?: return@runCatching null
+            ex.selectTrack(track)
+            val mux = MediaMuxer(out.path, MediaMuxer.OutputFormat.MUXER_OUTPUT_OGG)
+            try {
+                val t = mux.addTrack(ex.getTrackFormat(track))
+                mux.start()
+                val buf = ByteBuffer.allocate(1 shl 18)
+                val info = MediaCodec.BufferInfo()
+                while (true) {
+                    val n = ex.readSampleData(buf, 0)
+                    if (n < 0) break
+                    val sync = ex.sampleFlags and MediaExtractor.SAMPLE_FLAG_SYNC != 0
+                    info.set(0, n, ex.sampleTime, if (sync) MediaCodec.BUFFER_FLAG_KEY_FRAME else 0)
+                    mux.writeSampleData(t, buf, info)
+                    ex.advance()
+                }
+                mux.stop()
+            } finally {
+                mux.release()
+            }
+        } finally {
+            ex.release()
+        }
+        out.takeIf { it.length() > 0 }
+    }.onFailure { android.util.Log.w("Sangeet", "save to phone: WebM to Ogg failed: ${it.message}") }.getOrNull()
 
     /**
      * The same song must not be saved twice, even when it came once from YouTube and once from JioSaavn
@@ -76,9 +130,9 @@ object PhoneMusic {
 
     /** "Kesariya (From \"Brahmastra\")" and "Kesariya - Official Video" both become "kesariya". */
     private fun clean(title: String) = title.lowercase()
-        .replace(Regex("""\(.*?\)|\[.*?]"""), " ")
+        .replace(Rx.BRACKETS, " ")
         .substringBefore(" - ")
-        .replace(Regex("[^\\p{L}\\p{N}]+"), " ")
+        .replace(Rx.NON_WORD, " ")
         .trim()
 
     private fun mime(ext: String) = when (ext.lowercase()) {
