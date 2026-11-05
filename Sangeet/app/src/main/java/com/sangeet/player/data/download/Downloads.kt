@@ -43,6 +43,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.Request
 import androidx.work.BackoffPolicy
@@ -78,6 +79,19 @@ class DownloadRepository(
     /** Every download with its song and status (downloading, waiting, failed, done), newest first. */
     val items: Flow<List<Pair<Track, DownloadInfo>>> = combine(dao.observeAllDownloadTracks(), downloads) { tracks, map ->
         tracks.mapNotNull { e -> map[e.id]?.let { e.toTrack() to it } }
+    }
+
+    init {
+        // Copies put in Music/Sangeet before Nov 5 have no name, singer or cover in the file: copyAllToPhone writes
+        // them in, once, a little after the app starts (the settings and the download list have loaded by then).
+        scope.launch(Dispatchers.IO) {
+            delay(30_000)
+            val prefs = context.getSharedPreferences("phone_music", Context.MODE_PRIVATE)
+            if (!PhoneMusic.supported() || !settings.current.saveToPhone || prefs.getBoolean(TAGS_DONE, false)) return@launch
+            copyAllToPhone()
+            prefs.edit().putBoolean(TAGS_DONE, true).apply()
+            android.util.Log.i("Sangeet", "phone copies: tags checked")
+        }
     }
 
     /** How many songs are downloading or waiting right now. */
@@ -167,6 +181,7 @@ class DownloadRepository(
 
     companion object {
         const val TAG = "downloads"
+        private const val TAGS_DONE = "tags_v1"
         fun workName(trackId: String) = "download_$trackId"
         fun dir(context: Context) = File(context.filesDir, "downloads").apply { mkdirs() }
         fun safe(id: String) = id.replace(Rx.NOT_ID, "_")
@@ -198,12 +213,12 @@ class DownloadWorker(appContext: Context, params: WorkerParameters) : CoroutineW
             notifyDone(track.title)
             dao.upsert(entry.copy(state = DownloadState.DONE.name, progress = 100, filePath = file.absolutePath))
             android.util.Log.i("Sangeet", "download done: ${track.title} (${file.length() / 1024} KB from ${Uri.parse(url).host})")
+            // Offline ke liye cover art aur lyrics bhi save kar lo. The cover goes into the phone's copy too.
+            val art = saveArtwork(track)?.let { track.copy(artworkUrl = it) }
+            art?.let { container.library.remember(listOf(it)) }
             if (container.settings.current.saveToPhone) {
-                PhoneMusic.save(applicationContext, track, file)?.let { android.util.Log.i("Sangeet", "saved to phone: $it") }
+                PhoneMusic.save(applicationContext, art ?: track, file)?.let { android.util.Log.i("Sangeet", "saved to phone: $it") }
             }
-
-            // Offline ke liye cover art aur lyrics bhi save kar lo.
-            saveArtwork(track)?.let { art -> container.library.remember(listOf(track.copy(artworkUrl = art))) }
             runCatching { container.lyrics.get(track) }
             Result.success()
         } catch (e: Exception) {

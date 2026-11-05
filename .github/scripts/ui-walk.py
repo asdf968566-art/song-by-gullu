@@ -809,9 +809,22 @@ def main():
         for _ in range(6 if far else 2):
             swipe_down()  # back to the top for the next search
     def phone_copy():
-        out = sh("content query --uri content://media/external/audio/media --projection _display_name:relative_path")
+        out = sh("content query --uri content://media/external/audio/media --projection _display_name:relative_path:artist")
         hits = [l for l in out.splitlines() if "Music/Sangeet" in l]
-        return bool(hits), (hits[0].strip()[:120] if hits else "nothing in Music/Sangeet")
+        if not hits:
+            return False, "nothing in Music/Sangeet"
+        # Nov 5: an .m4a copy carries the song's name, singer and cover (iTunes tags), so other apps show them.
+        tagged = []
+        for name in [l.strip() for l in sh("ls /sdcard/Music/Sangeet").splitlines() if l.strip().endswith(".m4a")][:3]:
+            subprocess.run(["adb", "pull", f"/sdcard/Music/Sangeet/{name}", "/tmp/phone-copy.m4a"], capture_output=True)
+            try:
+                data = open("/tmp/phone-copy.m4a", "rb").read()
+            except OSError:
+                continue
+            i = data.find(b"covr")
+            tagged.append((name, b"\xa9ART" in data, i > 0 and b"\xff\xd8\xff" in data[i:i + 40]))
+        good = any(art and cov for _, art, cov in tagged)
+        return good, f"{len(hits)} copies; {hits[0].strip()[:90]}; tags (singer, cover): {[(n[:30], a, c) for n, a, c in tagged]}"
     step("Settings: Save downloads to phone storage", lambda: tap("Save downloads to phone storage", scroll=10, wait=6), phone_copy)
     step("Settings: Save downloads to phone storage (off again)", lambda: tap("Save downloads to phone storage", wait=2))
     swipe_down()

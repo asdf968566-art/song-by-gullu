@@ -751,9 +751,24 @@ request the owner made, in order.
   - Android: song ⋮ → Download; Home → Settings → Online / Offline → "Save downloads to phone storage" on → the
     phone's Files → Music/Sangeet.
   - iPhone: Library → Downloads → folder icon → Save to Files.
-  - Seen in that run: the copies in Music/Sangeet carry no cover picture, and MediaStore shows their artist as
-    `<unknown>` (the m4a files have no tags). The owner was offered putting the photo and the singer into the file;
-    no answer yet.
+  - Seen in that run: the copies in Music/Sangeet carried no cover picture, and MediaStore showed their artist as
+    `<unknown>` (the m4a files had no tags; MediaStore takes the name / singer from the file, not from the insert).
+  - Nov 5 (owner: "wo bhi fix kr de"): `data/download/Mp4Tags.kt` writes iTunes tags into the copy:
+    - `©nam`, `©ART`, `©alb` and `covr` (a JPEG ≤ 600 px) go in `moov/udta/meta/ilst`; an old `udta` is replaced.
+    - When `moov` sits before `mdat`, every `stco` / `co64` offset moves by the growth. Fragmented files (`moof`)
+      are left alone.
+    - Checked locally (kotlinc from Maven Central + ffmpeg): faststart and moov-at-end files decode to the same
+      MD5 after tagging, and ffprobe reads the tags and the cover.
+  - `PhoneMusic`:
+    - The cover comes from the downloaded picture (the worker now saves the artwork before the phone copy), else
+      from the internet (500x500).
+    - Any file starting with `ftyp` is tagged; Ogg / WebM copies stay untagged.
+    - A copy made before (same name, artist `<unknown>`) is written again in place (`openOutputStream(uri, "wt")`;
+      MediaStore scans it on close).
+    - `DownloadRepository.init` runs `copyAllToPhone` once, 30 s after start, when the switch is on (prefs
+      `phone_music` / `tags_v1`).
+  - UI walk: "Settings: Save downloads to phone storage" pulls up to 3 .m4a copies and needs `©ART` and a JPEG in
+    `covr`.
 - **App reports of Nov 3** (samsung SM-M366B, now Android 17, build 341, Neumorphism light, Orange; the same phone
   as #80–#84). Android only.
   - **#92**: the new tombstone detail worked: SIGABRT on a `DefaultDispatch` thread, "Scudo ERROR: internal map

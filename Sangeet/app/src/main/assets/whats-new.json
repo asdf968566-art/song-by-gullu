@@ -1,5 +1,16 @@
 [
   {
+    "date": "2026-11-05",
+    "title": "Covers on saved songs",
+    "items": [
+      {
+        "on": "android",
+        "type": "new",
+        "text": "Covers and singers on songs saved to your phone"
+      }
+    ]
+  },
+  {
     "date": "2026-11-04",
     "title": "Crash fixes",
     "items": [
