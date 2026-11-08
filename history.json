@@ -474,6 +474,24 @@
   },
   "voice": "edge",
   "youtube": "dR-vm7hq7xQ",
-  "file": "short-20261106-2008.mp4"
+  "file": "short-20261106-2008.mp4",
+  "views": 2,
+  "likes": 1,
+  "comments": 0,
+  "score": 13.7
+ },
+ {
+  "date": "20261108-1230",
+  "kind": "long",
+  "format": "horror",
+  "title": "हाईवे की भूतिया हवेली: 50 साल पुराना वो टिकट 😱 | Hindi AI Horror Movie",
+  "seconds": 694.5,
+  "pictures": {
+   "pollinations": 54,
+   "reused": 5
+  },
+  "voice": "edge",
+  "youtube": "37dEpc3e64Q",
+  "file": "long-20261108-1230.mp4"
  }
 ]
