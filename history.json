@@ -478,7 +478,7 @@
   "views": 2,
   "likes": 1,
   "comments": 0,
-  "score": 13.7
+  "score": 7.1
  },
  {
   "date": "20261108-1230",
@@ -492,6 +492,23 @@
   },
   "voice": "edge",
   "youtube": "37dEpc3e64Q",
-  "file": "long-20261108-1230.mp4"
+  "file": "long-20261108-1230.mp4",
+  "views": 0,
+  "likes": 0,
+  "comments": 0,
+  "score": 0.0
+ },
+ {
+  "date": "20261109-2256",
+  "kind": "short",
+  "format": "AI mini movie: horror story (spooky, not gory) set in an Indian village or old haveli",
+  "title": "हवेली का 101वाँ दीया 😱 | Diwali Horror Story #shorts",
+  "seconds": 42.7,
+  "pictures": {
+   "pollinations": 9
+  },
+  "voice": "edge",
+  "youtube": "geelZBJ-TPI",
+  "file": "short-20261109-2256.mp4"
  }
 ]
