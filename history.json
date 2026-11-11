@@ -478,7 +478,7 @@
   "views": 2,
   "likes": 1,
   "comments": 0,
-  "score": 7.1
+  "score": 4.4
  },
  {
   "date": "20261108-1230",
@@ -509,6 +509,23 @@
   },
   "voice": "edge",
   "youtube": "geelZBJ-TPI",
-  "file": "short-20261109-2256.mp4"
+  "file": "short-20261109-2256.mp4",
+  "views": 1,
+  "likes": 0,
+  "comments": 0,
+  "score": 0.5
+ },
+ {
+  "date": "20261111-2004",
+  "kind": "short",
+  "format": "horror story in a city: a lift, a flat, a hostel, a hospital night shift or a metro, with a twist",
+  "title": "13वीं मंज़िल की लिफ्ट 😱 | City Elevator Horror Story #shorts",
+  "seconds": 49.6,
+  "pictures": {
+   "pollinations": 10
+  },
+  "voice": "edge",
+  "youtube": "HiOygEnch3s",
+  "file": "short-20261111-2004.mp4"
  }
 ]
