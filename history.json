@@ -478,7 +478,7 @@
   "views": 2,
   "likes": 1,
   "comments": 0,
-  "score": 4.4
+  "score": 3.1
  },
  {
   "date": "20261108-1230",
@@ -510,7 +510,7 @@
   "voice": "edge",
   "youtube": "geelZBJ-TPI",
   "file": "short-20261109-2256.mp4",
-  "views": 1,
+  "views": 2,
   "likes": 0,
   "comments": 0,
   "score": 0.5
@@ -526,6 +526,23 @@
   },
   "voice": "edge",
   "youtube": "HiOygEnch3s",
-  "file": "short-20261111-2004.mp4"
+  "file": "short-20261111-2004.mp4",
+  "views": 0,
+  "likes": 0,
+  "comments": 0,
+  "score": 0.0
+ },
+ {
+  "date": "20261113-2019",
+  "kind": "short",
+  "format": "today's trend turned into an original horror or suspense story (use one of today's top searched topics in India as the setting, never real people)",
+  "title": "दिवाली का खौफनाक रिजल्ट 💀 | Diwali Result Day Twist #shorts",
+  "seconds": 52.3,
+  "pictures": {
+   "pollinations": 11
+  },
+  "voice": "edge",
+  "youtube": "LedJj9q5cLI",
+  "file": "short-20261113-2019.mp4"
  }
 ]
