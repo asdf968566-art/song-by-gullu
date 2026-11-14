@@ -27,6 +27,7 @@
 | 11 | Settings → Apps → DX Screen Monitor → Force stop | Sharing ends (force stop is the user's choice; no resume) |
 | 12 | `adb shell am kill` / low memory kill while sharing | App resumes by itself (with step 3); otherwise it resumes the next time you open the app. No notification is shown. |
 | 13 | Restart the phone while sharing | After unlock: resumes by itself (with step 3); otherwise on next open |
+| 13b | While sharing, open MES/EMS and other apps, switch between them | All work and switch normally; the monitor stays in the background and the PC viewer shows whichever app is live |
 | 14 | Battery ≤ 15%, not charging | "Low battery mode (720p, 10 FPS)" |
 | 15 | Leave it sharing 1 hour with a viewer | No crash; check phone temperature and battery drop |
 

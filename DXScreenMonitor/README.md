@@ -67,6 +67,15 @@ This auto-approves the capture dialog and lets the app open itself. It works on 
 Android 12 included). Android 14+ ignores the capture appop and still shows the dialog once per restart. The CI test
 uses exactly this and checks that sharing comes back by itself after `kill -9` and after a reboot, with no tap.
 
+### Runs alongside MES / EMS and every other app
+
+DX Screen Monitor only **mirrors** the display in the background. It does not use kiosk / lock-task mode, it does
+not pin the phone to itself, and it does not block switching apps. Operators use MES, EMS and anything else exactly
+as before; the monitor simply shows whatever is on screen, live. When it resumes after a reboot or being killed, it
+drops straight back to whatever app is in front (`moveTaskToBack`), so it never covers the operator's work or steals
+focus. The CI test opens another app and confirms the monitor does not come to the front and that app switching
+still works while sharing.
+
 ## Build
 
 - Windows / Android Studio: see `docs/WINDOWS-SETUP.md`.

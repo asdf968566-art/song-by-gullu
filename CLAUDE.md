@@ -912,6 +912,10 @@ Own project in `DXScreenMonitor/` (package `com.dxdepartment.screenmonitor`), sh
   opens the app silently (overlay) on boot / kill / process start; `MainActivity.onResume` also resumes if
   `Recovery.shouldRun` (autoResume on + wasSharing). `wasSharing` is the "should be running" flag, cleared only by
   a manual Stop. Main screen has a "Run 24×7 (one-time setup)" card (overlay, battery, the two appops commands).
+- Owner (Nov 14): no kiosk / pinning / app-switch blocking; must not interfere with MES/EMS or other apps. It only
+  mirrors the display in the background. On auto-resume `MainActivity` calls `moveTaskToBack(true)` so it never
+  covers the foreground app or steals focus. Emulator test opens another app and asserts the monitor doesn't come
+  to front and switching still works.
 - CI: `.github/workflows/dx-screen-monitor.yml` (build, unit tests, lint, `.github/scripts/dx-emulator-test.sh` on an
   API 31 emulator sized 1440x2960/560 dpi; main publishes release `dx-screen-monitor`:
   https://github.com/asdf968566-art/song-by-gullu/releases/download/dx-screen-monitor/DXScreenMonitor.apk).

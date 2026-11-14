@@ -164,9 +164,15 @@ adb shell dumpsys battery set level 80; sleep 4
 [ "$(status | field width)" = 1080 ] && ok "Battery 80%: back to 1080p" || bad "battery back"
 adb shell dumpsys battery reset
 
-# 11. Android kills the app: it comes back and shares again by itself, with no tap and no notification
+# 11. Android kills the app: it comes back and shares again by itself, with no tap and no notification,
+#     and WITHOUT stealing the screen from whatever app is in front (no kiosk / pinning / focus grab).
 #     (overlay allowed + capture pre-approved). No "resume" notification exists.
 adb shell dumpsys notification --noredact | grep -qi "resume" && bad "a resume notification was posted (should be none)" || ok "No resume notification exists"
+# Put another app in front, like an operator's MES/EMS screen would be.
+adb shell am start -a android.settings.SETTINGS >/dev/null; sleep 3
+FRONT_BEFORE=$(adb shell dumpsys window 2>/dev/null | grep -m1 "mCurrentFocus" | grep -o '[a-zA-Z0-9_.]*/[a-zA-Z0-9_.]*' | cut -d/ -f1)
+note "front app before kill: $FRONT_BEFORE (sharing is already on from earlier steps)"
+adb shell appops set $PKG PROJECT_MEDIA allow; adb shell appops set $PKG SYSTEM_ALERT_WINDOW allow
 adb logcat -c
 OLD=$(adb shell pidof $PKG | tr -d '\r')
 adb shell kill -9 $OLD
@@ -175,7 +181,14 @@ if wait_log "sharing started" 60; then
 else
   bad "no resume after kill"; adb logcat -d -s DXService:* DXRecovery:* DXMain:* ActivityManager:* | tail -40
 fi
-sleep 3
+sleep 4
+FRONT_AFTER=$(adb shell dumpsys window 2>/dev/null | grep -m1 "mCurrentFocus" | grep -o '[a-zA-Z0-9_.]*/[a-zA-Z0-9_.]*' | cut -d/ -f1)
+note "front app after resume: $FRONT_AFTER"
+[ "$FRONT_AFTER" != "$PKG" ] && ok "Resume did not cover the foreground app ($FRONT_AFTER still in front)" || bad "resume put DX Screen Monitor in front ($FRONT_AFTER)"
+# App switching still works normally.
+adb shell am start -a android.settings.SETTINGS >/dev/null; sleep 2
+SW=$(adb shell dumpsys window 2>/dev/null | grep -m1 "mCurrentFocus" | grep -o '[a-zA-Z0-9_.]*/[a-zA-Z0-9_.]*' | cut -d/ -f1)
+[ "$SW" != "$PKG" ] && ok "App switching works while sharing (opened Settings on top)" || bad "could not switch away ($SW)"
 [ "$(status | field phase)" = SHARING ] && ok "Viewer reachable after the restart" || bad "viewer after restart"
 
 # 12. Reboot: resumes after boot.

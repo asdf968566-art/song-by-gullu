@@ -28,14 +28,27 @@ class MainActivity : ComponentActivity() {
     /** The "Start now" dialog is open (a second request would waste a token). */
     private var asking = false
 
+    /**
+     * This launch was a silent auto-resume (boot / after being killed), not the operator opening the app.
+     * When it was, we drop straight back to whatever app was in front (MES / EMS / anything) so we never sit
+     * on top of it or steal focus. No kiosk, no pinning, no app-switch blocking — we only mirror the screen.
+     */
+    private var autoResumeLaunch = false
+
     private val consent = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
         asking = false
         val data = r.data
         if (r.resultCode == RESULT_OK && data != null) {
             Log.i(TAG, "screen capture allowed")
             ScreenCaptureService.start(this, r.resultCode, data)
+            if (autoResumeLaunch) {
+                // Hand the screen back to the foreground app at once; don't cover the operator's work.
+                autoResumeLaunch = false
+                moveTaskToBack(true)
+            }
         } else {
             Log.i(TAG, "screen capture not allowed")
+            autoResumeLaunch = false
             AppSettings.setWasSharing(this, false)
             CaptureState.update { it.copy(phase = Phase.IDLE, message = "Screen capture was not allowed") }
         }
@@ -93,6 +106,7 @@ class MainActivity : ComponentActivity() {
         i.removeExtra(Recovery.EXTRA_AUTO_RESUME)
         if (!CaptureState.status.value.sharing) {
             Log.i(TAG, "auto resume")
+            autoResumeLaunch = true
             requestCapture()
         }
     }
