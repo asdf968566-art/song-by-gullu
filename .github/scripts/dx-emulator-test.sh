@@ -12,8 +12,8 @@ log_has() { adb logcat -d -s DXService:* DXCapture:* DXViewer:* DXRecovery:* DXM
 wait_log() { for _ in $(seq 1 "$2"); do log_has "$1" && return 0; sleep 1; done; return 1; }
 key() { adb shell run-as $PKG cat shared_prefs/dx_settings.xml 2>/dev/null | sed -n 's/.*name="viewer_key">\([A-Z0-9]*\)<.*/\1/p'; }
 status() { curl -s -m 5 "http://127.0.0.1:8080/status.json?key=$(key)"; }
-field() { python3 -c "import json,sys; d=json.loads(sys.stdin.read() or '{}'); print(d.get('$1',''))"; }
-tap_text() {  # tap the first node whose text is $1
+field() { python3 -c "import json,sys; s=sys.stdin.read().strip(); d=json.loads(s) if s.startswith('{') else {}; print(d.get('$1',''))"; }
+tap_once() {  # tap the first node whose text is $1
   adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1
   local b; b=$(adb shell cat /sdcard/ui.xml | python3 -c "
 import re,sys
@@ -23,11 +23,19 @@ for m in re.finditer(r'<node [^>]*>', x):
     if 'text=\"$1\"' in n:
         a=list(map(int,re.findall(r'\d+', re.search(r'bounds=\"([^\"]+)\"', n).group(1))))
         print((a[0]+a[2])//2, (a[1]+a[3])//2); break")
-  [ -n "$b" ] || { note "'$1' not on screen"; return 1; }
+  [ -n "$b" ] || return 1
   adb shell input tap $b
 }
-scroll_down() { adb shell input swipe 700 2300 700 900 300; }
-scroll_up() { adb shell input swipe 700 900 700 2400 300; }
+tap_text() {  # find $1 (scrolling up, then down) and tap it
+  tap_once "$1" && return 0
+  for _ in 1 2 3; do scroll_up; done
+  tap_once "$1" && return 0
+  for _ in 1 2 3 4 5 6 7 8; do scroll_down; sleep 0.5; tap_once "$1" && return 0; done
+  note "'$1' not on screen"; adb shell screencap -p /sdcard/s.png; adb pull -q /sdcard/s.png "$OUT/missing-$(echo "$1" | tr -c 'a-zA-Z0-9' _).png"
+  return 1
+}
+scroll_down() { adb shell input swipe 700 2200 700 1200 300; }
+scroll_up() { adb shell input swipe 700 1200 700 2200 300; }
 img() {  # print a small copy of a picture into the log
   python3 - "$1" "$2" <<'PY'
 import sys, io, base64
@@ -38,9 +46,14 @@ print("IMG-BEGIN " + sys.argv[1]); print(base64.b64encode(b.getvalue()).decode()
 PY
 }
 
-adb root >/dev/null 2>&1; sleep 2; adb wait-for-device
-# The Pixel 3 XL's screen.
-adb shell wm size 1440x2960; adb shell wm density 560; sleep 2
+adb root >/dev/null 2>&1; sleep 3; adb wait-for-device
+for _ in $(seq 1 30); do adb shell true 2>/dev/null && break; sleep 1; done
+# The Pixel 3 XL's screen (retried: adb restarts after "adb root").
+for _ in $(seq 1 10); do
+  adb shell wm size 1440x2960 2>/dev/null; adb shell wm density 560 2>/dev/null
+  adb shell wm size | grep -q 1440x2960 && break; sleep 2
+done
+adb shell settings put system screen_off_timeout 1800000
 echo "Device: $(adb shell getprop ro.product.model) Android $(adb shell getprop ro.build.version.release) $(adb shell wm size | tail -1) $(adb shell wm density | tail -1)"
 adb install -r -g apk/debug/app-debug.apk || { bad "install"; exit 1; }
 ok "Install debug APK"
