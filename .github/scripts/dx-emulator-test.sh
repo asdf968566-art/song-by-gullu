@@ -119,12 +119,12 @@ python3 -c "import sys; sys.exit(0 if float('$E' or 9) <= 2.5 else 1)" && ok "No
 # 6. Rotation.
 adb shell settings put system accelerometer_rotation 0
 adb shell settings put system user_rotation 1
-sleep 5
+for _ in $(seq 1 10); do sleep 1; [ "$(status | field width)" = 2220 ] && break; done
 S=$(status); W=$(echo "$S" | field width); H=$(echo "$S" | field height)
 [ "$W" = 2220 ] && [ "$H" = 1080 ] && ok "Rotation: picture is ${W}x$H in landscape" || bad "rotation: ${W}x$H"
 curl -s -m 10 -o $OUT/landscape.jpg "http://127.0.0.1:8080/snapshot.jpg?key=$(key)"
 adb shell settings put system user_rotation 0
-sleep 4
+for _ in $(seq 1 10); do sleep 1; [ "$(status | field width)" = 1080 ] && break; done
 S=$(status); W=$(echo "$S" | field width); H=$(echo "$S" | field height)
 [ "$W" = 1080 ] && [ "$H" = 2220 ] && ok "Rotation back: ${W}x$H" || bad "rotation back: ${W}x$H"
 

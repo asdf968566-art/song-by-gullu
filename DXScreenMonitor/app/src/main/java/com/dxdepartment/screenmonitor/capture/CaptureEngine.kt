@@ -61,7 +61,12 @@ class CaptureEngine(
         override fun onDisplayAdded(displayId: Int) {}
         override fun onDisplayRemoved(displayId: Int) {}
         override fun onDisplayChanged(displayId: Int) {
-            if (displayId == Display.DEFAULT_DISPLAY) refreshSize("display changed")
+            if (displayId == Display.DEFAULT_DISPLAY) {
+                refreshSize("display changed")
+                // During a rotation the size can settle a moment after the event: look again.
+                handler.postDelayed({ refreshSize("display settled") }, 600)
+                handler.postDelayed({ refreshSize("display settled") }, 1500)
+            }
         }
     }
 
