@@ -896,6 +896,23 @@ first, then `Baatcheet/docs/` (API, DEPLOYMENT, TESTING with a two-device call c
   `home-release` (only run files + published images). `deploy/install.sh` = cloud VM variant (clones the repo).
 - Still needs the owner: run the installer on the PC, Brevo SMTP, Metered TURN, Cloudflare for tbdi.in.
 
+## 4c. DX Screen Monitor (Nov 14) — separate Android screen-sharing app
+
+Owner pasted an English "PROJECT MASTER PROMPT — DX SCREEN MONITOR": monitor the live screens of the DX Department's
+own Google Pixel work phones (first one Pixel 3 XL, Android 12), later from a web viewer / 85-inch dashboard.
+Own project in `DXScreenMonitor/` (package `com.dxdepartment.screenmonitor`), shares nothing with Sangeet. Read
+`DXScreenMonitor/README.md` (milestone table, code map) and `DXScreenMonitor/docs/`.
+- Done: Milestones 1–3 + 5 (MediaProjection foreground service, `CaptureEngine` VirtualDisplay → ImageReader → JPEG,
+  rotation, quality, low battery mode, wake/Wi-Fi locks, LAN viewer `PreviewServer` (MJPEG, 8-char key) with QR,
+  recovery after kill / reboot via `Recovery`).
+- Android needs a new capture consent after every restart. Hands-free resume = `appops set … PROJECT_MEDIA allow` +
+  `SYSTEM_ALERT_WINDOW allow` once over USB (Android 10–13). Don't claim more.
+- CI: `.github/workflows/dx-screen-monitor.yml` (build, unit tests, lint, `.github/scripts/dx-emulator-test.sh` on an
+  API 31 emulator sized 1440x2960/560 dpi; main publishes release `dx-screen-monitor`:
+  https://github.com/asdf968566-art/song-by-gullu/releases/download/dx-screen-monitor/DXScreenMonitor.apk).
+  build-apk.yml ignores these paths.
+- Next (not started): Milestone 4 on the real Pixel, then WebRTC (6), React viewer (7), dashboard (8), load test (9).
+
 ## 5. Problems hit and how they were solved (why the code looks like it does)
 
 | Problem | Cause | Fix |
