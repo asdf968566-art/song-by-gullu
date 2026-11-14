@@ -155,7 +155,7 @@ adb logcat -d -s DXNet:* | tail -4
 [ "$(status | field phase)" = SHARING ] && ok "Network off/on: still sharing" || bad "network change"
 
 # 10. Low battery: 720p / 10 FPS.
-adb shell dumpsys battery unplug; adb shell dumpsys battery set level 12; sleep 4
+adb shell dumpsys battery unplug; adb shell dumpsys battery set status 3; adb shell dumpsys battery set level 12; sleep 4
 S=$(status)
 [ "$(echo "$S" | field lowPower)" = True ] && [ "$(echo "$S" | field width)" = 720 ] && ok "Battery 12%: low battery mode at 720p" || bad "low battery: $S"
 adb shell dumpsys battery set level 80; sleep 4
