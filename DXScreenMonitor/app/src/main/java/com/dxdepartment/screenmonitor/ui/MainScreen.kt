@@ -134,10 +134,10 @@ fun MainScreen(actions: ScreenActions) {
             DeviceCard(onEdit = { editName = true })
             StatusCard(status, net, now)
             ShareButton(status, actions)
+            RecoveryCard(settings.autoResume, overlayAllowed, batteryFree, actions)
             if (status.phase == Phase.SHARING) PreviewCard(status)
             QualityCard(settings.quality, status.lowPower)
             ViewerCard(status, net, settings.viewerKey, settings.localViewer)
-            RecoveryCard(settings.autoResume, overlayAllowed, batteryFree, actions)
             Text(
                 DeviceIdentity.model + " · app " + com.dxdepartment.screenmonitor.BuildConfig.VERSION_NAME,
                 color = Muted, fontSize = 12.sp, modifier = Modifier.padding(vertical = 8.dp),
@@ -377,17 +377,28 @@ private fun ViewerCard(s: CaptureStatus, net: NetState, key: String, enabled: Bo
 
 @Composable
 private fun RecoveryCard(autoResume: Boolean, overlayAllowed: Boolean, batteryFree: Boolean, actions: ScreenActions) {
-    Section("Recovery") {
+    val ready = overlayAllowed && batteryFree
+    Section("Run 24×7 (one-time setup)") {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("Resume after restart")
-                Text("After a reboot or if Android stops the app, ask to share again.", color = Muted, fontSize = 13.sp)
+                Text("Keep sharing day and night")
+                Text("Start by itself after a reboot, and start again if Android ever stops it. No notification.", color = Muted, fontSize = 13.sp)
             }
             Switch(checked = autoResume, onCheckedChange = { AppSettings.setAutoResume(it) })
         }
-        InfoRow("Open by itself", if (overlayAllowed) "Allowed" else "Not allowed (a notification is shown instead)", if (overlayAllowed) Live else Warn)
+        InfoRow("Open by itself", if (overlayAllowed) "Allowed" else "Needs this", if (overlayAllowed) Live else Warn)
         if (!overlayAllowed) OutlinedButton(onClick = actions.openOverlaySettings) { Text("Allow \"Display over other apps\"") }
-        InfoRow("Battery optimisation", if (batteryFree) "Off for this app" else "On (Android may stop sharing)", if (batteryFree) Live else Warn)
+        InfoRow("Battery", if (batteryFree) "Won't be stopped" else "Needs this", if (batteryFree) Live else Warn)
         if (!batteryFree) OutlinedButton(onClick = actions.openBatterySettings) { Text("Don't optimise battery") }
+        if (ready) {
+            Text("Set up. Start sharing once; after that it comes back on its own after reboots.", color = Live, fontSize = 13.sp)
+        }
+        Text(
+            "Fully hands-free (no \"Start now\" tap after a reboot): connect the phone to a PC once and run —\n" +
+                "adb shell appops set com.dxdepartment.screenmonitor PROJECT_MEDIA allow\n" +
+                "adb shell appops set com.dxdepartment.screenmonitor SYSTEM_ALERT_WINDOW allow\n" +
+                "Works on this Pixel (Android 12). See docs/PIXEL-TESTING.md.",
+            color = Muted, fontSize = 12.sp, fontFamily = FontFamily.Monospace,
+        )
     }
 }

@@ -145,7 +145,6 @@ class ScreenCaptureService : Service() {
         if (settings.localViewer) startServer(settings.viewerPort)
 
         AppSettings.setWasSharing(this, true)
-        Recovery.clearResumeNotification(this)
         CaptureState.update { it.copy(phase = Phase.SHARING) }
 
         // Follow quality changes made in the app while sharing, and keep the notification current.

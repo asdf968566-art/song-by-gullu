@@ -164,8 +164,9 @@ adb shell dumpsys battery set level 80; sleep 4
 [ "$(status | field width)" = 1080 ] && ok "Battery 80%: back to 1080p" || bad "battery back"
 adb shell dumpsys battery reset
 
-# 11. Android kills the app: it comes back and shares again by itself
-#     (overlay allowed + capture pre-approved; otherwise a "Tap to resume" notification).
+# 11. Android kills the app: it comes back and shares again by itself, with no tap and no notification
+#     (overlay allowed + capture pre-approved). No "resume" notification exists.
+adb shell dumpsys notification --noredact | grep -qi "resume" && bad "a resume notification was posted (should be none)" || ok "No resume notification exists"
 adb logcat -c
 OLD=$(adb shell pidof $PKG | tr -d '\r')
 adb shell kill -9 $OLD
@@ -183,8 +184,9 @@ adb wait-for-device
 for _ in $(seq 1 120); do [ "$(adb shell getprop sys.boot_completed | tr -d '\r')" = 1 ] && break; sleep 2; done
 adb root >/dev/null 2>&1; sleep 3; adb wait-for-device
 adb shell input keyevent KEYCODE_WAKEUP; adb shell wm dismiss-keyguard
-if wait_log "sharing started" 120; then ok "Phone rebooted: sharing resumed by itself"; else
-  if adb shell dumpsys notification | grep -q "Tap to resume"; then bad "after reboot only the 'Tap to resume' notification came"; else bad "no resume after reboot"; fi
+if wait_log "sharing started" 120; then ok "Phone rebooted: sharing resumed by itself (no tap)"; else
+  bad "no resume after reboot"
+  adb shell dumpsys notification --noredact | grep -qi "resume" && note "a resume notification was posted (should not exist)"
   adb logcat -d -s DXRecovery:* DXService:* DXMain:* | tail -30
 fi
 adb forward tcp:8080 tcp:8080 >/dev/null; sleep 3

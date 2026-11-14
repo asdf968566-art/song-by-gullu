@@ -77,11 +77,20 @@ class MainActivity : ComponentActivity() {
         handleAutoResume(intent)
     }
 
+    override fun onResume() {
+        super.onResume()
+        // 24×7: if sharing should be on (the switch is on and it was started once) but the process was killed
+        // and didn't come back, start it again when the app is opened. Silent when capture is pre-approved.
+        if (Recovery.shouldRun(this) && !CaptureState.status.value.sharing && !asking) {
+            Log.i(TAG, "resume on open")
+            requestCapture()
+        }
+    }
+
     /** Opened by Recovery (after a reboot / process restart): ask for the screen again at once. */
     private fun handleAutoResume(i: Intent?) {
         if (i == null || !i.getBooleanExtra(Recovery.EXTRA_AUTO_RESUME, false)) return
         i.removeExtra(Recovery.EXTRA_AUTO_RESUME)
-        Recovery.clearResumeNotification(this)
         if (!CaptureState.status.value.sharing) {
             Log.i(TAG, "auto resume")
             requestCapture()

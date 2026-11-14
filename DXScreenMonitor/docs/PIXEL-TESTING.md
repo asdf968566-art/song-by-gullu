@@ -25,8 +25,8 @@
 | 9 | Turn Wi-Fi off, then on | App shows Mobile data / Offline, then Wi-Fi; the viewer reconnects by itself (new IP if it changed) |
 | 10 | Pull down quick settings → stop the cast / "Stop sharing" in the notification | Sharing stops, status "Stopped" |
 | 11 | Settings → Apps → DX Screen Monitor → Force stop | Sharing ends (force stop is the user's choice; no resume) |
-| 12 | `adb shell am kill` / low memory kill while sharing | App opens itself and resumes (with step 3), else "Tap to resume" notification |
-| 13 | Restart the phone while sharing | After unlock: resumes by itself (with step 3) or the notification |
+| 12 | `adb shell am kill` / low memory kill while sharing | App resumes by itself (with step 3); otherwise it resumes the next time you open the app. No notification is shown. |
+| 13 | Restart the phone while sharing | After unlock: resumes by itself (with step 3); otherwise on next open |
 | 14 | Battery ≤ 15%, not charging | "Low battery mode (720p, 10 FPS)" |
 | 15 | Leave it sharing 1 hour with a viewer | No crash; check phone temperature and battery drop |
 

@@ -907,6 +907,11 @@ Own project in `DXScreenMonitor/` (package `com.dxdepartment.screenmonitor`), sh
   recovery after kill / reboot via `Recovery`).
 - Android needs a new capture consent after every restart. Hands-free resume = `appops set … PROJECT_MEDIA allow` +
   `SYSTEM_ALERT_WINDOW allow` once over USB (Android 10–13). Don't claim more.
+- Owner (Nov 14): "koi faltu notification nhi, one time setup, 24x7 chale". So there is **no resume notification**
+  (removed) — only the mandatory FGS mediaProjection notification, silent. Resume path: `Recovery.requestResume`
+  opens the app silently (overlay) on boot / kill / process start; `MainActivity.onResume` also resumes if
+  `Recovery.shouldRun` (autoResume on + wasSharing). `wasSharing` is the "should be running" flag, cleared only by
+  a manual Stop. Main screen has a "Run 24×7 (one-time setup)" card (overlay, battery, the two appops commands).
 - CI: `.github/workflows/dx-screen-monitor.yml` (build, unit tests, lint, `.github/scripts/dx-emulator-test.sh` on an
   API 31 emulator sized 1440x2960/560 dpi; main publishes release `dx-screen-monitor`:
   https://github.com/asdf968566-art/song-by-gullu/releases/download/dx-screen-monitor/DXScreenMonitor.apk).

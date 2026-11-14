@@ -1,81 +1,60 @@
 package com.dxdepartment.screenmonitor.recovery
 
-import android.app.NotificationManager
-import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
-import androidx.core.app.NotificationCompat
-import com.dxdepartment.screenmonitor.DxApp
 import com.dxdepartment.screenmonitor.MainActivity
-import com.dxdepartment.screenmonitor.R
 import com.dxdepartment.screenmonitor.capture.CaptureState
 import com.dxdepartment.screenmonitor.settings.AppSettings
 
 /**
- * Getting sharing back after a reboot, a crash or Android killing the app.
+ * Getting sharing back by itself after a reboot, a crash or Android killing the app — with no taps and
+ * no extra notification (owner: "koi faltu notification nhi, one time setup, 24x7 chale").
  *
- * Android never lets an app keep its screen-capture permission across a process restart: a new
- * permission (the "Start now" dialog) is needed each time. So recovery = open the app and ask again:
- * - with "Display over other apps" allowed, the app opens by itself and shows the dialog at once;
- * - otherwise a notification "Tap to resume sharing" does the same with one tap.
- * On department phones the dialog itself can be pre-approved once over USB
- * (`adb shell appops set com.dxdepartment.screenmonitor PROJECT_MEDIA allow`, Android 10–13), and then resuming
- * needs no tap at all. See the README.
+ * Android never lets an app keep its screen-capture permission across a process restart. So resuming means
+ * opening the app and asking for the screen again. For that to be silent (no dialog, no tap), the one-time
+ * setup grants two things over USB, once per phone:
+ *   adb shell appops set com.dxdepartment.screenmonitor PROJECT_MEDIA allow      (Android 10–13: auto-approves the dialog)
+ *   adb shell appops set com.dxdepartment.screenmonitor SYSTEM_ALERT_WINDOW allow (lets the app open itself in the background)
+ * Then: boot / kill → the app opens itself → the capture request returns instantly → sharing is back.
+ * Without the overlay grant the app can't open itself from the background on Android 12+, so it resumes the
+ * next time someone opens it; nothing is shown in the meantime (no notification is posted).
  */
 object Recovery {
     private const val TAG = "DXRecovery"
-    private const val NOTIFICATION_ID = 1002
     const val EXTRA_AUTO_RESUME = "auto_resume"
 
-    /** Called in Application.onCreate: the process is new; if sharing was on, it was cut off. */
+    /** Called in Application.onCreate: the process is new; if sharing should be on, it was cut off. */
     fun checkAfterProcessStart(ctx: Context) {
-        if (!CaptureState.status.value.sharing && AppSettings.wasSharing(ctx)) {
-            requestResume(ctx, "Sharing was interrupted")
+        if (!CaptureState.status.value.sharing && shouldRun(ctx)) {
+            requestResume(ctx, "process started")
         }
     }
 
-    /** After a reboot / app update (BootReceiver) or a process restart. */
+    /** After a reboot / app update (BootReceiver) or a process restart: open the app so it shares again. */
     fun requestResume(ctx: Context, reason: String) {
-        if (!AppSettings.wasSharing(ctx)) return
-        val auto = AppSettings.get(ctx).autoResume
-        Log.i(TAG, "resume wanted: $reason (auto=$auto)")
-        if (auto && Settings.canDrawOverlays(ctx)) {
+        if (!shouldRun(ctx)) return
+        Log.i(TAG, "resume wanted: $reason")
+        if (Settings.canDrawOverlays(ctx)) {
             try {
                 ctx.startActivity(resumeIntent(ctx))
-                return
             } catch (e: Exception) {
+                // Android 12+ blocks a background activity start without the overlay grant: resume on next open.
                 Log.w(TAG, "couldn't open the app from the background: ${e.message}")
             }
+        } else {
+            Log.i(TAG, "overlay not allowed: will resume the next time the app is opened")
         }
-        showResumeNotification(ctx, reason)
     }
+
+    /** Sharing should be running: the 24×7 switch is on and it was started at least once (not stopped by hand). */
+    fun shouldRun(ctx: Context): Boolean = AppSettings.get(ctx).autoResume && AppSettings.wasSharing(ctx)
 
     fun resumeIntent(ctx: Context) = Intent(ctx, MainActivity::class.java)
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         .putExtra(EXTRA_AUTO_RESUME, true)
-
-    private fun showResumeNotification(ctx: Context, reason: String) {
-        val pi = PendingIntent.getActivity(
-            ctx, 2, resumeIntent(ctx), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-        )
-        val n = NotificationCompat.Builder(ctx, DxApp.CHANNEL_RECOVERY)
-            .setSmallIcon(R.drawable.ic_stat_share)
-            .setContentTitle("Tap to resume screen sharing")
-            .setContentText(reason)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setCategory(NotificationCompat.CATEGORY_REMINDER)
-            .setAutoCancel(true)
-            .setContentIntent(pi)
-            .build()
-        runCatching { ctx.getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, n) }
-    }
-
-    fun clearResumeNotification(ctx: Context) {
-        runCatching { ctx.getSystemService(NotificationManager::class.java).cancel(NOTIFICATION_ID) }
-    }
 
     fun ignoringBatteryOptimizations(ctx: Context): Boolean =
         ctx.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(ctx.packageName)
