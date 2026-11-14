@@ -66,13 +66,14 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
           pip install --quiet --break-system-packages pillow || pip install --quiet pillow
-      # Android 12 (API 31), like the Pixel 3 XL. The test sets the screen to 1440x2960 at 560 dpi (Pixel 3 XL).
+      # Android 12 (API 31), like the Pixel 3 XL. Hardware profile pixel_3_xl: 1440x2960 at 560 dpi.
       - name: Capture test on an Android 12 emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 31
           target: google_apis
           arch: x86_64
+          profile: pixel_3_xl
           disable-animations: true
           ram-size: 4096M
           emulator-options: -no-window -gpu swiftshader_indirect -no-boot-anim -camera-back none

@@ -34,8 +34,8 @@ tap_text() {  # find $1 (scrolling up, then down) and tap it
   note "'$1' not on screen"; adb shell screencap -p /sdcard/s.png; adb pull -q /sdcard/s.png "$OUT/missing-$(echo "$1" | tr -c 'a-zA-Z0-9' _).png"
   return 1
 }
-scroll_down() { adb shell input swipe 700 2200 700 1200 300; }
-scroll_up() { adb shell input swipe 700 1200 700 2200 300; }
+scroll_down() { adb shell input swipe $((SW/2)) $((SH*3/4)) $((SW/2)) $((SH*2/5)) 300; }
+scroll_up() { adb shell input swipe $((SW/2)) $((SH*2/5)) $((SW/2)) $((SH*3/4)) 300; }
 img() {  # print a small copy of a picture into the log
   python3 - "$1" "$2" <<'PY'
 import sys, io, base64
@@ -48,11 +48,10 @@ PY
 
 adb root >/dev/null 2>&1; sleep 3; adb wait-for-device
 for _ in $(seq 1 30); do adb shell true 2>/dev/null && break; sleep 1; done
-# The Pixel 3 XL's screen (retried: adb restarts after "adb root").
-for _ in $(seq 1 10); do
-  adb shell wm size 1440x2960 2>/dev/null; adb shell wm density 560 2>/dev/null
-  adb shell wm size | grep -q 1440x2960 && break; sleep 2
-done
+# The emulator uses the pixel_3_xl profile (1440x2960, 560 dpi); clear any old override.
+adb shell wm size reset; adb shell wm density reset
+SW=$(adb shell wm size | tail -1 | grep -o '[0-9]*x[0-9]*' | cut -dx -f1); SH=$(adb shell wm size | tail -1 | grep -o '[0-9]*x[0-9]*' | cut -dx -f2)
+SW=${SW:-1440}; SH=${SH:-2960}
 adb shell settings put system screen_off_timeout 1800000
 echo "Device: $(adb shell getprop ro.product.model) Android $(adb shell getprop ro.build.version.release) $(adb shell wm size | tail -1) $(adb shell wm density | tail -1)"
 adb install -r -g apk/debug/app-debug.apk || { bad "install"; exit 1; }
