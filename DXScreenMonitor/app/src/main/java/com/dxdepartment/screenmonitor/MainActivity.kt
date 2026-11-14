@@ -28,14 +28,27 @@ class MainActivity : ComponentActivity() {
     /** The "Start now" dialog is open (a second request would waste a token). */
     private var asking = false
 
+    /**
+     * This launch was a silent auto-resume (boot / after being killed), not the operator opening the app.
+     * When it was, we drop straight back to whatever app was in front (MES / EMS / anything) so we never sit
+     * on top of it or steal focus. No kiosk, no pinning, no app-switch blocking — we only mirror the screen.
+     */
+    private var autoResumeLaunch = false
+
     private val consent = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
         asking = false
         val data = r.data
         if (r.resultCode == RESULT_OK && data != null) {
             Log.i(TAG, "screen capture allowed")
             ScreenCaptureService.start(this, r.resultCode, data)
+            if (autoResumeLaunch) {
+                // Hand the screen back to the foreground app at once; don't cover the operator's work.
+                autoResumeLaunch = false
+                moveTaskToBack(true)
+            }
         } else {
             Log.i(TAG, "screen capture not allowed")
+            autoResumeLaunch = false
             AppSettings.setWasSharing(this, false)
             CaptureState.update { it.copy(phase = Phase.IDLE, message = "Screen capture was not allowed") }
         }
@@ -77,13 +90,23 @@ class MainActivity : ComponentActivity() {
         handleAutoResume(intent)
     }
 
+    override fun onResume() {
+        super.onResume()
+        // 24×7: if sharing should be on (the switch is on and it was started once) but the process was killed
+        // and didn't come back, start it again when the app is opened. Silent when capture is pre-approved.
+        if (Recovery.shouldRun(this) && !CaptureState.status.value.sharing && !asking) {
+            Log.i(TAG, "resume on open")
+            requestCapture()
+        }
+    }
+
     /** Opened by Recovery (after a reboot / process restart): ask for the screen again at once. */
     private fun handleAutoResume(i: Intent?) {
         if (i == null || !i.getBooleanExtra(Recovery.EXTRA_AUTO_RESUME, false)) return
         i.removeExtra(Recovery.EXTRA_AUTO_RESUME)
-        Recovery.clearResumeNotification(this)
         if (!CaptureState.status.value.sharing) {
             Log.i(TAG, "auto resume")
+            autoResumeLaunch = true
             requestCapture()
         }
     }

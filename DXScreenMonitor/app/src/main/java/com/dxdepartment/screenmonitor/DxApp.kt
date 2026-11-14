@@ -17,22 +17,20 @@ class DxApp : Application() {
     }
 
     private fun createChannels() {
+        // The only notification: the one Android forces while a screen is being captured. Kept silent and low,
+        // with no badge, so it never interrupts. There is no "resume" or any other notification.
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(
             NotificationChannel(CHANNEL_SHARING, "Screen sharing", NotificationManager.IMPORTANCE_LOW).apply {
-                description = "Shown while this phone's screen is being shared"
+                description = "Shown by Android while this phone's screen is being shared (required, cannot be removed)"
                 setShowBadge(false)
-            },
-        )
-        nm.createNotificationChannel(
-            NotificationChannel(CHANNEL_RECOVERY, "Resume sharing", NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "Asks to resume sharing after a reboot or after the app was stopped"
+                setSound(null, null)
+                enableVibration(false)
             },
         )
     }
 
     companion object {
         const val CHANNEL_SHARING = "sharing"
-        const val CHANNEL_RECOVERY = "recovery"
     }
 }

@@ -43,21 +43,38 @@ First target: one **Google Pixel 3 XL on Android 12**.
   network), low battery (≤ 15%: 720p / 10 FPS until > 20% or charging), Android killing the app and phone reboot
   (the app opens itself and asks again, see below).
 
-### Recovery and Android's rules (important)
+### 24×7: one-time setup, then hands-free (important)
 
-Android never lets an app keep screen-capture permission across a restart. Each time, the "Start now" dialog is
-needed. DX Screen Monitor therefore:
-1. remembers that sharing was on;
-2. after a reboot, an app update or the process being killed, opens itself (if **Display over other apps** is
-   allowed) and shows the dialog, or posts a **"Tap to resume screen sharing"** notification;
-3. on department phones you can approve the dialog once for good over USB, so resuming needs **no tap**:
-   ```
-   adb shell appops set com.dxdepartment.screenmonitor PROJECT_MEDIA allow
-   adb shell appops set com.dxdepartment.screenmonitor SYSTEM_ALERT_WINDOW allow
-   ```
-   This works on Android 10–13 (the Pixel 3 XL's Android 12 included). Android 14+ ignores it and always shows the
-   dialog. The CI test uses exactly this, and checks that sharing comes back by itself after `kill -9` and after
-   a reboot.
+The goal is: set it up once, start sharing once, and it keeps running by itself — no taps, **no extra
+notifications**. The only notification is the one Android forces while a screen is captured ("Screen is being
+shared"); it is silent and can't be removed. There is no "resume" or reminder notification.
+
+Android never lets an app keep screen-capture permission across a restart, so resuming means opening the app and
+asking for the screen again. DX Screen Monitor:
+1. remembers that sharing should be on (set when you start, cleared only when you press Stop);
+2. after a reboot, an app update, a crash or Android killing the process, opens itself (needs **Display over other
+   apps**) and asks for the screen again; it also does this the moment the app is next opened. Nothing is shown in
+   the meantime.
+
+**One-time setup for true hands-free (no "Start now" tap after a reboot).** On the phone: turn on "Run 24×7", allow
+**Display over other apps**, and **don't optimise battery** (all on the main screen). Then connect the phone to a
+PC once and run:
+```
+adb shell appops set com.dxdepartment.screenmonitor PROJECT_MEDIA allow
+adb shell appops set com.dxdepartment.screenmonitor SYSTEM_ALERT_WINDOW allow
+```
+This auto-approves the capture dialog and lets the app open itself. It works on Android 10–13 (the Pixel 3 XL's
+Android 12 included). Android 14+ ignores the capture appop and still shows the dialog once per restart. The CI test
+uses exactly this and checks that sharing comes back by itself after `kill -9` and after a reboot, with no tap.
+
+### Runs alongside MES / EMS and every other app
+
+DX Screen Monitor only **mirrors** the display in the background. It does not use kiosk / lock-task mode, it does
+not pin the phone to itself, and it does not block switching apps. Operators use MES, EMS and anything else exactly
+as before; the monitor simply shows whatever is on screen, live. When it resumes after a reboot or being killed, it
+drops straight back to whatever app is in front (`moveTaskToBack`), so it never covers the operator's work or steals
+focus. The CI test opens another app and confirms the monitor does not come to the front and that app switching
+still works while sharing.
 
 ## Build
 

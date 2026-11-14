@@ -10,6 +10,6 @@
 | 429 "Too many wrong keys" | 10 wrong tries from that address: wait a minute. |
 | "Too many viewers" | 4 at once on the local viewer. |
 | Black picture | Some apps (banking, DRM video) block capture with FLAG_SECURE; Android shows them black. Expected. |
-| No resume after reboot | Allow "Display over other apps" (app → Recovery) or tap the "Tap to resume" notification. Force stop disables boot events until the app is opened once. |
+| No resume after reboot | Allow "Display over other apps" and "Run 24×7" on the main screen, and run the two `appops` commands over USB. There is no resume notification by design; without the overlay grant it resumes the next time the app is opened. Force stop disables boot events until the app is opened once. |
 | Low FPS | Lower to 720p / 15 FPS; the Pixel 3 XL encodes JPEG on the CPU. WebRTC (Phase 2) will use the hardware H.264 encoder. |
 | Install fails "App not installed" | An APK signed with another key is installed. Uninstall it once; builds from this repo then update in place. |
