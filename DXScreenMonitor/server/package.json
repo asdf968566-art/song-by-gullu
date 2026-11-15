@@ -1,0 +1,19 @@
+{
+  "name": "dx-screen-monitor-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Signaling server + web viewer for DX Screen Monitor (WebRTC)",
+  "license": "MIT",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/*.test.js",
+    "e2e": "node --test test/e2e/*.test.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "playwright": "1.49.1"
+  }
+}

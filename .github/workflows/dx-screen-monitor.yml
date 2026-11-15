@@ -16,6 +16,24 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  server:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: DXScreenMonitor/server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm ci
+      - name: Signaling tests
+        run: npm test
+      - name: Install Chromium for the WebRTC end-to-end test
+        run: npx playwright install --with-deps chromium
+      - name: Real WebRTC video call through the server (headless Chromium)
+        run: npm run e2e
+
   build:
     runs-on: ubuntu-latest
     defaults:
