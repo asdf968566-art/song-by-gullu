@@ -141,6 +141,7 @@ class Hub {
       this.devices.set(deviceId, peer);
       this.peers.set(deviceId, peer);
       this.log(`device online: ${deviceId} (${peer.name}) from ${peer.remote}`);
+      this.broadcastDevices();
     } else {
       peer.id = 'v_' + crypto.randomBytes(8).toString('hex');
       this.peers.set(peer.id, peer);
@@ -154,6 +155,14 @@ class Hub {
   onList(peer) {
     if (peer.role !== 'viewer') return;
     peer.send({ t: 'devices', devices: this.deviceList() });
+  }
+
+  /** Push the current device list to every viewer (so the dashboard updates live). */
+  broadcastDevices() {
+    const devices = this.deviceList();
+    for (const p of this.peers.values()) {
+      if (p.role === 'viewer') p.send({ t: 'devices', devices });
+    }
   }
 
   onWatch(peer, msg) {
@@ -221,6 +230,7 @@ class Hub {
           }
         }
         this.log(`device offline: ${peer.deviceId}`);
+        this.broadcastDevices();
       }
     }
   }

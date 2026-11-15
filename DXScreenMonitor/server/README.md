@@ -50,4 +50,21 @@ The server hands each peer a short-lived username/credential; coturn verifies th
 Device gets `viewer-join{viewerId}` and sends `signal{to,kind:offer|ice,data}`; viewer replies
 `signal{to,kind:answer|ice,data}`. See `src/signaling.js`.
 
-Next: the Android WebRTC publisher (in `app/.../webrtc/`) and then the React dashboard (Milestone 7–8).
+## Web viewer + dashboard (React, Milestone 7–8)
+
+The browser UI is a React app in `../web/` (Vite). It builds **into this server's `public/`**, so the server
+serves it:
+```
+cd ../web && npm install && npm run build   # outputs ../server/public
+```
+Open `/` and sign in with the viewer key:
+- **Dashboard** — a grid of every online phone, each tile live. Search/filter by name or ID, offline phones stay
+  on the wall marked offline (with reconnection status), click a tile for a big **focused view** with live stats
+  (resolution / fps / bitrate). Built for the 85-inch department display.
+
+Each tile is its own WebRTC connection to that phone (the server pairs one phone per socket), so one dashboard
+watches many phones at once. For 10–20 phones this is direct peer-to-peer from each phone; moving to an SFU
+(LiveKit) is the scaling path (Milestone 5/9).
+
+`npm run e2e` in this folder covers both: a single video call and the multi-device dashboard showing two live
+phones (needs the web app built into `public/` first).

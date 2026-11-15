@@ -13,10 +13,10 @@ First target: one **Google Pixel 3 XL on Android 12**.
 | 3 | Compiles without errors | Done in CI (`.github/workflows/dx-screen-monitor.yml`) |
 | 4 | Real capture test on a Pixel 3 XL | Tested on an Android 12 emulator with the Pixel 3 XL screen (1440×2960, 560 dpi). **Needs a run on the real phone** (see `docs/PIXEL-TESTING.md`) |
 | 5 | Installable APK | Done: release `dx-screen-monitor` |
-| 6 | WebRTC internet streaming (WSS signalling, STUN/TURN, auth) | Not started |
-| 7 | React web viewer | Not started (a built-in LAN viewer page exists for testing) |
-| 8 | Multi-device dashboard | Not started |
-| 9 | Load test, many devices | Not started |
+| 6 | WebRTC internet streaming (WSS signalling, STUN/TURN, auth) | Built. Signaling server + Android publisher done; server↔browser video call is CI-tested. On-device internet stream still needs the real phone / an emulator E2E |
+| 7 | React web viewer | Done: `web/` React app, served by the server; CI-tested (real WebRTC video) |
+| 8 | Multi-device dashboard | Done: grid of all phones, focus view, search, offline detection; CI-tested with two live phones |
+| 9 | Load test, many devices | Not started (direct P2P scales to a handful; an SFU — LiveKit — is the path for 10–20 phones) |
 
 ## What works now
 

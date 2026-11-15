@@ -11,38 +11,10 @@ process.env.DX_TURN_URLS = '';
 const test = require('node:test');
 const assert = require('node:assert');
 const { createServer } = require('../../src/server');
+const { deviceSetup } = require('./harness');
 
 let chromium;
 try { ({ chromium } = require('playwright')); } catch (e) { /* reported in the test */ }
-
-function deviceSetup([url, deviceId]) {
-  const ws = new WebSocket(url);
-  const pcs = {};
-  let iceServers = [];
-  window.__deviceConnected = new Promise((resolve) => {
-    ws.onopen = () => ws.send(JSON.stringify({ t: 'hello', role: 'device', deviceId, token: '' }));
-    ws.onmessage = async (ev) => {
-      const m = JSON.parse(ev.data);
-      if (m.t === 'welcome') { iceServers = m.iceServers; }
-      else if (m.t === 'viewer-join') {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        const pc = new RTCPeerConnection({ iceServers });
-        pcs[m.viewerId] = pc;
-        stream.getTracks().forEach((t) => pc.addTrack(t, stream));
-        pc.onicecandidate = (e) => { if (e.candidate) ws.send(JSON.stringify({ t: 'signal', to: m.viewerId, kind: 'ice', data: e.candidate.toJSON() })); };
-        pc.onconnectionstatechange = () => { if (pc.connectionState === 'connected') resolve(true); };
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        ws.send(JSON.stringify({ t: 'signal', to: m.viewerId, kind: 'offer', data: { sdp: offer.sdp } }));
-      } else if (m.t === 'signal') {
-        const pc = pcs[m.from];
-        if (!pc) return;
-        if (m.kind === 'answer') await pc.setRemoteDescription({ type: 'answer', sdp: m.data.sdp });
-        else if (m.kind === 'ice') await pc.addIceCandidate(m.data).catch(() => {});
-      }
-    };
-  });
-}
 
 function viewerSetup([url, deviceId]) {
   const ws = new WebSocket(url);
@@ -106,7 +78,7 @@ test('a real WebRTC video call flows device → viewer through the server', { ti
 
     const DEVICE_ID = 'DX-E2E-1';
     // The device registers and waits for a viewer; the viewer watches it and the device publishes a fake camera.
-    await devicePage.evaluate(deviceSetup, [wsUrl, DEVICE_ID]);
+    await devicePage.evaluate(deviceSetup, [wsUrl, DEVICE_ID, 'E2E']);
     await viewerPage.evaluate(viewerSetup, [wsUrl, DEVICE_ID]);
 
     const dims = await viewerPage.evaluate(() => window.__gotVideo);

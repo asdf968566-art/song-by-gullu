@@ -142,7 +142,9 @@ class WebRtcStreamer(
         override fun onConnectionChanged(connected: Boolean) = onState(connected)
         override fun onViewerJoin(viewerId: String) = exec.execute { addViewer(viewerId) }
         override fun onViewerLeft(viewerId: String) = exec.execute { removeViewer(viewerId) }
-        override fun onSignal(from: String, kind: String, data: JSONObject) = exec.execute { onSignal(from, kind, data) }
+        override fun onSignal(from: String, kind: String, data: JSONObject) {
+            exec.execute { handleSignal(from, kind, data) }
+        }
     }
 
     private fun addViewer(viewerId: String) {
@@ -184,7 +186,7 @@ class WebRtcStreamer(
         }, constraints)
     }
 
-    private fun onSignal(from: String, kind: String, data: JSONObject) {
+    private fun handleSignal(from: String, kind: String, data: JSONObject) {
         val pc = peers[from] ?: return
         when (kind) {
             "answer" -> {

@@ -920,7 +920,17 @@ Own project in `DXScreenMonitor/` (package `com.dxdepartment.screenmonitor`), sh
   API 31 emulator sized 1440x2960/560 dpi; main publishes release `dx-screen-monitor`:
   https://github.com/asdf968566-art/song-by-gullu/releases/download/dx-screen-monitor/DXScreenMonitor.apk).
   build-apk.yml ignores these paths.
-- Next (not started): Milestone 4 on the real Pixel, then WebRTC (6), React viewer (7), dashboard (8), load test (9).
+- WebRTC (Nov 15, Milestone 6–8): `DXScreenMonitor/server/` = Node signaling server (WebSocket, token auth, device
+  registry, STUN + coturn TURN creds) + the built web app; `DXScreenMonitor/web/` = React (Vite) viewer + multi-device
+  dashboard (grid of all phones, focus view, search, offline detection), built into `server/public/`. Android
+  `app/.../webrtc/` = Signaling (OkHttp WS), ProjectionVideoCapturer (reuses the one MediaProjection), WebRtcStreamer
+  (one PC per viewer, phone is offerer, ICE restart on network switch); Settings → "Internet streaming" (server URL +
+  device key). Tested in the `server` CI job: signaling unit tests + Playwright E2E (real WebRTC video call, and the
+  dashboard showing two live phones). The Android↔browser internet stream itself still needs the real Pixel / an
+  emulator E2E before it's proven on a phone. Internet streaming is OFF by default, so local capture is unchanged.
+  Don't commit `server/public/` (CI builds it). Kotlin gotcha hit: a method named `onSignal` inside a class with an
+  outer `onSignal` caused "recursive type" — renamed to `handleSignal`.
+- Next: Milestone 4 on the real Pixel; on-device WebRTC E2E; load test / SFU (9).
 
 ## 5. Problems hit and how they were solved (why the code looks like it does)
 
