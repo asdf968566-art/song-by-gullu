@@ -48,7 +48,14 @@ data class Settings(
     val viewerPort: Int,
     val autoResume: Boolean,
     val localViewer: Boolean,
-)
+    // Internet streaming (WebRTC). When on and a server URL is set, the phone connects to the signaling
+    // server and streams over the internet, on top of the local viewer.
+    val internetStream: Boolean,
+    val serverUrl: String,
+    val deviceToken: String,
+) {
+    val internetReady: Boolean get() = internetStream && serverUrl.isNotBlank() && deviceToken.isNotBlank()
+}
 
 /** All settings in one SharedPreferences file, published as a StateFlow so the UI and the service follow changes. */
 object AppSettings {
@@ -82,6 +89,9 @@ object AppSettings {
             viewerPort = prefs.getInt("viewer_port", 8080),
             autoResume = prefs.getBoolean("auto_resume", true),
             localViewer = prefs.getBoolean("local_viewer", true),
+            internetStream = prefs.getBoolean("internet_stream", false),
+            serverUrl = prefs.getString("server_url", "") ?: "",
+            deviceToken = prefs.getString("device_token", "") ?: "",
         )
     }
 
@@ -97,6 +107,9 @@ object AppSettings {
     fun setAutoResume(v: Boolean) = edit { putBoolean("auto_resume", v) }
     fun setLocalViewer(v: Boolean) = edit { putBoolean("local_viewer", v) }
     fun newViewerKey() = edit { putString("viewer_key", newKey()) }
+    fun setInternetStream(v: Boolean) = edit { putBoolean("internet_stream", v) }
+    fun setServerUrl(v: String) = edit { putString("server_url", v.trim().take(200)) }
+    fun setDeviceToken(v: String) = edit { putString("device_token", v.trim().take(200)) }
 
     // Recovery bookkeeping (not part of Settings: the UI doesn't show it).
     fun setWasSharing(ctx: Context, v: Boolean) {

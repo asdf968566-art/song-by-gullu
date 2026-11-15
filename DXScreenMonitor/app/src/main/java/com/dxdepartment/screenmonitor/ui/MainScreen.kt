@@ -137,6 +137,7 @@ fun MainScreen(actions: ScreenActions) {
             RecoveryCard(settings.autoResume, overlayAllowed, batteryFree, actions)
             if (status.phase == Phase.SHARING) PreviewCard(status)
             QualityCard(settings.quality, status.lowPower)
+            InternetCard(settings, status)
             ViewerCard(status, net, settings.viewerKey, settings.localViewer)
             Text(
                 DeviceIdentity.model + " · app " + com.dxdepartment.screenmonitor.BuildConfig.VERSION_NAME,
@@ -372,6 +373,40 @@ private fun ViewerCard(s: CaptureStatus, net: NetState, key: String, enabled: Bo
         }
         OutlinedButton(onClick = { AppSettings.newViewerKey() }) { Text("New viewer key") }
         Text("A new key disconnects nobody already watching; new viewers need it.", color = Muted, fontSize = 12.sp)
+    }
+}
+
+@Composable
+private fun InternetCard(settings: com.dxdepartment.screenmonitor.settings.Settings, s: CaptureStatus) {
+    Section("Internet streaming (WebRTC)") {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Watch over the internet")
+                Text("Stream to the department server so a PC or the big screen can watch from anywhere.", color = Muted, fontSize = 13.sp)
+            }
+            Switch(checked = settings.internetStream, onCheckedChange = { AppSettings.setInternetStream(it) })
+        }
+        if (!settings.internetStream) return@Section
+        var url by remember { mutableStateOf(settings.serverUrl) }
+        var token by remember { mutableStateOf(settings.deviceToken) }
+        OutlinedTextField(
+            value = url, onValueChange = { url = it.trim(); AppSettings.setServerUrl(it) },
+            label = { Text("Server address") }, placeholder = { Text("dx.example.com") },
+            singleLine = true, modifier = Modifier.fillMaxWidth(),
+        )
+        OutlinedTextField(
+            value = token, onValueChange = { token = it.trim(); AppSettings.setDeviceToken(it) },
+            label = { Text("Device key") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+        )
+        when {
+            !settings.internetReady -> Text("Enter the server address and device key your admin gave you.", color = Warn, fontSize = 13.sp)
+            s.phase != Phase.SHARING -> Text("Ready. Press Start sharing to go live on the server.", color = Muted, fontSize = 13.sp)
+            else -> {
+                InfoRow("Server", if (s.serverConnected) "Connected" else "Connecting…", if (s.serverConnected) Live else Warn)
+                InfoRow("Internet viewers", if (s.internetViewers > 0) "${s.internetViewers} watching" else "None yet", if (s.internetViewers > 0) Live else Muted)
+            }
+        }
+        Text("On the server's web page, this phone appears as \"${DeviceIdentity.name(LocalContext.current)}\".", color = Muted, fontSize = 12.sp)
     }
 }
 

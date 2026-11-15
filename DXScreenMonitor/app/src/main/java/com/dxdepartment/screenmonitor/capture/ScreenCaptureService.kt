@@ -57,6 +57,7 @@ class ScreenCaptureService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     private var wifiLock: WifiManager.WifiLock? = null
     private var batteryReceiver: BroadcastReceiver? = null
+    private var streamer: com.dxdepartment.screenmonitor.webrtc.WebRtcStreamer? = null
     private var stoppingOnPurpose = false
     @Volatile private var lowPower = false
 
@@ -143,9 +144,10 @@ class ScreenCaptureService : Service() {
         acquireLocks()
         watchBattery()
         if (settings.localViewer) startServer(settings.viewerPort)
+        if (settings.internetReady) startWebRtc(p, settings)
 
         AppSettings.setWasSharing(this, true)
-        CaptureState.update { it.copy(phase = Phase.SHARING) }
+        CaptureState.update { it.copy(phase = Phase.SHARING, internetOn = settings.internetReady) }
 
         // Follow quality changes made in the app while sharing, and keep the notification current.
         scope.launch {
@@ -158,6 +160,16 @@ class ScreenCaptureService : Service() {
                 if (on && server == null) startServer(AppSettings.get(this@ScreenCaptureService).viewerPort)
                 if (!on) stopServer()
             }
+        }
+        // WebRTC quality changes.
+        scope.launch {
+            AppSettings.init(this@ScreenCaptureService).map { it.quality }.distinctUntilChanged().collect { q ->
+                streamer?.setQuality(effectiveQuality(q))
+            }
+        }
+        // Wi-Fi ↔ mobile data switch: restart ICE so internet viewers reconnect without a gap.
+        scope.launch {
+            NetworkMonitor.state.map { it.type }.distinctUntilChanged().collect { streamer?.onNetworkChanged() }
         }
         scope.launch {
             CaptureState.status.map { it.viewers to it.phase }.distinctUntilChanged()
@@ -176,6 +188,29 @@ class ScreenCaptureService : Service() {
         if (s.start()) {
             server = s
         }
+    }
+
+    private fun startWebRtc(projection: MediaProjection, settings: com.dxdepartment.screenmonitor.settings.Settings) {
+        val dpi = resources.displayMetrics.densityDpi
+        val s = com.dxdepartment.screenmonitor.webrtc.WebRtcStreamer(
+            context = applicationContext,
+            projection = projection,
+            densityDpi = dpi,
+            deviceId = DeviceIdentity.id(this),
+            deviceName = DeviceIdentity.name(this),
+            serverUrl = settings.serverUrl,
+            deviceToken = settings.deviceToken,
+            onViewerCount = { n -> CaptureState.update { it.copy(internetViewers = n) } },
+            onState = { connected -> CaptureState.update { it.copy(serverConnected = connected) } },
+        )
+        streamer = s
+        s.start(effectiveQuality(settings.quality))
+    }
+
+    private fun stopWebRtc() {
+        streamer?.stop()
+        streamer = null
+        CaptureState.update { it.copy(serverConnected = false, internetViewers = 0) }
     }
 
     private fun stopServer() {
@@ -259,6 +294,7 @@ class ScreenCaptureService : Service() {
     }
 
     private fun releaseAll() {
+        stopWebRtc()
         stopServer()
         engine?.release(); engine = null
         projection?.let {

@@ -73,5 +73,11 @@ dependencies {
     // QR code for pairing (pure Java, no Google Play services).
     implementation("com.google.zxing:core:3.5.3")
 
+    // WebRTC for internet streaming (Milestone 6). The maintained community build of Google's libwebrtc.
+    implementation("io.github.webrtc-sdk:android:125.6422.07")
+
+    // WebSocket client for signaling (OkHttp, already pulled in transitively but pinned here).
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
     testImplementation("junit:junit:4.13.2")
 }

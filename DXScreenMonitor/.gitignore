@@ -5,3 +5,8 @@ local.properties
 *.iml
 captures/
 .cxx/
+node_modules/
+.env
+
+# Built web app (the web/ React source is committed; CI builds this)
+server/public/

@@ -16,6 +16,31 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Build the React web viewer + dashboard
+        working-directory: DXScreenMonitor/web
+        run: |
+          npm ci
+          npm run build   # outputs into ../server/public
+      - name: Install server deps
+        working-directory: DXScreenMonitor/server
+        run: npm ci
+      - name: Signaling tests
+        working-directory: DXScreenMonitor/server
+        run: npm test
+      - name: Install Chromium for the WebRTC end-to-end tests
+        working-directory: DXScreenMonitor/server
+        run: npx playwright install --with-deps chromium
+      - name: WebRTC call + multi-device dashboard (headless Chromium)
+        working-directory: DXScreenMonitor/server
+        run: npm run e2e
+
   build:
     runs-on: ubuntu-latest
     defaults:
