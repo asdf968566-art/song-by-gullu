@@ -478,7 +478,7 @@
   "views": 2,
   "likes": 1,
   "comments": 0,
-  "score": 3.1
+  "score": 2.5
  },
  {
   "date": "20261108-1230",
@@ -513,7 +513,7 @@
   "views": 2,
   "likes": 0,
   "comments": 0,
-  "score": 0.5
+  "score": 0.4
  },
  {
   "date": "20261111-2004",
@@ -543,6 +543,23 @@
   },
   "voice": "edge",
   "youtube": "LedJj9q5cLI",
-  "file": "short-20261113-2019.mp4"
+  "file": "short-20261113-2019.mp4",
+  "views": 1,
+  "likes": 0,
+  "comments": 0,
+  "score": 0.6
+ },
+ {
+  "date": "20261115-1325",
+  "kind": "long",
+  "format": "mystery",
+  "title": "बेकाबू सुपरफास्ट ट्रेन: कोच नंबर 4 का खौफनाक रहस्य 🚆😱 | AI Suspense Thriller",
+  "seconds": 707.0,
+  "pictures": {
+   "pollinations": 59
+  },
+  "voice": "edge+gtts",
+  "youtube": "6GPKg3hJDfc",
+  "file": "long-20261115-1325.mp4"
  }
 ]
