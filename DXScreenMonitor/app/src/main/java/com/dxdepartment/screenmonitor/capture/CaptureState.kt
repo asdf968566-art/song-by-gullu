@@ -31,6 +31,10 @@ data class CaptureStatus(
     val lowPower: Boolean = false,
     val batteryPercent: Int? = null,
     val charging: Boolean = false,
+    // Internet streaming (WebRTC).
+    val internetOn: Boolean = false,
+    val serverConnected: Boolean = false,
+    val internetViewers: Int = 0,
 ) {
     val sharing: Boolean get() = phase == Phase.SHARING || phase == Phase.STARTING
 }
