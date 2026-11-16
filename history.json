@@ -478,7 +478,7 @@
   "views": 2,
   "likes": 1,
   "comments": 0,
-  "score": 2.5
+  "score": 2.2
  },
  {
   "date": "20261108-1230",
@@ -513,7 +513,7 @@
   "views": 2,
   "likes": 0,
   "comments": 0,
-  "score": 0.4
+  "score": 0.3
  },
  {
   "date": "20261111-2004",
@@ -547,7 +547,7 @@
   "views": 1,
   "likes": 0,
   "comments": 0,
-  "score": 0.6
+  "score": 0.3
  },
  {
   "date": "20261115-1325",
@@ -560,6 +560,24 @@
   },
   "voice": "edge+gtts",
   "youtube": "6GPKg3hJDfc",
-  "file": "long-20261115-1325.mp4"
+  "file": "long-20261115-1325.mp4",
+  "views": 0,
+  "likes": 0,
+  "comments": 0,
+  "score": 0.0
+ },
+ {
+  "date": "20261116-2247",
+  "kind": "short",
+  "format": "AI mini movie: suspense / mystery with a shocking last line",
+  "title": "पापा की ख़ौफ़नाक कॉल 😱 | Mystery Thriller #shorts",
+  "seconds": 48.5,
+  "pictures": {
+   "pollinations": 9,
+   "reused": 1
+  },
+  "voice": "edge",
+  "youtube": "gQclzTGvXPc",
+  "file": "short-20261116-2247.mp4"
  }
 ]
