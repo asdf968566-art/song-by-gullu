@@ -478,7 +478,7 @@
   "views": 2,
   "likes": 1,
   "comments": 0,
-  "score": 2.2
+  "score": 1.8
  },
  {
   "date": "20261108-1230",
@@ -513,7 +513,7 @@
   "views": 2,
   "likes": 0,
   "comments": 0,
-  "score": 0.3
+  "score": 0.2
  },
  {
   "date": "20261111-2004",
@@ -547,7 +547,7 @@
   "views": 1,
   "likes": 0,
   "comments": 0,
-  "score": 0.3
+  "score": 0.2
  },
  {
   "date": "20261115-1325",
@@ -578,6 +578,23 @@
   },
   "voice": "edge",
   "youtube": "gQclzTGvXPc",
-  "file": "short-20261116-2247.mp4"
+  "file": "short-20261116-2247.mp4",
+  "views": 1,
+  "likes": 0,
+  "comments": 0,
+  "score": 0.5
+ },
+ {
+  "date": "20261118-2108",
+  "kind": "short",
+  "format": "Indian folk horror: chudail, bhoot, pishach, daayan or a cursed well / tree from village stories",
+  "title": "रिजल्ट का खौफनाक कुआं 😱 | Result Day Horror #shorts",
+  "seconds": 53.4,
+  "pictures": {
+   "pollinations": 10
+  },
+  "voice": "edge",
+  "youtube": "pdEPu01tCOg",
+  "file": "short-20261118-2108.mp4"
  }
 ]
