@@ -478,7 +478,7 @@
   "views": 2,
   "likes": 1,
   "comments": 0,
-  "score": 1.8
+  "score": 1.6
  },
  {
   "date": "20261108-1230",
@@ -544,10 +544,10 @@
   "voice": "edge",
   "youtube": "LedJj9q5cLI",
   "file": "short-20261113-2019.mp4",
-  "views": 1,
+  "views": 2,
   "likes": 0,
   "comments": 0,
-  "score": 0.2
+  "score": 0.3
  },
  {
   "date": "20261115-1325",
@@ -582,7 +582,7 @@
   "views": 1,
   "likes": 0,
   "comments": 0,
-  "score": 0.5
+  "score": 0.3
  },
  {
   "date": "20261118-2108",
@@ -595,6 +595,24 @@
   },
   "voice": "edge",
   "youtube": "pdEPu01tCOg",
-  "file": "short-20261118-2108.mp4"
+  "file": "short-20261118-2108.mp4",
+  "views": 0,
+  "likes": 0,
+  "comments": 0,
+  "score": 0.0
+ },
+ {
+  "date": "20261120-2058",
+  "kind": "short",
+  "format": "mystery puzzle: a strange case with clues, and the viewer must guess the answer in the comments",
+  "title": "सर्द रात की रहस्यमयी चोरी 🥶🕵️‍♂️ | Mystery Puzzle #shorts",
+  "seconds": 47.7,
+  "pictures": {
+   "reused": 1,
+   "pollinations": 9
+  },
+  "voice": "edge",
+  "youtube": "BFSnVM3d7OM",
+  "file": "short-20261120-2058.mp4"
  }
 ]
