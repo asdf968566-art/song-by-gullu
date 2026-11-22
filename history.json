@@ -478,7 +478,7 @@
   "views": 2,
   "likes": 1,
   "comments": 0,
-  "score": 1.6
+  "score": 1.4
  },
  {
   "date": "20261108-1230",
@@ -544,7 +544,7 @@
   "voice": "edge",
   "youtube": "LedJj9q5cLI",
   "file": "short-20261113-2019.mp4",
-  "views": 2,
+  "views": 3,
   "likes": 0,
   "comments": 0,
   "score": 0.3
@@ -582,7 +582,7 @@
   "views": 1,
   "likes": 0,
   "comments": 0,
-  "score": 0.3
+  "score": 0.2
  },
  {
   "date": "20261118-2108",
@@ -613,6 +613,24 @@
   },
   "voice": "edge",
   "youtube": "BFSnVM3d7OM",
-  "file": "short-20261120-2058.mp4"
+  "file": "short-20261120-2058.mp4",
+  "views": 0,
+  "likes": 0,
+  "comments": 0,
+  "score": 0.0
+ },
+ {
+  "date": "20261122-1342",
+  "kind": "long",
+  "format": "trend",
+  "title": "बर्फानी ऑब्जर्वेटरी का खौफनाक रहस्य 😱 | Sci-Fi Horror AI Movie",
+  "seconds": 703.3,
+  "pictures": {
+   "reused": 14,
+   "pollinations": 42
+  },
+  "voice": "edge",
+  "youtube": "p8R9xtlpq0g",
+  "file": "long-20261122-1342.mp4"
  }
 ]
