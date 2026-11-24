@@ -478,7 +478,7 @@
   "views": 2,
   "likes": 1,
   "comments": 0,
-  "score": 1.4
+  "score": 1.3
  },
  {
   "date": "20261108-1230",
@@ -513,7 +513,7 @@
   "views": 2,
   "likes": 0,
   "comments": 0,
-  "score": 0.2
+  "score": 0.1
  },
  {
   "date": "20261111-2004",
@@ -544,10 +544,10 @@
   "voice": "edge",
   "youtube": "LedJj9q5cLI",
   "file": "short-20261113-2019.mp4",
-  "views": 3,
+  "views": 4,
   "likes": 0,
   "comments": 0,
-  "score": 0.3
+  "score": 0.4
  },
  {
   "date": "20261115-1325",
@@ -582,7 +582,7 @@
   "views": 1,
   "likes": 0,
   "comments": 0,
-  "score": 0.2
+  "score": 0.1
  },
  {
   "date": "20261118-2108",
@@ -631,6 +631,24 @@
   },
   "voice": "edge",
   "youtube": "p8R9xtlpq0g",
-  "file": "long-20261122-1342.mp4"
+  "file": "long-20261122-1342.mp4",
+  "views": 0,
+  "likes": 0,
+  "comments": 0,
+  "score": 0.0
+ },
+ {
+  "date": "20261124-0032",
+  "kind": "short",
+  "format": "highway / train / bus horror story at night, told like it really happened to the narrator",
+  "title": "रात 2 बजे की हाईवे बस 😱 | Night Bus Horror Story #shorts",
+  "seconds": 44.9,
+  "pictures": {
+   "reused": 1,
+   "pollinations": 9
+  },
+  "voice": "edge",
+  "youtube": "tbCEk-31Qpw",
+  "file": "short-20261124-0032.mp4"
  }
 ]
