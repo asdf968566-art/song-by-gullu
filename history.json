@@ -478,7 +478,7 @@
   "views": 2,
   "likes": 1,
   "comments": 0,
-  "score": 1.3
+  "score": 1.2
  },
  {
   "date": "20261108-1230",
@@ -547,7 +547,7 @@
   "views": 4,
   "likes": 0,
   "comments": 0,
-  "score": 0.4
+  "score": 0.3
  },
  {
   "date": "20261115-1325",
@@ -649,6 +649,23 @@
   },
   "voice": "edge",
   "youtube": "tbCEk-31Qpw",
-  "file": "short-20261124-0032.mp4"
+  "file": "short-20261124-0032.mp4",
+  "views": 0,
+  "likes": 0,
+  "comments": 0,
+  "score": 0.0
+ },
+ {
+  "date": "20261125-2210",
+  "kind": "short",
+  "format": "Indian folk horror: chudail, bhoot, pishach, daayan or a cursed well / tree from village stories",
+  "title": "तीन बार नाम मत सुनना! 😱 | Indian Folk Horror #shorts",
+  "seconds": 49.5,
+  "pictures": {
+   "pollinations": 10
+  },
+  "voice": "edge",
+  "youtube": "L7_hIOOY2JA",
+  "file": "short-20261125-2210.mp4"
  }
 ]
