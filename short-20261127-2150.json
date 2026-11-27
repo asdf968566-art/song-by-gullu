@@ -1,0 +1,79 @@
+{
+ "title": "CCTV में कौन था? 😱 | Psychological Thriller #shorts",
+ "hook": "CCTV में कौन है?",
+ "description": "रात 2 बजे घर के CCTV में खुद को देखकर उड़ गए होश! क्या आपने कभी ऐसा खौफ महसूस किया है? अंत का ट्विस्ट देखकर दिमाग घूम जाएगा। #shorts #psychologicalthriller #horrorstory #cctv #hindithriller",
+ "tags": [
+  "hindi horror",
+  "psychological thriller",
+  "cctv mystery",
+  "ai horror story",
+  "scary shorts",
+  "suspense hindi",
+  "viral horror",
+  "thriller shorts",
+  "mystery story",
+  "horror"
+ ],
+ "style": "Cinematic psychological horror thriller, photorealistic, 8k resolution, dim ambient indoor lighting, dark mood, volumetric fog, blue and amber cinematic color grading, hyper-detailed skin textures, suspenseful perspective, 9:16 vertical ratio",
+ "characters": [
+  {
+   "name": "Sameer",
+   "look": "30-year-old Indian man, short dark slicked hair, light stubble, wearing a red padded jacket over a grey t-shirt and dark jeans, expressive terrified eyes."
+  }
+ ],
+ "scenes": [
+  {
+   "speaker": "narrator",
+   "narration": "रात दो बजे समीर के फोन पर CCTV अलर्ट आया।",
+   "image_prompt": "Cinematic psychological horror thriller, photorealistic 8k, vertical 9:16. Close-up of 30-year-old Indian man Sameer with short dark hair and stubble, wearing red padded jacket, holding a glowing smartphone in a dark hallway at 2 AM, looking down at phone screen with subtle unease."
+  },
+  {
+   "speaker": "narrator",
+   "narration": "स्क्रीन पर उसके ड्राइंग रूम की लाइव रिकॉर्डिंग थी।",
+   "image_prompt": "Cinematic psychological thriller visual, vertical 9:16. Extreme close-up of a smartphone screen showing a grainy monochrome CCTV camera feed of a modern dimly lit Indian living room."
+  },
+  {
+   "speaker": "narrator",
+   "narration": "सोफे पर उसकी लाल जैकेट पहनकर कोई बैठा था।",
+   "image_prompt": "Cinematic psychological thriller, vertical 9:16. CCTV footage view of a living room sofa where a mysterious dark figure wearing the exact same red padded jacket is sitting motionless with head turned away from camera."
+  },
+  {
+   "speaker": "narrator",
+   "narration": "समीर डरते हुए चुपचाप ड्राइंग रूम में गया।",
+   "image_prompt": "Cinematic thriller shot, vertical 9:16. 30-year-old Indian man Sameer in red padded jacket cautiously creeping into the dimly lit living room, holding phone light, tense shadow stretching across wall."
+  },
+  {
+   "speaker": "narrator",
+   "narration": "लेकिन सोफा पूरी तरह से खाली और ठंडा था।",
+   "image_prompt": "Cinematic thriller shot, vertical 9:16. Wide shot of Sameer in red padded jacket standing in front of an empty dark velvet sofa in the shadowy living room, looking bewildered and terrified."
+  },
+  {
+   "speaker": "narrator",
+   "narration": "तभी फोन पर बेडरूम के कैमरे की सूचना आई।",
+   "image_prompt": "Cinematic horror shot, vertical 9:16. Close-up of smartphone vibrating in Sameer's hand, displaying a flashing red security notification banner saying MOTION DETECTED IN BEDROOM."
+  },
+  {
+   "speaker": "narrator",
+   "narration": "स्क्रीन पर बेडरूम का आईना खुद-ब-खुद चमक रहा था।",
+   "image_prompt": "Cinematic thriller shot, vertical 9:16. Phone screen displaying live CCTV feed of a dark bedroom upstairs, where a large wooden wall mirror is strangely glowing with eerie silver light."
+  },
+  {
+   "speaker": "narrator",
+   "narration": "समीर भागकर बेडरूम में गया और आईने को देखा।",
+   "image_prompt": "Cinematic horror shot, vertical 9:16. Sameer in red padded jacket standing at the bedroom doorway, staring wide-eyed with shock at the large ornate wall mirror in the pitch-black bedroom."
+  },
+  {
+   "speaker": "narrator",
+   "narration": "आईने के अंदर वाला समीर बाहर वाले को देखकर मुस्कुराया।",
+   "image_prompt": "Cinematic psychological horror shot, vertical 9:16. Shot over Sameer's shoulder. Outside Sameer is terrified, but inside the mirror reflection, Sameer has a sinister creepily wide smile looking back straight at him while holding a phone."
+  },
+  {
+   "speaker": "narrator",
+   "narration": "और जेब में उसी पल फिर से CCTV अलर्ट बजा...",
+   "image_prompt": "Cinematic psychological horror shot, vertical 9:16. Extreme close-up of Sameer's hand pulling out the vibrating smartphone as the screen flashes bright red in the dark bedroom, face frozen in horror."
+  }
+ ],
+ "format": "psychological thriller: something is wrong at home (a phone call, a CCTV clip, a mirror), last-line twist",
+ "kids": false,
+ "kind": "short"
+}
