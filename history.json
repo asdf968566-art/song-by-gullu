@@ -478,7 +478,7 @@
   "views": 2,
   "likes": 1,
   "comments": 0,
-  "score": 1.2
+  "score": 1.0
  },
  {
   "date": "20261108-1230",
@@ -666,6 +666,24 @@
   },
   "voice": "edge",
   "youtube": "L7_hIOOY2JA",
-  "file": "short-20261125-2210.mp4"
+  "file": "short-20261125-2210.mp4",
+  "views": 3,
+  "likes": 0,
+  "comments": 0,
+  "score": 1.5
+ },
+ {
+  "date": "20261127-2150",
+  "kind": "short",
+  "format": "psychological thriller: something is wrong at home (a phone call, a CCTV clip, a mirror), last-line twist",
+  "title": "CCTV में कौन था? 😱 | Psychological Thriller #shorts",
+  "seconds": 45.9,
+  "pictures": {
+   "reused": 2,
+   "pollinations": 8
+  },
+  "voice": "edge",
+  "youtube": "eVt5sQBac08",
+  "file": "short-20261127-2150.mp4"
  }
 ]
